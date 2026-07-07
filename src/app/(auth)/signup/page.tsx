@@ -19,6 +19,17 @@ export default function SignupPage() {
         </p>
       </div>
       <GoogleAuthButton label="Googleで始める" consentPrompt />
+      <p className="text-center text-xs text-navy-300">
+        登録することで、
+        <Link href="/terms" className="underline">
+          利用規約
+        </Link>
+        および
+        <Link href="/privacy" className="underline">
+          プライバシーポリシー
+        </Link>
+        に同意したものとみなされます。
+      </p>
       <p className="text-center text-sm text-navy-400">
         すでにアカウントをお持ちの方は{" "}
         <Link href="/login" className="font-medium text-navy-600 underline">

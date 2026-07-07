@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 const PUBLIC_PATHS = ["/login", "/signup"];
+const STATIC_PATHS = ["/privacy", "/terms"];
 
 /**
  * 認証セッションの更新とルートガードを行う。
@@ -43,7 +44,7 @@ export async function updateSession(request: NextRequest) {
   const isOnboardingPath = pathname.startsWith("/onboarding");
   const isAdminPath = pathname.startsWith("/admin");
 
-  if (isAuthCallback) {
+  if (isAuthCallback || STATIC_PATHS.includes(pathname)) {
     return supabaseResponse;
   }
 

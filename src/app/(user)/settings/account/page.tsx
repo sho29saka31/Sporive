@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { signOut } from "./actions";
 
@@ -62,6 +63,15 @@ export default async function AccountSettingsPage() {
           ログアウト
         </button>
       </form>
+      <p className="mt-6 text-center text-xs text-navy-300">
+        <Link href="/terms" className="underline">
+          利用規約
+        </Link>
+        {" ・ "}
+        <Link href="/privacy" className="underline">
+          プライバシーポリシー
+        </Link>
+      </p>
     </div>
   );
 }
