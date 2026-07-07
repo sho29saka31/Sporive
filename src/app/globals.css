@@ -1,0 +1,45 @@
+@import "tailwindcss";
+
+/*
+ * Sporive デザイントークン
+ * 基調カラー: ネイビー系（docs/requirements.md §11）
+ * アクセント: カテゴリー分け・進捗表現に使用するカラフルな配色（仮パレット）
+ */
+@theme {
+  --font-sans: var(--font-noto-sans-jp);
+
+  /* ネイビー（基調カラー） */
+  --color-navy-50: #f0f4fa;
+  --color-navy-100: #d9e2f0;
+  --color-navy-200: #b3c5e0;
+  --color-navy-300: #85a0c8;
+  --color-navy-400: #5578a8;
+  --color-navy-500: #33547f;
+  --color-navy-600: #24405f;
+  --color-navy-700: #1b3049;
+  --color-navy-800: #132338;
+  --color-navy-900: #0d1928;
+  --color-navy-950: #081018;
+
+  /* アクセントカラー（カテゴリー分け・進捗表現用） */
+  --color-accent-coral: #ff6b6b; /* 筋力系・アラート系 */
+  --color-accent-teal: #14b8a6; /* 有酸素系・達成系 */
+  --color-accent-amber: #f59e0b; /* ストリーク・注意系 */
+  --color-accent-violet: #8b5cf6; /* 柔軟・リカバリー系 */
+  --color-accent-sky: #38bdf8; /* 情報系 */
+
+  /* レイアウト定数（固定 header / footer の高さ） */
+  --spacing-header: 3.5rem;
+  --spacing-footer: 4rem;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background-color: var(--color-navy-50);
+  color: var(--color-navy-900);
+  -webkit-tap-highlight-color: transparent;
+}
