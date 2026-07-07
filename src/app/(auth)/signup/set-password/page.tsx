@@ -50,9 +50,24 @@ export default function SetPasswordPage() {
     setLoading(true);
     try {
       const supabase = createClient();
-      const { error } = await supabase.auth.updateUser({ password });
+      const { error } = await supabase.auth.updateUser({
+        password,
+        data: { password_set: true },
+      });
 
       if (error) {
+        if (error.code === "current_password_required") {
+          // 過去の試行等で既にパスワードが設定済みだった場合の救済：
+          // パスワード自体は変更せず、判定用フラグだけ立てて次へ進む
+          const { error: flagError } = await supabase.auth.updateUser({
+            data: { password_set: true },
+          });
+          if (!flagError) {
+            window.location.href = "/onboarding/profile";
+            return;
+          }
+        }
+
         setError(
           error.code === "weak_password"
             ? PASSWORD_HINT

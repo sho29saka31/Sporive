@@ -62,9 +62,9 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  const hasPassword = user.identities?.some(
-    (identity) => identity.provider === "email"
-  );
+  // Supabaseの identities は OAuth 以外の登録方法では更新されないため、
+  // updateUser({ password }) 実行時に user_metadata へ明示的に立てるフラグで判定する
+  const hasPassword = user.user_metadata?.password_set === true;
   if (!hasPassword && pathname !== "/signup/set-password") {
     const url = request.nextUrl.clone();
     url.pathname = "/signup/set-password";
