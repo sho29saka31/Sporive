@@ -4,9 +4,28 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
+const PASSWORD_HINT =
+  "8文字以上で、半角英大文字・半角英小文字・数字・記号をそれぞれ1文字以上含めてください。";
+
+function validatePassword(password: string): string | null {
+  if (password.length < 8) {
+    return "パスワードは8文字以上で入力してください。";
+  }
+  if (
+    !/[a-z]/.test(password) ||
+    !/[A-Z]/.test(password) ||
+    !/[0-9]/.test(password) ||
+    !/[^a-zA-Z0-9]/.test(password)
+  ) {
+    return PASSWORD_HINT;
+  }
+  return null;
+}
+
 /**
  * OAuth登録後のパスワード設定画面（requirements.md §4）。
  * 同じメールアドレスに対してパスワードを設定し、以降メール＋パスワードでもログイン可能にする。
+ * パスワード要件はSupabase側のPassword Requirements設定（英大文字・小文字・数字・記号必須）に合わせている。
  */
 export default function SetPasswordPage() {
   const router = useRouter();
@@ -19,8 +38,9 @@ export default function SetPasswordPage() {
     e.preventDefault();
     setError(null);
 
-    if (password.length < 8) {
-      setError("パスワードは8文字以上で入力してください。");
+    const validationError = validatePassword(password);
+    if (validationError) {
+      setError(validationError);
       return;
     }
     if (password !== confirm) {
@@ -33,7 +53,11 @@ export default function SetPasswordPage() {
     const { error } = await supabase.auth.updateUser({ password });
 
     if (error) {
-      setError("パスワードの設定に失敗しました。時間をおいて再度お試しください。");
+      setError(
+        error.code === "weak_password"
+          ? PASSWORD_HINT
+          : "パスワードの設定に失敗しました。時間をおいて再度お試しください。"
+      );
       setLoading(false);
       return;
     }
@@ -56,7 +80,7 @@ export default function SetPasswordPage() {
             htmlFor="password"
             className="text-xs font-medium text-navy-500"
           >
-            新しいパスワード（8文字以上）
+            新しいパスワード
           </label>
           <input
             id="password"
@@ -68,6 +92,7 @@ export default function SetPasswordPage() {
             onChange={(e) => setPassword(e.target.value)}
             className="mt-1 w-full rounded-lg border border-navy-200 px-3 py-2 text-sm focus:border-navy-500 focus:outline-none"
           />
+          <p className="mt-1 text-xs text-navy-300">{PASSWORD_HINT}</p>
         </div>
         <div>
           <label
