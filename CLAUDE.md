@@ -31,4 +31,4 @@ AIパーソナライズトレーニング計画を提案するPWA。スマホ専
 - `update-teigisho` — 要件定義書（docs/requirements.md）の更新。使用時は必ず§14更新履歴に追記する
 - `update-md` — 既存mdファイルの更新。対象が要件定義書の場合は update-teigisho の手順に従う
 - `check-plan` — 開発プランの Phase 0〜9 に対する進捗状況の確認・表示（表示のみ、変更なし）
-- `deploy-marge` — Claude が作成した PR のマージ。CI・コンフリクト等のマージ前チェックを行い、マージ後は Vercel デプロイ状態を確認
+- `deploy-merge` — Claude が作成した PR のマージ。CI・コンフリクト等のマージ前チェックを行い、マージ後は Vercel デプロイ状態を確認

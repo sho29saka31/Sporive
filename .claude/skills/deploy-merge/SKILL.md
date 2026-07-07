@@ -1,9 +1,9 @@
 ---
-name: deploy-marge
+name: deploy-merge
 description: Claude が GitHub 上で作成した PR をマージするスキル。「PRをマージして」「デプロイして」「取り込んで」等の依頼で使う。マージ前チェック（CI・コンフリクト・ドラフト解除）を行った上でマージし、マージ後は Vercel のデプロイ状態を確認する。
 ---
 
-# PR のマージ（deploy-marge）
+# PR のマージ（deploy-merge）
 
 Claude がこのリポジトリで作成した PR を、安全チェックを行った上で `main` にマージするスキル。
 `main` へのマージは Vercel の本番デプロイを引き起こすため、デプロイ作業を兼ねる。
