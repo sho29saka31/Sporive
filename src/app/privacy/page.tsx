@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 export const metadata: Metadata = { title: "プライバシーポリシー" };
 
 const UPDATED_AT = "2026年7月7日";
-const CONTACT_EMAIL = "shokisakamoto@gmail.com";
+const CONTACT_EMAIL = "deskside31@gmail.com";
 
 /**
  * プライバシーポリシー。ログイン不要で誰でも閲覧できる（Google OAuth同意画面のリンク先要件）。
