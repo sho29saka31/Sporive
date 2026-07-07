@@ -1,12 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import PasswordField from "@/components/auth/PasswordField";
 
 /** メールアドレス＋パスワードでのログインフォーム（requirements.md §4） */
 export default function PasswordLoginForm() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -17,20 +16,26 @@ export default function PasswordLoginForm() {
     setLoading(true);
     setError(null);
 
-    const supabase = createClient();
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-    if (error) {
-      setError("メールアドレスまたはパスワードが正しくありません。");
+      if (error) {
+        setError("メールアドレスまたはパスワードが正しくありません。");
+        setLoading(false);
+        return;
+      }
+
+      // クライアントルーターのキャッシュ起因の遷移不具合を避けるため、
+      // 認証状態が変わった直後はフルページ遷移でmiddlewareを再評価させる。
+      window.location.href = "/home";
+    } catch {
+      setError("ログインに失敗しました。時間をおいて再度お試しください。");
       setLoading(false);
-      return;
     }
-
-    router.push("/home");
-    router.refresh();
   }
 
   return (
@@ -49,23 +54,12 @@ export default function PasswordLoginForm() {
           className="mt-1 w-full rounded-lg border border-navy-200 px-3 py-2 text-sm focus:border-navy-500 focus:outline-none"
         />
       </div>
-      <div>
-        <label
-          htmlFor="password"
-          className="text-xs font-medium text-navy-500"
-        >
-          パスワード
-        </label>
-        <input
-          id="password"
-          type="password"
-          required
-          autoComplete="current-password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className="mt-1 w-full rounded-lg border border-navy-200 px-3 py-2 text-sm focus:border-navy-500 focus:outline-none"
-        />
-      </div>
+      <PasswordField
+        label="パスワード"
+        value={password}
+        onChange={setPassword}
+        autoComplete="current-password"
+      />
       {error && <p className="text-xs text-accent-coral">{error}</p>}
       <button
         type="submit"
