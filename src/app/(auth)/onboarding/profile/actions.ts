@@ -2,8 +2,19 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import type { GoalType } from "@/types/database";
 
 const CURRENT_YEAR = new Date().getFullYear();
+const GOAL_TYPES: readonly GoalType[] = [
+  "lose_weight",
+  "gain_muscle",
+  "strength",
+  "senior_maintenance",
+];
+
+function isGoalType(value: string): value is GoalType {
+  return (GOAL_TYPES as readonly string[]).includes(value);
+}
 
 export async function createProfile(formData: FormData) {
   const displayName = String(formData.get("display_name") ?? "").trim();
@@ -15,9 +26,7 @@ export async function createProfile(formData: FormData) {
     !Number.isInteger(birthYear) ||
     birthYear < CURRENT_YEAR - 100 ||
     birthYear > CURRENT_YEAR - 5 ||
-    !["lose_weight", "gain_muscle", "strength", "senior_maintenance"].includes(
-      goal
-    )
+    !isGoalType(goal)
   ) {
     throw new Error("入力内容を確認してください。");
   }
