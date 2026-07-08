@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import type { GoalType } from "@/types/database";
+import type { GenderType, GoalType } from "@/types/database";
 
 function getModel(): string {
   const model = process.env.GEMINI_MODEL;
@@ -17,6 +17,12 @@ const GOAL_LABELS: Record<GoalType, string> = {
   gain_muscle: "増量",
   strength: "筋力向上",
   senior_maintenance: "筋力維持（シニア向け）",
+};
+
+const GENDER_LABELS: Record<GenderType, string> = {
+  male: "男性",
+  female: "女性",
+  other: "その他",
 };
 
 export interface PlanItemDraft {
@@ -74,9 +80,10 @@ function isSenior(birthYear: number): boolean {
 function buildProfileContext(params: {
   birthYear: number;
   goal: GoalType;
+  gender?: GenderType | null;
   weeklyFrequency: number;
 }): string {
-  const { birthYear, goal, weeklyFrequency } = params;
+  const { birthYear, goal, gender, weeklyFrequency } = params;
   const age = new Date().getFullYear() - birthYear;
   const senior = isSenior(birthYear);
 
@@ -85,6 +92,10 @@ function buildProfileContext(params: {
     `目標: ${GOAL_LABELS[goal]}`,
     `希望トレーニング頻度: 週${weeklyFrequency}日`,
   ];
+
+  if (gender) {
+    lines.splice(1, 0, `性別: ${GENDER_LABELS[gender]}`);
+  }
 
   if (senior) {
     lines.push(
@@ -109,6 +120,7 @@ function getClient(): GoogleGenAI {
 export async function generateWeeklyPlan(params: {
   birthYear: number;
   goal: GoalType;
+  gender?: GenderType | null;
   weeklyFrequency: number;
 }): Promise<WeeklyPlanDraft> {
   const ai = getClient();
@@ -126,7 +138,8 @@ export async function generateWeeklyPlan(params: {
               "1週間分（日曜〜土曜、dayOfWeekは0〜6）のトレーニング計画をJSONで提案してください。" +
               "希望頻度の日数分だけ items に運動を含む日を設定し、それ以外の日は該当する項目を含めないでください。" +
               "各運動には種目名・セット数・回数・重量(kg)・時間(分)のうち妥当なものを設定してください" +
-              "（有酸素運動など重量が不要な種目は weightKg を省略してよい）。\n\n" +
+              "（有酸素運動など重量が不要な種目は weightKg を省略してよい）。" +
+              "性別の情報がある場合は、一般的な体力特性を踏まえた種目選定・強度設定の参考にしてください。\n\n" +
               profileContext,
           },
         ],
@@ -149,6 +162,7 @@ export async function generateWeeklyPlan(params: {
 export async function generateImprovementSuggestion(params: {
   birthYear: number;
   goal: GoalType;
+  gender?: GenderType | null;
   currentPlan: WeeklyPlanDraft;
 }): Promise<WeeklyPlanDraft> {
   const ai = getClient();

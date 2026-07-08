@@ -9,6 +9,8 @@ export type GoalType =
   | "strength"
   | "senior_maintenance";
 
+export type GenderType = "male" | "female" | "other";
+
 export type PlanStatus = "draft" | "active" | "archived";
 export type PlanSource = "ai" | "manual";
 
@@ -21,6 +23,7 @@ export interface Database {
           display_name: string;
           birth_year: number;
           goal: GoalType;
+          gender: GenderType | null;
           is_admin: boolean;
           created_at: string;
         };
@@ -29,12 +32,14 @@ export interface Database {
           display_name: string;
           birth_year: number;
           goal: GoalType;
+          gender?: GenderType | null;
           is_admin?: boolean;
         };
         Update: Partial<{
           display_name: string;
           birth_year: number;
           goal: GoalType;
+          gender: GenderType | null;
           is_admin: boolean;
         }>;
         Relationships: [];
