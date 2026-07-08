@@ -44,6 +44,7 @@ export async function saveTrainingPlan(
       week_start_date: weekStartDate,
       status: "active",
       source,
+      summary: plan.summary || null,
     })
     .select("id")
     .single();

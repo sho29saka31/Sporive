@@ -84,44 +84,52 @@ function ExerciseCard({
         {exercise.plannedWeightKg ? ` × ${exercise.plannedWeightKg}kg` : ""}
         {exercise.plannedDurationMin ? ` ${exercise.plannedDurationMin}分` : ""}
       </p>
-      <div className="mt-3 flex flex-wrap items-center gap-1">
-        <input
-          type="number"
-          placeholder="セット"
-          value={setsDone ?? ""}
-          onChange={(e) => setSetsDone(toNumberOrNull(e.target.value))}
-          className="w-16 rounded border border-navy-200 px-2 py-1 text-xs"
-        />
-        <input
-          type="number"
-          placeholder="回数"
-          value={repsDone ?? ""}
-          onChange={(e) => setRepsDone(toNumberOrNull(e.target.value))}
-          className="w-16 rounded border border-navy-200 px-2 py-1 text-xs"
-        />
-        <input
-          type="number"
-          placeholder="重量kg"
-          value={weightKg ?? ""}
-          onChange={(e) => setWeightKg(toNumberOrNull(e.target.value))}
-          className="w-16 rounded border border-navy-200 px-2 py-1 text-xs"
-        />
-        <input
-          type="number"
-          placeholder="分"
-          value={durationMin ?? ""}
-          onChange={(e) => setDurationMin(toNumberOrNull(e.target.value))}
-          className="w-16 rounded border border-navy-200 px-2 py-1 text-xs"
-        />
-        <button
-          type="button"
-          onClick={handleSave}
-          disabled={isPending}
-          className="ml-auto rounded-lg bg-navy-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-navy-600 disabled:opacity-60"
-        >
-          {isPending ? "保存中..." : isLogged ? "更新する" : "記録する"}
-        </button>
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <label className="flex items-center gap-1 text-[10px] text-navy-400">
+          セット
+          <input
+            type="number"
+            value={setsDone ?? ""}
+            onChange={(e) => setSetsDone(toNumberOrNull(e.target.value))}
+            className="w-full min-w-0 rounded border border-navy-200 px-2 py-1 text-xs text-navy-700"
+          />
+        </label>
+        <label className="flex items-center gap-1 text-[10px] text-navy-400">
+          回数
+          <input
+            type="number"
+            value={repsDone ?? ""}
+            onChange={(e) => setRepsDone(toNumberOrNull(e.target.value))}
+            className="w-full min-w-0 rounded border border-navy-200 px-2 py-1 text-xs text-navy-700"
+          />
+        </label>
+        <label className="flex items-center gap-1 text-[10px] text-navy-400">
+          重量kg
+          <input
+            type="number"
+            value={weightKg ?? ""}
+            onChange={(e) => setWeightKg(toNumberOrNull(e.target.value))}
+            className="w-full min-w-0 rounded border border-navy-200 px-2 py-1 text-xs text-navy-700"
+          />
+        </label>
+        <label className="flex items-center gap-1 text-[10px] text-navy-400">
+          時間(分)
+          <input
+            type="number"
+            value={durationMin ?? ""}
+            onChange={(e) => setDurationMin(toNumberOrNull(e.target.value))}
+            className="w-full min-w-0 rounded border border-navy-200 px-2 py-1 text-xs text-navy-700"
+          />
+        </label>
       </div>
+      <button
+        type="button"
+        onClick={handleSave}
+        disabled={isPending}
+        className="mt-2 w-full rounded-lg bg-navy-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-navy-600 disabled:opacity-60"
+      >
+        {isPending ? "保存中..." : isLogged ? "更新する" : "記録する"}
+      </button>
       {error && <p className="mt-2 text-xs text-accent-coral">{error}</p>}
     </div>
   );

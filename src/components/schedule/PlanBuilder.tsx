@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import type { PlanItemDraft, WeeklyPlanDraft } from "@/lib/gemini";
 import { DAY_LABELS } from "@/lib/week";
 import { saveTrainingPlan } from "@/app/(user)/schedule/actions";
@@ -30,6 +31,7 @@ export default function PlanBuilder({
   goal: string;
   initialItems: PlanItemDraft[];
 }) {
+  const router = useRouter();
   const [items, setItems] = useState<PlanItemDraft[]>(initialItems);
   const [summary, setSummary] = useState("");
   const [weeklyFrequency, setWeeklyFrequency] = useState(3);
@@ -37,13 +39,11 @@ export default function PlanBuilder({
   const [suggestLoading, setSuggestLoading] = useState(false);
   const [suggestion, setSuggestion] = useState<WeeklyPlanDraft | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [savedMessage, setSavedMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   async function handleAiPropose() {
     setAiLoading(true);
     setError(null);
-    setSavedMessage(null);
     try {
       const res = await fetch("/api/ai/propose-plan", {
         method: "POST",
@@ -77,7 +77,6 @@ export default function PlanBuilder({
 
   async function handleRegisterClick() {
     setError(null);
-    setSavedMessage(null);
     if (items.length === 0 || items.some((it) => !it.exerciseName.trim())) {
       setError("すべての運動に種目名を入力してください。");
       return;
@@ -104,10 +103,7 @@ export default function PlanBuilder({
     startTransition(async () => {
       try {
         await saveTrainingPlan(plan, source, goal, true);
-        setSuggestion(null);
-        setItems(plan.items);
-        setSummary(plan.summary);
-        setSavedMessage("計画を登録しました。");
+        router.push("/schedule");
       } catch (e) {
         setError(e instanceof Error ? e.message : "保存に失敗しました。");
       }
@@ -254,9 +250,6 @@ export default function PlanBuilder({
       </div>
 
       {error && <p className="text-xs text-accent-coral">{error}</p>}
-      {savedMessage && (
-        <p className="text-xs text-accent-teal">{savedMessage}</p>
-      )}
 
       {suggestion ? (
         <div className="rounded-xl border border-navy-200 bg-white p-6 shadow-sm">
