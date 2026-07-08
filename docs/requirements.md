@@ -35,7 +35,7 @@
 |---|---|---|
 | フロントエンド | Next.js（PWA対応） | フロントとサーバー処理（API Routes）を一元化 |
 | ホスティング | Vercel（無料プラン） | 軽量構成を目指す |
-| AI | Google Gemini API（Google AI Studio） | 無料枠内で運用。トレーニング計画の提案に使用 |
+| AI | Google Gemini API（Google AI Studio） | 無料枠内で運用。トレーニング計画の提案に使用。使用モデル：`gemini-3.5-flash`（環境変数で変更可能） |
 | データベース/認証 | Supabase（PostgreSQL + Supabase Auth） | 進捗データ・負債管理・アカウント情報を保存 |
 | 通知 | Web Push（VAPID、Firebase不使用の素のPush API） | 購読情報はSupabaseに保存 |
 | 通知送信トリガー | GitHub Actions の scheduled workflow（無料・最短5分おき） | Vercel Cron Jobsは無料プランで実行頻度に制限があり、利用者ごとの個別通知時間指定に対応できないため採用。GitHub Actionsから一定間隔でVercelのAPIエンドポイントを呼び出し、その時刻に通知すべき利用者を判定して送信する |
@@ -173,7 +173,6 @@ AIが提案する運動強度が妥当かどうかをアプリ内でチェック
 
 - デザインの詳細な配色ルール（カラー使用箇所の具体的な設計）
 - 管理者画面のUI具体設計
-- 7月デモ版の開発タスク分解・スケジュール
 
 ---
 
@@ -184,3 +183,5 @@ AIが提案する運動強度が妥当かどうかをアプリ内でチェック
 | 2026-07-05 | 通知送信トリガーを「Vercel Cron Jobs」から「GitHub Actions の scheduled workflow」に変更 | Vercel Cron Jobsは無料プランで実行頻度に制限があり、利用者ごとの個別通知時間指定（分単位の自由指定）に対応できないため。GitHub Actionsは無料で最短5分おきの実行が可能で、既存のGitHub利用経験もあるため採用 |
 | 2026-07-05 | footerもheaderと同様に「常時表示・固定」であることを明記 | header・footerともにスクロール時も画面上に固定表示する仕様を明確化するため |
 | 2026-07-07 | プロジェクト名を「Sporive」に決定し、タイトル・概要に反映。Claude Code引き渡し用の利用メモを追加 | プロジェクト名確定、および開発時にClaude Codeへ渡す文書として使うため |
+| 2026-07-08 | §3の技術構成表に、AIの使用モデルが`gemini-3.5-flash`である旨を追記 | Phase 3実装後にモデルを変更したため、要件定義書にも反映 |
+| 2026-07-08 | §13の未決事項から「7月デモ版の開発タスク分解・スケジュール」を削除 | docs/development-plan.mdの作成・Phase 0〜3の実装完了により解決済みのため |
