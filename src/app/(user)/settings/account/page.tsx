@@ -2,17 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { signOut } from "./actions";
+import ProfileEditForm from "@/components/settings/ProfileEditForm";
+import EmailEditForm from "@/components/settings/EmailEditForm";
 
 export const metadata: Metadata = { title: "アカウント設定" };
 
-const GOAL_LABELS: Record<string, string> = {
-  lose_weight: "減量",
-  gain_muscle: "増量",
-  strength: "筋力向上",
-  senior_maintenance: "筋力維持（シニア向け）",
-};
-
-/** アカウント設定：プロフィール表示とログアウト（requirements.md §4） */
+/** アカウント設定：プロフィール・メールアドレスの編集とログアウト（requirements.md §4） */
 export default async function AccountSettingsPage() {
   const supabase = await createClient();
   const {
@@ -20,41 +15,35 @@ export default async function AccountSettingsPage() {
   } = await supabase.auth.getUser();
   const { data: profile } = await supabase
     .from("profiles")
-    .select("display_name, birth_year, goal")
+    .select("display_name, birth_year, goal, gender")
     .eq("id", user!.id)
     .maybeSingle();
 
   return (
     <div className="py-6">
       <h1 className="text-xl font-bold">アカウント設定</h1>
-      <div className="mt-4 space-y-3 rounded-xl bg-white p-6 shadow-sm">
-        <div>
-          <p className="text-xs text-navy-300">メールアドレス</p>
-          <p className="text-sm font-medium text-navy-800">{user?.email}</p>
+
+      <div className="mt-4 rounded-xl bg-white p-6 shadow-sm">
+        <h2 className="text-sm font-bold text-navy-800">メールアドレス</h2>
+        <div className="mt-3">
+          <EmailEditForm currentEmail={user?.email ?? ""} />
         </div>
-        {profile && (
-          <>
-            <div>
-              <p className="text-xs text-navy-300">表示名</p>
-              <p className="text-sm font-medium text-navy-800">
-                {profile.display_name}
-              </p>
-            </div>
-            <div>
-              <p className="text-xs text-navy-300">生年</p>
-              <p className="text-sm font-medium text-navy-800">
-                {profile.birth_year}年
-              </p>
-            </div>
-            <div>
-              <p className="text-xs text-navy-300">目標</p>
-              <p className="text-sm font-medium text-navy-800">
-                {GOAL_LABELS[profile.goal] ?? profile.goal}
-              </p>
-            </div>
-          </>
-        )}
       </div>
+
+      {profile && (
+        <div className="mt-4 rounded-xl bg-white p-6 shadow-sm">
+          <h2 className="text-sm font-bold text-navy-800">プロフィール</h2>
+          <div className="mt-3">
+            <ProfileEditForm
+              displayName={profile.display_name}
+              birthYear={profile.birth_year}
+              goal={profile.goal}
+              gender={profile.gender}
+            />
+          </div>
+        </div>
+      )}
+
       <form action={signOut} className="mt-6">
         <button
           type="submit"

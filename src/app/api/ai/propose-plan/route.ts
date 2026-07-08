@@ -15,7 +15,7 @@ export async function POST(request: Request) {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("birth_year, goal")
+    .select("birth_year, goal, gender")
     .eq("id", user.id)
     .single();
 
@@ -44,6 +44,7 @@ export async function POST(request: Request) {
     const plan = await generateWeeklyPlan({
       birthYear: profile.birth_year,
       goal: profile.goal,
+      gender: profile.gender,
       weeklyFrequency,
     });
     return NextResponse.json({ plan });
