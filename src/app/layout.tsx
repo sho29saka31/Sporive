@@ -6,6 +6,8 @@ import "./globals.css";
 const notoSansJp = Noto_Sans_JP({
   variable: "--font-noto-sans-jp",
   subsets: ["latin"],
+  // アプリ内で実際に使用しているウェイトのみに限定し、生成・配信されるフォントファイルを削減する
+  weight: ["400", "500", "700"],
 });
 
 export const metadata: Metadata = {
