@@ -66,6 +66,7 @@ export interface Database {
           week_start_date: string;
           status: PlanStatus;
           source: PlanSource;
+          summary: string | null;
           created_at: string;
         };
         Insert: {
@@ -74,11 +75,13 @@ export interface Database {
           week_start_date: string;
           status?: PlanStatus;
           source: PlanSource;
+          summary?: string | null;
         };
         Update: Partial<{
           week_start_date: string;
           status: PlanStatus;
           source: PlanSource;
+          summary: string | null;
         }>;
         Relationships: [];
       };
