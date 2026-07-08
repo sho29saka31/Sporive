@@ -15,7 +15,7 @@ export async function POST(request: Request) {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("birth_year, goal")
+    .select("birth_year, goal, gender")
     .eq("id", user.id)
     .single();
 
@@ -40,6 +40,7 @@ export async function POST(request: Request) {
     const suggestion = await generateImprovementSuggestion({
       birthYear: profile.birth_year,
       goal: profile.goal,
+      gender: profile.gender,
       currentPlan,
     });
     return NextResponse.json({ suggestion });
