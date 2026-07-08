@@ -44,8 +44,9 @@ export async function updateSession(request: NextRequest) {
   const isAuthCallback = pathname.startsWith("/auth/callback");
   const isOnboardingPath = pathname.startsWith("/onboarding");
   const isAdminPath = pathname.startsWith("/admin");
+  const isApiPath = pathname.startsWith("/api/");
 
-  if (isAuthCallback || STATIC_PATHS.includes(pathname)) {
+  if (isAuthCallback || isApiPath || STATIC_PATHS.includes(pathname)) {
     return supabaseResponse;
   }
 
