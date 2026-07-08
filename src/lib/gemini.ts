@@ -1,7 +1,13 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import type { GoalType } from "@/types/database";
 
-const MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+function getModel(): string {
+  const model = process.env.GEMINI_MODEL;
+  if (!model) {
+    throw new Error("GEMINI_MODEL が設定されていません。");
+  }
+  return model;
+}
 
 /** シニア判定の年齢閾値。65歳以上を「低強度中心」の対象とする */
 const SENIOR_AGE_THRESHOLD = 65;
@@ -109,7 +115,7 @@ export async function generateWeeklyPlan(params: {
   const profileContext = buildProfileContext(params);
 
   const response = await ai.models.generateContent({
-    model: MODEL,
+    model: getModel(),
     contents: [
       {
         role: "user",
@@ -153,7 +159,7 @@ export async function generateImprovementSuggestion(params: {
   });
 
   const response = await ai.models.generateContent({
-    model: MODEL,
+    model: getModel(),
     contents: [
       {
         role: "user",
