@@ -1,7 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { getCurrentWeekStartDate, getTodayDate } from "@/lib/week";
+import {
+  getCurrentWeekStartDate,
+  getTodayDate,
+  getTodayDayOfWeek,
+} from "@/lib/week";
 import WorkoutLogger, {
   type TodayExercise,
 } from "@/components/home/WorkoutLogger";
@@ -23,7 +27,7 @@ export default async function HomePage() {
     .eq("status", "active")
     .maybeSingle();
 
-  const todayDayOfWeek = new Date().getDay();
+  const todayDayOfWeek = getTodayDayOfWeek();
   const today = getTodayDate();
 
   const { data: todayItems } = plan

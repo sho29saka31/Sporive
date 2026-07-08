@@ -1,25 +1,58 @@
-/** 今週の開始日（日曜日）を YYYY-MM-DD 形式で返す */
+const JST_TIME_ZONE = "Asia/Tokyo";
+
+const WEEKDAY_INDEX: Record<string, number> = {
+  Sun: 0,
+  Mon: 1,
+  Tue: 2,
+  Wed: 3,
+  Thu: 4,
+  Fri: 5,
+  Sat: 6,
+};
+
+/**
+ * サーバーの実行環境（Vercelはデフォルト UTC）に依存せず、
+ * 日本時間（JST）基準の日付・曜日を取得するためのヘルパー群。
+ * `new Date().getDay()` 等をそのまま使うと、UTCとJSTの9時間差により
+ * 日本時間の日付が変わった直後（0-8時台）でも前日の曜日として扱われてしまう。
+ */
+
+/** 今日の日付（JST基準）を YYYY-MM-DD 形式で返す */
+export function getTodayDate(): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: JST_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
+
+/** 今日の曜日（JST基準）を 0=日曜〜6=土曜 で返す */
+export function getTodayDayOfWeek(): number {
+  const weekday = new Intl.DateTimeFormat("en-US", {
+    timeZone: JST_TIME_ZONE,
+    weekday: "short",
+  }).format(new Date());
+  return WEEKDAY_INDEX[weekday];
+}
+
+/** 今週の開始日（日曜日、JST基準）を YYYY-MM-DD 形式で返す */
 export function getCurrentWeekStartDate(): string {
-  const now = new Date();
-  const day = now.getDay(); // 0=日曜
-  const sunday = new Date(now);
-  sunday.setDate(now.getDate() - day);
+  const [y, m, d] = getTodayDate().split("-").map(Number);
+  const sunday = new Date(Date.UTC(y, m - 1, d));
+  sunday.setUTCDate(sunday.getUTCDate() - getTodayDayOfWeek());
   return sunday.toISOString().slice(0, 10);
 }
 
 export const DAY_LABELS = ["日", "月", "火", "水", "木", "金", "土"];
 
-/** 今日の日付を YYYY-MM-DD 形式で返す */
-export function getTodayDate(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
 /** 週の開始日（日曜日）から7日分の日付（YYYY-MM-DD）を返す */
 export function getWeekDates(weekStartDate: string): string[] {
-  const start = new Date(`${weekStartDate}T00:00:00`);
+  const [y, m, d] = weekStartDate.split("-").map(Number);
+  const start = new Date(Date.UTC(y, m - 1, d));
   return Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(start);
-    d.setDate(start.getDate() + i);
-    return d.toISOString().slice(0, 10);
+    const dt = new Date(start);
+    dt.setUTCDate(start.getUTCDate() + i);
+    return dt.toISOString().slice(0, 10);
   });
 }
