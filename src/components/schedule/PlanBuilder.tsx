@@ -165,7 +165,7 @@ export default function PlanBuilder({
                   {dayItems.map(({ item, index }) => (
                     <div
                       key={index}
-                      className="flex flex-wrap items-center gap-1 rounded-lg border border-navy-100 p-2"
+                      className="rounded-lg border border-navy-100 p-2"
                     >
                       <input
                         type="text"
@@ -174,56 +174,66 @@ export default function PlanBuilder({
                         onChange={(e) =>
                           updateItem(index, { exerciseName: e.target.value })
                         }
-                        className="min-w-0 flex-1 rounded border border-navy-200 px-2 py-1 text-xs"
+                        className="w-full rounded border border-navy-200 px-2 py-1 text-xs"
                       />
-                      <input
-                        type="number"
-                        placeholder="セット"
-                        value={item.sets ?? ""}
-                        onChange={(e) =>
-                          updateItem(index, {
-                            sets: toNumberOrNull(e.target.value),
-                          })
-                        }
-                        className="w-16 rounded border border-navy-200 px-2 py-1 text-xs"
-                      />
-                      <input
-                        type="number"
-                        placeholder="回数"
-                        value={item.reps ?? ""}
-                        onChange={(e) =>
-                          updateItem(index, {
-                            reps: toNumberOrNull(e.target.value),
-                          })
-                        }
-                        className="w-16 rounded border border-navy-200 px-2 py-1 text-xs"
-                      />
-                      <input
-                        type="number"
-                        placeholder="重量kg"
-                        value={item.weightKg ?? ""}
-                        onChange={(e) =>
-                          updateItem(index, {
-                            weightKg: toNumberOrNull(e.target.value),
-                          })
-                        }
-                        className="w-16 rounded border border-navy-200 px-2 py-1 text-xs"
-                      />
-                      <input
-                        type="number"
-                        placeholder="分"
-                        value={item.durationMin ?? ""}
-                        onChange={(e) =>
-                          updateItem(index, {
-                            durationMin: toNumberOrNull(e.target.value),
-                          })
-                        }
-                        className="w-16 rounded border border-navy-200 px-2 py-1 text-xs"
-                      />
+                      <div className="mt-2 grid grid-cols-2 gap-2">
+                        <label className="flex items-center gap-1 text-[10px] text-navy-400">
+                          セット
+                          <input
+                            type="number"
+                            value={item.sets ?? ""}
+                            onChange={(e) =>
+                              updateItem(index, {
+                                sets: toNumberOrNull(e.target.value),
+                              })
+                            }
+                            className="w-full min-w-0 rounded border border-navy-200 px-2 py-1 text-xs text-navy-700"
+                          />
+                        </label>
+                        <label className="flex items-center gap-1 text-[10px] text-navy-400">
+                          回数
+                          <input
+                            type="number"
+                            value={item.reps ?? ""}
+                            onChange={(e) =>
+                              updateItem(index, {
+                                reps: toNumberOrNull(e.target.value),
+                              })
+                            }
+                            className="w-full min-w-0 rounded border border-navy-200 px-2 py-1 text-xs text-navy-700"
+                          />
+                        </label>
+                        <label className="flex items-center gap-1 text-[10px] text-navy-400">
+                          重量kg
+                          <input
+                            type="number"
+                            value={item.weightKg ?? ""}
+                            onChange={(e) =>
+                              updateItem(index, {
+                                weightKg: toNumberOrNull(e.target.value),
+                              })
+                            }
+                            className="w-full min-w-0 rounded border border-navy-200 px-2 py-1 text-xs text-navy-700"
+                          />
+                        </label>
+                        <label className="flex items-center gap-1 text-[10px] text-navy-400">
+                          時間(分)
+                          <input
+                            type="number"
+                            value={item.durationMin ?? ""}
+                            onChange={(e) =>
+                              updateItem(index, {
+                                durationMin: toNumberOrNull(e.target.value),
+                              })
+                            }
+                            className="w-full min-w-0 rounded border border-navy-200 px-2 py-1 text-xs text-navy-700"
+                          />
+                        </label>
+                      </div>
                       <button
                         type="button"
                         onClick={() => removeItem(index)}
-                        className="text-xs text-accent-coral"
+                        className="mt-2 text-xs text-accent-coral"
                       >
                         削除
                       </button>
@@ -252,15 +262,28 @@ export default function PlanBuilder({
         <div className="rounded-xl border border-navy-200 bg-white p-6 shadow-sm">
           <h2 className="text-sm font-bold text-navy-800">AIからの改善案</h2>
           <p className="mt-2 text-xs text-navy-600">{suggestion.summary}</p>
-          <ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-navy-500">
-            {suggestion.items.map((item, i) => (
-              <li key={i}>
-                {DAY_LABELS[item.dayOfWeek]}曜日：{item.exerciseName}
-                {item.sets ? ` ${item.sets}セット` : ""}
-                {item.reps ? ` × ${item.reps}回` : ""}
-              </li>
-            ))}
-          </ul>
+          <div className="mt-2 flex flex-col gap-2 text-xs text-navy-500">
+            {DAY_LABELS.map((label, dayOfWeek) => {
+              const dayItems = suggestion.items.filter(
+                (item) => item.dayOfWeek === dayOfWeek
+              );
+              if (dayItems.length === 0) return null;
+              return (
+                <div key={dayOfWeek}>
+                  <p className="font-bold text-navy-700">{label}曜日</p>
+                  <ul className="mt-0.5 list-disc pl-5">
+                    {dayItems.map((item, i) => (
+                      <li key={i}>
+                        {item.exerciseName}
+                        {item.sets ? ` ${item.sets}セット` : ""}
+                        {item.reps ? ` × ${item.reps}回` : ""}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              );
+            })}
+          </div>
           <div className="mt-4 flex gap-2">
             <button
               type="button"
