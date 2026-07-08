@@ -33,7 +33,7 @@
 | スタイリング | Tailwind CSS v4 | ネイビー基調のデザイントークンを `globals.css` の `@theme` で定義 |
 | PWA | Web App Manifest + 自前 Service Worker | Web Push に自前SWが必須のため、next-pwa 等のプラグインは使わず手書きで管理 |
 | DB / 認証 | Supabase（`@supabase/supabase-js` + `@supabase/ssr`） | RLS（Row Level Security）を全テーブルで有効化 |
-| AI | Gemini API（`@google/genai`） | JSON構造化出力（responseSchema）で週間プランを生成。現在のモデル：`gemini-3.5-flash`（`GEMINI_MODEL`環境変数で変更可、デフォルトは`gemini-2.5-flash`） |
+| AI | Gemini API（`@google/genai`） | JSON構造化出力（responseSchema）で週間プランを生成。使用モデルは`GEMINI_MODEL`環境変数で指定（コード側にデフォルト値は持たず、未設定時はエラー）。現在の設定値：`gemini-3.5-flash` |
 | Web Push | `web-push` npm パッケージ（VAPID） | 購読情報は Supabase に保存 |
 | 通知トリガー | GitHub Actions scheduled workflow（5分間隔） | `CRON_SECRET` 付きで Vercel の API を叩く |
 | カレンダー | Google Calendar API（`googleapis`） | freebusy 取得＋イベント作成 |
@@ -246,7 +246,7 @@ Next.js プロジェクトの土台と、全画面共通の骨格を作る。
 
 - 要件定義書 §8 に「Vercel Cron Jobs」の記載が残っていたが、§14 更新履歴（2026-07-05）のとおり **GitHub Actions scheduled workflow** が最新決定であり、本プランはそれに従う（docs/requirements.md 取り込み時に §8 を修正済み）
 - タイムゾーンは Asia/Tokyo を既定とし、通知時刻判定は `notification_settings.timezone` で将来拡張可能にする
-- Gemini のモデルは無料枠のレート制限を踏まえ flash 系を既定とし、モデル名は環境変数で差し替え可能にする（2026-07-08時点の実運用モデルは `gemini-3.5-flash`）
+- Gemini のモデル名は`GEMINI_MODEL`環境変数で指定する。コード側にデフォルト値は持たせず、未設定時はエラーとする（特定モデルの混雑時に暗黙のフォールバックへ切り替わらないようにするため。2026-07-08時点の実運用モデルは `gemini-3.5-flash`）
 - シニア判定の年齢閾値は65歳とした（要件定義書に明記がないため実装時に決定。低強度中心のAIプロンプトへの切り替えに使用）
 - Supabaseの`identities`はメール/パスワードをOAuth登録後に`updateUser`で後付けしても更新されないため、パスワード設定済みかどうかの判定は`user_metadata.password_set`フラグで行う（Phase 1実装時に判明した仕様）
 - `/api/*` はmiddlewareのルートガード対象外とし、認証チェックは各Route Handler自身に委ねる（middlewareでリダイレクトすると、APIの`fetch`呼び出しがJSONではなくHTMLリダイレクト応答を受け取ってしまうため）
