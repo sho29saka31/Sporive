@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
-import ProgressCharts, {
-  type DailyProgressPoint,
-} from "@/components/progress/ProgressCharts";
+import ProgressCharts from "@/components/progress/ProgressChartsLoader";
+import type { DailyProgressPoint } from "@/components/progress/ProgressCharts";
 
 export const metadata: Metadata = { title: "進捗" };
 

@@ -13,20 +13,18 @@ export default async function ScheduleEditPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("goal")
-    .eq("id", user!.id)
-    .single();
-
   const weekStartDate = getCurrentWeekStartDate();
 
-  const { data: existingPlan } = await supabase
-    .from("training_plans")
-    .select("id")
-    .eq("user_id", user!.id)
-    .eq("week_start_date", weekStartDate)
-    .maybeSingle();
+  // profileとexistingPlanは互いに依存しないため並列に取得する
+  const [{ data: profile }, { data: existingPlan }] = await Promise.all([
+    supabase.from("profiles").select("goal").eq("id", user!.id).single(),
+    supabase
+      .from("training_plans")
+      .select("id")
+      .eq("user_id", user!.id)
+      .eq("week_start_date", weekStartDate)
+      .maybeSingle(),
+  ]);
 
   let initialItems: PlanItemDraft[] = [];
   if (existingPlan) {
