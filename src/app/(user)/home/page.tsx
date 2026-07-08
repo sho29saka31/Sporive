@@ -1,11 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { getCurrentWeekStartDate } from "@/lib/week";
+import { getCurrentWeekStartDate, getTodayDate } from "@/lib/week";
+import WorkoutLogger, {
+  type TodayExercise,
+} from "@/components/home/WorkoutLogger";
 
 export const metadata: Metadata = { title: "ホーム" };
 
-/** ホームタブ：今日のトレーニング計画表示（requirements.md §5, §9-2） */
+/** ホームタブ：今日のトレーニング計画表示・実績記録（requirements.md §5, §6, §9-2） */
 export default async function HomePage() {
   const supabase = await createClient();
   const {
@@ -21,6 +24,7 @@ export default async function HomePage() {
     .maybeSingle();
 
   const todayDayOfWeek = new Date().getDay();
+  const today = getTodayDate();
 
   const { data: todayItems } = plan
     ? await supabase
@@ -30,6 +34,38 @@ export default async function HomePage() {
         .eq("day_of_week", todayDayOfWeek)
         .order("sort_order")
     : { data: null };
+
+  const planItemIds = (todayItems ?? []).map((item) => item.id);
+  const { data: todayLogs } =
+    planItemIds.length > 0
+      ? await supabase
+          .from("workout_logs")
+          .select("plan_item_id, sets_done, reps_done, weight_kg, duration_min")
+          .eq("user_id", user!.id)
+          .eq("performed_on", today)
+          .in("plan_item_id", planItemIds)
+      : { data: null };
+
+  const logsByPlanItemId = new Map(
+    (todayLogs ?? []).map((log) => [log.plan_item_id, log])
+  );
+
+  const exercises: TodayExercise[] = (todayItems ?? []).map((item) => {
+    const log = logsByPlanItemId.get(item.id);
+    return {
+      planItemId: item.id,
+      exerciseName: item.exercise_name,
+      plannedSets: item.sets,
+      plannedReps: item.reps,
+      plannedWeightKg: item.weight_kg,
+      plannedDurationMin: item.duration_min,
+      loggedSetsDone: log?.sets_done ?? null,
+      loggedRepsDone: log?.reps_done ?? null,
+      loggedWeightKg: log?.weight_kg ?? null,
+      loggedDurationMin: log?.duration_min ?? null,
+      isLogged: Boolean(log),
+    };
+  });
 
   return (
     <div className="py-6">
@@ -44,30 +80,15 @@ export default async function HomePage() {
             からAI提案または手動で作成してください。
           </p>
         </div>
-      ) : !todayItems || todayItems.length === 0 ? (
+      ) : exercises.length === 0 ? (
         <div className="mt-4 rounded-xl bg-white p-6 shadow-sm">
           <p className="text-sm leading-relaxed text-navy-400">
             今日は休息日です。無理せずゆっくり過ごしましょう。
           </p>
         </div>
       ) : (
-        <div className="mt-4 flex flex-col gap-3">
-          {todayItems.map((item) => (
-            <div
-              key={item.id}
-              className="rounded-xl bg-white p-4 shadow-sm"
-            >
-              <p className="text-sm font-bold text-navy-800">
-                {item.exercise_name}
-              </p>
-              <p className="mt-1 text-xs text-navy-400">
-                {item.sets ? `${item.sets}セット` : ""}
-                {item.reps ? ` × ${item.reps}回` : ""}
-                {item.weight_kg ? ` × ${item.weight_kg}kg` : ""}
-                {item.duration_min ? ` ${item.duration_min}分` : ""}
-              </p>
-            </div>
-          ))}
+        <div className="mt-4">
+          <WorkoutLogger exercises={exercises} performedOn={today} />
         </div>
       )}
     </div>
