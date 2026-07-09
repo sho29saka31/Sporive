@@ -3,24 +3,7 @@
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import PasswordField from "@/components/auth/PasswordField";
-
-const PASSWORD_HINT =
-  "8文字以上で、半角英大文字・半角英小文字・数字・記号をそれぞれ1文字以上含めてください。";
-
-function validatePassword(password: string): string | null {
-  if (password.length < 8) {
-    return "パスワードは8文字以上で入力してください。";
-  }
-  if (
-    !/[a-z]/.test(password) ||
-    !/[A-Z]/.test(password) ||
-    !/[0-9]/.test(password) ||
-    !/[^a-zA-Z0-9]/.test(password)
-  ) {
-    return PASSWORD_HINT;
-  }
-  return null;
-}
+import { PASSWORD_HINT, validatePassword } from "@/lib/password";
 
 /**
  * OAuth登録後のパスワード設定画面（requirements.md §4）。
