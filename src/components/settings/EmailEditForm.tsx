@@ -24,6 +24,7 @@ export default function EmailEditForm({
           name="email"
           type="email"
           required
+          autoComplete="email"
           defaultValue={currentEmail}
           className="mt-1 w-full rounded-lg border border-navy-200 px-3 py-2 text-sm focus:border-navy-500 focus:outline-none"
         />

@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import type { Database } from "@/types/database";
 
-const PUBLIC_PATHS = ["/login", "/signup"];
+const PUBLIC_PATHS = ["/login", "/signup", "/reset-password"];
 const STATIC_PATHS = ["/privacy", "/terms"];
 
 const MOBILE_PREVIEW_COOKIE = "force-mobile-preview";
