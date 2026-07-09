@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { signOut, signOutEverywhere } from "./actions";
 import ProfileEditForm from "@/components/settings/ProfileEditForm";
 import EmailEditForm from "@/components/settings/EmailEditForm";
+import PasswordChangeForm from "@/components/settings/PasswordChangeForm";
 import DeleteAccountButton from "@/components/settings/DeleteAccountButton";
 
 export const metadata: Metadata = { title: "アカウント設定" };
@@ -39,6 +40,15 @@ export default async function AccountSettingsPage({
         <h2 className="text-sm font-bold text-navy-800">メールアドレス</h2>
         <div className="mt-3">
           <EmailEditForm currentEmail={user?.email ?? ""} />
+        </div>
+      </div>
+
+      <div className="mt-4 rounded-xl bg-white p-6 shadow-sm">
+        <h2 className="text-sm font-bold text-navy-800">パスワード</h2>
+        <div className="mt-3">
+          <PasswordChangeForm
+            hasPassword={user?.user_metadata?.password_set === true}
+          />
         </div>
       </div>
 

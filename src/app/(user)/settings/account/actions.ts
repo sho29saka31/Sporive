@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { PASSWORD_HINT, validatePassword } from "@/lib/password";
 import type { GenderType, GoalType } from "@/types/database";
 
 export async function signOut() {
@@ -146,5 +147,79 @@ export async function updateEmail(
   return {
     success:
       "確認メールを送信しました。新しいメールアドレス宛のメールを確認し、リンクをクリックして変更を完了してください。",
+  };
+}
+
+/**
+ * パスワードの変更（未設定の場合は新規設定）。
+ * 既にパスワードが設定済みの場合は、現在のパスワードで再認証してから変更する。
+ * これはセッションの「最近ログインしたか」の判定を更新し、Supabaseのセキュアパスワード
+ * 変更機能による再認証エラー（current_password_required）を避けるためでもある。
+ * このエラーが発生した場合に成功扱いとして処理を進めると、実際にはパスワードが
+ * 変更されないままユーザーには成功したように見えてしまうため、必ず失敗として扱う。
+ */
+export async function changePassword(
+  _prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const currentPassword = String(formData.get("current_password") ?? "");
+  const newPassword = String(formData.get("new_password") ?? "");
+  const confirmPassword = String(formData.get("confirm_password") ?? "");
+
+  const validationError = validatePassword(newPassword);
+  if (validationError) {
+    return { error: validationError };
+  }
+  if (newPassword !== confirmPassword) {
+    return { error: "新しいパスワードが一致しません。" };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user || !user.email) {
+    redirect("/login");
+  }
+
+  const hasPassword = user.user_metadata?.password_set === true;
+
+  if (hasPassword) {
+    if (!currentPassword) {
+      return { error: "現在のパスワードを入力してください。" };
+    }
+    const { error: reauthError } = await supabase.auth.signInWithPassword({
+      email: user.email,
+      password: currentPassword,
+    });
+    if (reauthError) {
+      return { error: "現在のパスワードが正しくありません。" };
+    }
+  }
+
+  const { error } = await supabase.auth.updateUser({
+    password: newPassword,
+    data: { password_set: true },
+  });
+
+  if (error) {
+    if (error.code === "weak_password") {
+      return { error: PASSWORD_HINT };
+    }
+    if (error.code === "current_password_required") {
+      return {
+        error:
+          "セキュリティ保護のため変更できませんでした。お手数ですが、一度ログアウトしてから再度お試しいただくか、ログイン画面の「パスワードをお忘れですか？」からリンクを送信してお試しください。",
+      };
+    }
+    return {
+      error: "パスワードの変更に失敗しました。時間をおいて再度お試しください。",
+    };
+  }
+
+  revalidatePath("/settings/account");
+  return {
+    success: hasPassword ? "パスワードを変更しました。" : "パスワードを設定しました。",
   };
 }
