@@ -8,9 +8,15 @@ import MagicLinkForm from "@/components/auth/MagicLinkForm";
 export const metadata: Metadata = { title: "ログイン" };
 
 /** ログイン（requirements.md §4）：Google OAuth またはメール＋パスワード */
-export default function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
+  const { error } = await searchParams;
+
   return (
-    <AuthRecoveryHandler>
+    <AuthRecoveryHandler initialError={error === "invalid_link"}>
       <div className="flex flex-col gap-6">
         <h2 className="text-lg font-bold text-navy-800">ログイン</h2>
         <GoogleAuthButton label="Googleでログイン" />
