@@ -48,6 +48,7 @@ export default async function AccountSettingsPage({
         <div className="mt-3">
           <PasswordChangeForm
             hasPassword={user?.user_metadata?.password_set === true}
+            email={user?.email ?? ""}
           />
         </div>
       </div>
