@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import { updateProfile, type ActionState } from "@/app/(user)/settings/account/actions";
 
 const CURRENT_YEAR = new Date().getFullYear();
+const MIN_AGE = 13;
 
 const GOALS = [
   { value: "lose_weight", label: "減量" },
@@ -50,6 +51,7 @@ export default function ProfileEditForm({
           type="text"
           required
           maxLength={30}
+          autoComplete="name"
           defaultValue={displayName}
           className="mt-1 w-full rounded-lg border border-navy-200 px-3 py-2 text-sm focus:border-navy-500 focus:outline-none"
         />
@@ -67,28 +69,11 @@ export default function ProfileEditForm({
           type="number"
           required
           min={CURRENT_YEAR - 100}
-          max={CURRENT_YEAR - 5}
+          max={CURRENT_YEAR - MIN_AGE}
+          autoComplete="bday-year"
           defaultValue={birthYear}
           className="mt-1 w-full rounded-lg border border-navy-200 px-3 py-2 text-sm focus:border-navy-500 focus:outline-none"
         />
-      </div>
-      <div>
-        <label htmlFor="goal" className="text-xs font-medium text-navy-500">
-          目標
-        </label>
-        <select
-          id="goal"
-          name="goal"
-          required
-          defaultValue={goal}
-          className="mt-1 w-full rounded-lg border border-navy-200 bg-white px-3 py-2 text-sm focus:border-navy-500 focus:outline-none"
-        >
-          {GOALS.map((g) => (
-            <option key={g.value} value={g.value}>
-              {g.label}
-            </option>
-          ))}
-        </select>
       </div>
       <div>
         <label htmlFor="gender" className="text-xs font-medium text-navy-500">
@@ -109,6 +94,24 @@ export default function ProfileEditForm({
         <p className="mt-1 text-[10px] text-navy-300">
           AIによるトレーニング提案の精度向上に利用します（未回答も可）。
         </p>
+      </div>
+      <div>
+        <label htmlFor="goal" className="text-xs font-medium text-navy-500">
+          目標
+        </label>
+        <select
+          id="goal"
+          name="goal"
+          required
+          defaultValue={goal}
+          className="mt-1 w-full rounded-lg border border-navy-200 bg-white px-3 py-2 text-sm focus:border-navy-500 focus:outline-none"
+        >
+          {GOALS.map((g) => (
+            <option key={g.value} value={g.value}>
+              {g.label}
+            </option>
+          ))}
+        </select>
       </div>
       {state?.error && (
         <p className="text-xs text-accent-coral">{state.error}</p>
