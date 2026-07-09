@@ -61,23 +61,20 @@ export default function SetPasswordPage() {
       });
 
       if (error) {
-        if (error.code === "current_password_required") {
-          // 過去の試行等で既にパスワードが設定済みだった場合の救済：
-          // パスワード自体は変更せず、判定用フラグだけ立てて次へ進む
-          const { error: flagError } = await supabase.auth.updateUser({
-            data: { password_set: true },
-          });
-          if (!flagError) {
-            window.location.href = isReset ? "/home" : "/onboarding/profile";
-            return;
-          }
+        if (error.code === "weak_password") {
+          setError(PASSWORD_HINT);
+        } else if (error.code === "current_password_required") {
+          // このセッションでは再認証が必要なためパスワードを変更できなかった。
+          // ここでpassword_setフラグだけを立てて次へ進めると、入力された新しい
+          // パスワードが実際には保存されないまま「設定成功」として扱われてしまい、
+          // 後で本来のパスワードでログインできなくなる不具合につながるため、
+          // 必ず失敗として扱い、リンクの再送を案内する。
+          setError(
+            "セキュリティ保護のため、この操作には再認証が必要です。お手数ですが「パスワードをお忘れですか？」から再度リンクを送信してお試しください。"
+          );
+        } else {
+          setError("パスワードの設定に失敗しました。時間をおいて再度お試しください。");
         }
-
-        setError(
-          error.code === "weak_password"
-            ? PASSWORD_HINT
-            : "パスワードの設定に失敗しました。時間をおいて再度お試しください。"
-        );
         setLoading(false);
         return;
       }
