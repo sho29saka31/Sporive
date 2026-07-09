@@ -16,6 +16,7 @@ const INVALID_LINK_MESSAGE =
  * 検知できず、クライアント側でこのコンポーネントが処理する必要がある。
  *
  * - type=recovery：パスワード再設定画面へ
+ * - type=email_change：メールアドレス変更完了メッセージ付きでアカウント設定画面へ
  * - それ以外（magiclink等）：セッション確立のみ行いホームへ
  */
 export default function AuthRecoveryHandler({
@@ -59,8 +60,13 @@ export default function AuthRecoveryHandler({
       }
 
       const type = params.get("type");
-      window.location.href =
-        type === "recovery" ? "/signup/set-password?reason=reset" : "/home";
+      let destination = "/home";
+      if (type === "recovery") {
+        destination = "/signup/set-password?reason=reset";
+      } else if (type === "email_change") {
+        destination = "/settings/account?email_changed=1";
+      }
+      window.location.href = destination;
     }
 
     void processTokens();

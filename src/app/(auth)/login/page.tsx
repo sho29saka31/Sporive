@@ -3,6 +3,7 @@ import Link from "next/link";
 import GoogleAuthButton from "@/components/auth/GoogleAuthButton";
 import PasswordLoginForm from "@/components/auth/PasswordLoginForm";
 import AuthRecoveryHandler from "@/components/auth/AuthRecoveryHandler";
+import MagicLinkForm from "@/components/auth/MagicLinkForm";
 
 export const metadata: Metadata = { title: "ログイン" };
 
@@ -19,6 +20,15 @@ export default function LoginPage() {
           <div className="h-px flex-1 bg-navy-100" />
         </div>
         <PasswordLoginForm />
+        <p className="text-center text-xs text-navy-400">
+          <Link
+            href="/reset-password"
+            className="font-medium text-navy-600 underline"
+          >
+            パスワードをお忘れですか？
+          </Link>
+        </p>
+        <MagicLinkForm />
         <p className="text-center text-sm text-navy-400">
           アカウントをお持ちでない方は{" "}
           <Link href="/signup" className="font-medium text-navy-600 underline">
