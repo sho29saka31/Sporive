@@ -10,6 +10,7 @@ export default function PasswordField({
   autoComplete,
   minLength,
   hint,
+  name,
 }: {
   label: string;
   value: string;
@@ -17,6 +18,7 @@ export default function PasswordField({
   autoComplete: string;
   minLength?: number;
   hint?: string;
+  name?: string;
 }) {
   const id = useId();
   const [visible, setVisible] = useState(false);
@@ -29,6 +31,7 @@ export default function PasswordField({
       <div className="relative mt-1">
         <input
           id={id}
+          name={name}
           type={visible ? "text" : "password"}
           required
           minLength={minLength}
