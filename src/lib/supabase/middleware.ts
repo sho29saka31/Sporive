@@ -82,8 +82,16 @@ export async function updateSession(request: NextRequest) {
     return applyMobilePreviewParam(request, NextResponse.redirect(url));
   }
 
-  // ログイン済みユーザーが認証画面に来た場合はホームへ
-  if (isPublicPath) {
+  // ログイン済みユーザーが認証画面に来た場合はホームへ。
+  // ただし /login に error や code 等の認証フロー由来のパラメータが付いている場合は
+  // リダイレクトしない。ここで/homeへ流してしまうと、パスワード再設定リンクが
+  // 無効だった場合のエラー表示（/login?error=invalid_link）や、万一 /auth/callback
+  // を経由せず /login に code が直接付いて届いた場合の処理が、既存セッションを
+  // 持つブラウザで握りつぶされてしまう（実際に発生した不具合の原因）。
+  const hasAuthFlowParam =
+    request.nextUrl.searchParams.has("error") ||
+    request.nextUrl.searchParams.has("code");
+  if (isPublicPath && !(pathname === "/login" && hasAuthFlowParam)) {
     const url = request.nextUrl.clone();
     url.pathname = "/home";
     return applyMobilePreviewParam(request, NextResponse.redirect(url));
