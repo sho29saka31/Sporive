@@ -32,6 +32,11 @@ export default function SetPasswordPage() {
   const [confirm, setConfirm] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isReset] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      new URLSearchParams(window.location.search).get("reason") === "reset"
+  );
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -63,7 +68,7 @@ export default function SetPasswordPage() {
             data: { password_set: true },
           });
           if (!flagError) {
-            window.location.href = "/onboarding/profile";
+            window.location.href = isReset ? "/home" : "/onboarding/profile";
             return;
           }
         }
@@ -79,7 +84,9 @@ export default function SetPasswordPage() {
 
       // クライアントルーターのキャッシュ起因の遷移不具合を避けるため、
       // 認証状態が変わった直後はフルページ遷移でmiddlewareを再評価させる。
-      window.location.href = "/onboarding/profile";
+      // リセット経由の場合は既存アカウントのためオンボーディングを経由せずホームへ
+      // （プロフィール未登録であればmiddlewareが自動でオンボーディングへ誘導する）。
+      window.location.href = isReset ? "/home" : "/onboarding/profile";
     } catch {
       setError("パスワードの設定に失敗しました。時間をおいて再度お試しください。");
       setLoading(false);
@@ -89,9 +96,13 @@ export default function SetPasswordPage() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h2 className="text-lg font-bold text-navy-800">パスワードの設定</h2>
+        <h2 className="text-lg font-bold text-navy-800">
+          {isReset ? "パスワードの再設定" : "パスワードの設定"}
+        </h2>
         <p className="mt-1 text-sm text-navy-400">
-          次回以降、メールアドレスとパスワードでもログインできるようになります。
+          {isReset
+            ? "新しいパスワードを入力してください。"
+            : "次回以降、メールアドレスとパスワードでもログインできるようになります。"}
         </p>
       </div>
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">
