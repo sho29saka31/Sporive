@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PASSWORD_HINT, validatePassword } from "@/lib/password";
+import { getOrigin } from "@/lib/origin";
 import type { GenderType, GoalType } from "@/types/database";
 
 export async function signOut() {
@@ -138,7 +139,10 @@ export async function updateEmail(
   }
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.updateUser({ email });
+  const { error } = await supabase.auth.updateUser(
+    { email },
+    { emailRedirectTo: `${await getOrigin()}/auth/callback` }
+  );
 
   if (error) {
     return { error: error.message };

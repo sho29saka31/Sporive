@@ -21,11 +21,17 @@ const INVALID_LINK_MESSAGE =
  */
 export default function AuthRecoveryHandler({
   children,
+  initialError = false,
 }: {
   children: ReactNode;
+  initialError?: boolean;
 }) {
-  const [status, setStatus] = useState<Status>("idle");
-  const [errorMessage, setErrorMessage] = useState("");
+  const [status, setStatus] = useState<Status>(
+    initialError ? "error" : "idle"
+  );
+  const [errorMessage, setErrorMessage] = useState(
+    initialError ? INVALID_LINK_MESSAGE : ""
+  );
 
   useEffect(() => {
     const hash = window.location.hash;
