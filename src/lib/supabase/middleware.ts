@@ -5,6 +5,31 @@ import type { Database } from "@/types/database";
 const PUBLIC_PATHS = ["/login", "/signup"];
 const STATIC_PATHS = ["/privacy", "/terms"];
 
+const MOBILE_PREVIEW_COOKIE = "force-mobile-preview";
+const MOBILE_PREVIEW_PARAM = "demo-mobile-admin";
+
+/**
+ * URLに `?demo-mobile-admin` が付いている場合、PC等でもスマホ表示を確認できるように
+ * Cookieを立てる（`?demo-mobile-admin=0` で解除）。DeviceGuardがこのCookieを判定に利用する。
+ * maxAgeを指定しないセッションCookieとし、ブラウザを閉じると失効するようにする。
+ */
+function applyMobilePreviewParam(
+  request: NextRequest,
+  response: NextResponse
+): NextResponse {
+  const { searchParams } = request.nextUrl;
+  if (!searchParams.has(MOBILE_PREVIEW_PARAM)) {
+    return response;
+  }
+
+  if (searchParams.get(MOBILE_PREVIEW_PARAM) === "0") {
+    response.cookies.set(MOBILE_PREVIEW_COOKIE, "", { maxAge: 0, path: "/" });
+  } else {
+    response.cookies.set(MOBILE_PREVIEW_COOKIE, "1", { path: "/" });
+  }
+  return response;
+}
+
 /**
  * 認証セッションの更新とルートガードを行う。
  * - 未ログイン：利用者画面（(user)グループ）へのアクセスを /login へリダイレクト
@@ -47,21 +72,21 @@ export async function updateSession(request: NextRequest) {
   const isApiPath = pathname.startsWith("/api/");
 
   if (isAuthCallback || isApiPath || STATIC_PATHS.includes(pathname)) {
-    return supabaseResponse;
+    return applyMobilePreviewParam(request, supabaseResponse);
   }
 
   if (!user) {
-    if (isPublicPath) return supabaseResponse;
+    if (isPublicPath) return applyMobilePreviewParam(request, supabaseResponse);
     const url = request.nextUrl.clone();
     url.pathname = "/login";
-    return NextResponse.redirect(url);
+    return applyMobilePreviewParam(request, NextResponse.redirect(url));
   }
 
   // ログイン済みユーザーが認証画面に来た場合はホームへ
   if (isPublicPath) {
     const url = request.nextUrl.clone();
     url.pathname = "/home";
-    return NextResponse.redirect(url);
+    return applyMobilePreviewParam(request, NextResponse.redirect(url));
   }
 
   // Supabaseの identities は OAuth 以外の登録方法では更新されないため、
@@ -70,7 +95,7 @@ export async function updateSession(request: NextRequest) {
   if (!hasPassword && pathname !== "/signup/set-password") {
     const url = request.nextUrl.clone();
     url.pathname = "/signup/set-password";
-    return NextResponse.redirect(url);
+    return applyMobilePreviewParam(request, NextResponse.redirect(url));
   }
 
   if (hasPassword && !isOnboardingPath && !isAdminPath) {
@@ -83,9 +108,9 @@ export async function updateSession(request: NextRequest) {
     if (!profile) {
       const url = request.nextUrl.clone();
       url.pathname = "/onboarding/profile";
-      return NextResponse.redirect(url);
+      return applyMobilePreviewParam(request, NextResponse.redirect(url));
     }
   }
 
-  return supabaseResponse;
+  return applyMobilePreviewParam(request, supabaseResponse);
 }
