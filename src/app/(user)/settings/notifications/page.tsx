@@ -1,17 +1,48 @@
 import type { Metadata } from "next";
+import { createClient } from "@/lib/supabase/server";
+import PushSubscriptionToggle from "@/components/settings/PushSubscriptionToggle";
+import NotificationSettingsForm from "@/components/settings/NotificationSettingsForm";
 
 export const metadata: Metadata = { title: "通知設定" };
 
-/** 通知設定：Web Push の購読・通知時間帯の設定（Phase 5 で実装） */
-export default function NotificationSettingsPage() {
+/** 通知設定：Web Push の購読と当日予定通知の設定（requirements.md §7） */
+export default async function NotificationSettingsPage() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const { data: settings } = await supabase
+    .from("notification_settings")
+    .select("daily_reminder_enabled, notify_time")
+    .eq("user_id", user!.id)
+    .maybeSingle();
+
+  const notifyTime = (settings?.notify_time ?? "08:00:00").slice(0, 5);
+
   return (
     <div className="py-6">
       <h1 className="text-xl font-bold">通知設定</h1>
+
       <div className="mt-4 rounded-xl bg-white p-6 shadow-sm">
-        <p className="text-sm leading-relaxed text-navy-400">
-          トレーニング予定通知・時間帯指定などの設定は Phase 5 で実装予定です。
-        </p>
+        <h2 className="text-sm font-bold text-navy-800">プッシュ通知</h2>
+        <div className="mt-3">
+          <PushSubscriptionToggle />
+        </div>
       </div>
+
+      <div className="mt-4 rounded-xl bg-white p-6 shadow-sm">
+        <h2 className="text-sm font-bold text-navy-800">通知内容</h2>
+        <div className="mt-3">
+          <NotificationSettingsForm
+            dailyReminderEnabled={settings?.daily_reminder_enabled ?? true}
+            notifyTime={notifyTime}
+          />
+        </div>
+      </div>
+
+      <p className="mt-4 px-1 text-[10px] leading-relaxed text-navy-300">
+        通知を受け取るには「この端末で通知を受け取る」を有効にした上で、当日予定通知をONにしてください。負債リマインダー通知は8月の試験運用で追加予定です。
+      </p>
     </div>
   );
 }

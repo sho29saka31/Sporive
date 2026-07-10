@@ -1,0 +1,20 @@
+# Web Push 通知トリガー（Phase 5）
+# 5分おきに本番の通知送信APIを呼び出す。実際に誰へ送るかの判定はAPI側で行う。
+# Vercel Cron（無料プランは1日1回のみ）の代わりに GitHub Actions を採用（要件定義書§8）。
+name: notify
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call dispatch API
+        run: |
+          curl -sS -X POST "https://sporive.vercel.app/api/notifications/dispatch" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json" \
+            --fail-with-body
