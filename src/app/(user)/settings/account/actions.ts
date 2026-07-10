@@ -141,7 +141,11 @@ export async function updateEmail(
   const supabase = await createClient();
   const { error } = await supabase.auth.updateUser(
     { email },
-    { emailRedirectTo: `${await getOrigin()}/auth/callback` }
+    {
+      emailRedirectTo: `${await getOrigin()}/auth/callback?next=${encodeURIComponent(
+        "/settings/account?email_changed=1"
+      )}`,
+    }
   );
 
   if (error) {
