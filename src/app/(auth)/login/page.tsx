@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import GoogleAuthButton from "@/components/auth/GoogleAuthButton";
 import PasswordLoginForm from "@/components/auth/PasswordLoginForm";
 import AuthRecoveryHandler from "@/components/auth/AuthRecoveryHandler";
@@ -8,21 +7,16 @@ import MagicLinkForm from "@/components/auth/MagicLinkForm";
 
 export const metadata: Metadata = { title: "ログイン" };
 
-/** ログイン（requirements.md §4）：Google OAuth またはメール＋パスワード */
+/**
+ * ログイン（requirements.md §4）：Google OAuth またはメール＋パスワード。
+ * `?code=` 付きで届いた場合の /auth/callback への転送は middleware が行う。
+ */
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; code?: string; type?: string }>;
+  searchParams: Promise<{ error?: string }>;
 }) {
-  const { error, code, type } = await searchParams;
-
-  // 過去に送信済みのメール（/auth/callback対応前）が /login?code=... を指している場合の
-  // 救済。/auth/callback にそのまま転送し、PKCEのcode交換を行う。
-  if (code) {
-    const params = new URLSearchParams({ code });
-    if (type) params.set("type", type);
-    redirect(`/auth/callback?${params.toString()}`);
-  }
+  const { error } = await searchParams;
 
   return (
     <AuthRecoveryHandler initialError={error === "invalid_link"}>

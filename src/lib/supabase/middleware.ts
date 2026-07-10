@@ -37,6 +37,18 @@ function applyMobilePreviewParam(
  * - プロフィール未登録：/onboarding/profile へ誘導
  */
 export async function updateSession(request: NextRequest) {
+  // Supabase Authのメールリンク（PKCE）は `?code=...` を付けてリダイレクトしてくる。
+  // Dashboard の Redirect URLs 許可リスト外だった場合は Site URL（トップページ等）へ
+  // フォールバックするため、どのパスに code が落ちても /auth/callback で確実に
+  // 交換処理できるよう、ここで一括転送する。
+  const { pathname: requestPath, searchParams: requestParams } =
+    request.nextUrl;
+  if (requestParams.has("code") && !requestPath.startsWith("/auth/")) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/auth/callback";
+    return NextResponse.redirect(url);
+  }
+
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient<Database>(
@@ -66,7 +78,9 @@ export async function updateSession(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
   const isPublicPath = PUBLIC_PATHS.includes(pathname);
-  const isAuthCallback = pathname.startsWith("/auth/callback");
+  // /auth/callback（code交換）と /auth/confirm（token_hash検証）は
+  // ルートガードの対象外（セッション確立前のエンドポイントのため）
+  const isAuthCallback = pathname.startsWith("/auth/");
   const isOnboardingPath = pathname.startsWith("/onboarding");
   const isAdminPath = pathname.startsWith("/admin");
   const isApiPath = pathname.startsWith("/api/");
@@ -83,14 +97,9 @@ export async function updateSession(request: NextRequest) {
   }
 
   // ログイン済みユーザーが認証画面に来た場合はホームへ。
-  // ただし /login に error や code 等の認証フロー由来のパラメータが付いている場合は
-  // リダイレクトしない。ここで/homeへ流してしまうと、パスワード再設定リンクが
-  // 無効だった場合のエラー表示（/login?error=invalid_link）や、万一 /auth/callback
-  // を経由せず /login に code が直接付いて届いた場合の処理が、既存セッションを
-  // 持つブラウザで握りつぶされてしまう（実際に発生した不具合の原因）。
-  const hasAuthFlowParam =
-    request.nextUrl.searchParams.has("error") ||
-    request.nextUrl.searchParams.has("code");
+  // ただし /login?error=...（認証リンクが無効だった場合のエラー表示）は
+  // リダイレクトせず、エラーメッセージをユーザーに見せる。
+  const hasAuthFlowParam = request.nextUrl.searchParams.has("error");
   if (isPublicPath && !(pathname === "/login" && hasAuthFlowParam)) {
     const url = request.nextUrl.clone();
     url.pathname = "/home";
