@@ -34,7 +34,9 @@ export default function PasswordChangeForm({
     try {
       const supabase = createClient();
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(
+          "/signup/set-password?reason=reset"
+        )}`,
       });
       if (error) throw error;
       setResetSent(true);
