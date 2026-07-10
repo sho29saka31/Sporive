@@ -3,8 +3,27 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { PlanItemDraft, WeeklyPlanDraft } from "@/lib/gemini";
+import type { IntensityWarning } from "@/lib/intensity";
 import { DAY_LABELS } from "@/lib/week";
 import { saveTrainingPlan } from "@/app/(user)/schedule/actions";
+
+/** 運動強度チェックAPIを呼び、警告一覧を取得する（失敗時は空配列） */
+async function fetchIntensityWarnings(
+  items: PlanItemDraft[]
+): Promise<IntensityWarning[]> {
+  try {
+    const res = await fetch("/api/plan/validate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ items }),
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.warnings ?? [];
+  } catch {
+    return [];
+  }
+}
 
 function emptyItem(dayOfWeek: number): PlanItemDraft {
   return {
@@ -38,6 +57,7 @@ export default function PlanBuilder({
   const [aiLoading, setAiLoading] = useState(false);
   const [suggestLoading, setSuggestLoading] = useState(false);
   const [suggestion, setSuggestion] = useState<WeeklyPlanDraft | null>(null);
+  const [warnings, setWarnings] = useState<IntensityWarning[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -54,6 +74,8 @@ export default function PlanBuilder({
       if (!res.ok) throw new Error(data.error ?? "生成に失敗しました。");
       setItems(data.plan.items);
       setSummary(data.plan.summary);
+      // AI提案にも強度チェックを適用（Phase 8）
+      setWarnings(await fetchIntensityWarnings(data.plan.items));
     } catch (e) {
       setError(e instanceof Error ? e.message : "生成に失敗しました。");
     } finally {
@@ -83,11 +105,16 @@ export default function PlanBuilder({
     }
     setSuggestLoading(true);
     try {
-      const res = await fetch("/api/ai/improve-plan", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ currentPlan: { summary, items } }),
-      });
+      // 手動編集後の計画にも強度チェックを適用（Phase 8）
+      const [warningsResult, res] = await Promise.all([
+        fetchIntensityWarnings(items),
+        fetch("/api/ai/improve-plan", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ currentPlan: { summary, items } }),
+        }),
+      ]);
+      setWarnings(warningsResult);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "改善案の取得に失敗しました。");
       setSuggestion(data.suggestion);
@@ -250,6 +277,25 @@ export default function PlanBuilder({
       </div>
 
       {error && <p className="text-xs text-accent-coral">{error}</p>}
+
+      {warnings.length > 0 && (
+        <div className="rounded-xl border border-accent-coral/40 bg-accent-coral/5 p-4">
+          <h2 className="text-sm font-bold text-accent-coral">
+            強度チェック：注意が必要な項目があります
+          </h2>
+          <ul className="mt-2 list-disc pl-5 text-xs leading-relaxed text-navy-600">
+            {warnings.map((w, i) => (
+              <li key={i}>
+                {w.dayOfWeek >= 0 ? `${DAY_LABELS[w.dayOfWeek]}曜日・` : ""}
+                {w.exerciseName}：{w.reason}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-[10px] text-navy-400">
+            年齢層別の推奨範囲に基づく自動チェックです。内容を確認・調整のうえ、そのまま登録することもできます。
+          </p>
+        </div>
+      )}
 
       {suggestion ? (
         <div className="rounded-xl border border-navy-200 bg-white p-6 shadow-sm">
