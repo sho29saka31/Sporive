@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { generateWeeklyPlan } from "@/lib/gemini";
+import { getWeekBusySummary } from "@/lib/calendar";
+import { getCurrentWeekStartDate } from "@/lib/week";
 
 /** プロフィール・希望頻度からAIが週間トレーニング計画を新規提案する */
 export async function POST(request: Request) {
@@ -40,12 +42,32 @@ export async function POST(request: Request) {
     );
   }
 
+  // カレンダー連携済みなら今週の忙しい時間帯を取得してプロンプトに反映する。
+  // 取得に失敗しても提案自体は続行する（連携は補助情報のため）。
+  let calendarContext: string | null = null;
+  const { data: calendarToken } = await supabase
+    .from("calendar_tokens")
+    .select("refresh_token")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (calendarToken) {
+    try {
+      calendarContext = await getWeekBusySummary(
+        calendarToken.refresh_token,
+        getCurrentWeekStartDate()
+      );
+    } catch (error) {
+      console.error("Calendar freebusy fetch failed", error);
+    }
+  }
+
   try {
     const plan = await generateWeeklyPlan({
       birthYear: profile.birth_year,
       goal: profile.goal,
       gender: profile.gender,
       weeklyFrequency,
+      calendarContext,
     });
     return NextResponse.json({ plan });
   } catch (error) {

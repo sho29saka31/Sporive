@@ -197,7 +197,7 @@ Next.js プロジェクトの土台と、全画面共通の骨格を作る。
 
 **ユーザー作業**：VAPID鍵の生成（コマンド提供）、GitHub リポジトリに `CRON_SECRET` 等のシークレット登録
 
-### 📅 Phase 6：Google カレンダー連携（デモ版・最後）
+### 📅 Phase 6：Google カレンダー連携（デモ版・最後）✅完了
 
 - OAuth refresh token の保存（Phase 1 で取得済みの許可を利用）
 - freebusy API で空き時間を取得し、AI提案のプロンプトに反映
