@@ -9,6 +9,7 @@ import {
 import WorkoutLogger, {
   type TodayExercise,
 } from "@/components/home/WorkoutLogger";
+import DebtList, { type DebtEntry } from "@/components/debts/DebtList";
 
 export const metadata: Metadata = { title: "ホーム" };
 
@@ -54,6 +55,37 @@ export default async function HomePage() {
     (todayLogs ?? []).map((log) => [log.plan_item_id, log])
   );
 
+  // 未消化の負債（Phase 7）：補填ルールに従い今日の計画への上乗せ分として表示する
+  const { data: debtRows } = await supabase
+    .from("debts")
+    .select("id, plan_item_id, missed_on, sets_remaining, reps_remaining")
+    .eq("user_id", user!.id)
+    .is("resolved_at", null)
+    .order("missed_on", { ascending: true });
+
+  const debtItemIds = Array.from(
+    new Set((debtRows ?? []).map((d) => d.plan_item_id).filter(Boolean))
+  ) as string[];
+  const { data: debtItems } =
+    debtItemIds.length > 0
+      ? await supabase
+          .from("plan_items")
+          .select("id, exercise_name")
+          .in("id", debtItemIds)
+      : { data: null };
+  const debtNameById = new Map(
+    (debtItems ?? []).map((item) => [item.id, item.exercise_name])
+  );
+  const debts: DebtEntry[] = (debtRows ?? []).map((d) => ({
+    id: d.id,
+    exerciseName: d.plan_item_id
+      ? debtNameById.get(d.plan_item_id) ?? "運動"
+      : "運動",
+    missedOn: d.missed_on,
+    setsRemaining: d.sets_remaining,
+    repsRemaining: d.reps_remaining,
+  }));
+
   const exercises: TodayExercise[] = (todayItems ?? []).map((item) => {
     const log = logsByPlanItemId.get(item.id);
     return {
@@ -93,6 +125,25 @@ export default async function HomePage() {
       ) : (
         <div className="mt-4">
           <WorkoutLogger exercises={exercises} performedOn={today} />
+        </div>
+      )}
+
+      {debts.length > 0 && (
+        <div className="mt-4 rounded-xl bg-white p-4 shadow-sm">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-bold text-accent-coral">
+              負債の補填（{debts.length}件）
+            </h2>
+            <Link href="/debts" className="text-xs text-navy-500 underline">
+              負債管理へ
+            </Link>
+          </div>
+          <p className="mt-1 text-xs text-navy-400">
+            未達成分は今日の計画に上乗せして取り返しましょう。実施できたら「解消した」を押してください。
+          </p>
+          <div className="mt-2">
+            <DebtList debts={debts} />
+          </div>
         </div>
       )}
     </div>

@@ -13,7 +13,7 @@ export default async function NotificationSettingsPage() {
   } = await supabase.auth.getUser();
   const { data: settings } = await supabase
     .from("notification_settings")
-    .select("daily_reminder_enabled, notify_time")
+    .select("daily_reminder_enabled, debt_reminder_enabled, notify_time")
     .eq("user_id", user!.id)
     .maybeSingle();
 
@@ -35,13 +35,14 @@ export default async function NotificationSettingsPage() {
         <div className="mt-3">
           <NotificationSettingsForm
             dailyReminderEnabled={settings?.daily_reminder_enabled ?? true}
+            debtReminderEnabled={settings?.debt_reminder_enabled ?? false}
             notifyTime={notifyTime}
           />
         </div>
       </div>
 
       <p className="mt-4 px-1 text-[10px] leading-relaxed text-navy-300">
-        通知を受け取るには「この端末で通知を受け取る」を有効にした上で、当日予定通知をONにしてください。負債リマインダー通知は8月の試験運用で追加予定です。
+        通知を受け取るには「この端末で通知を受け取る」を有効にした上で、受け取りたい通知をONにしてください。
       </p>
     </div>
   );

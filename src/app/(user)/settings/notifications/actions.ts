@@ -15,6 +15,7 @@ export async function saveNotificationSettings(
   formData: FormData
 ): Promise<NotificationActionState> {
   const enabled = formData.get("daily_reminder_enabled") === "on";
+  const debtEnabled = formData.get("debt_reminder_enabled") === "on";
   const notifyTime = String(formData.get("notify_time") ?? "");
 
   if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(notifyTime)) {
@@ -32,6 +33,7 @@ export async function saveNotificationSettings(
   const { error } = await supabase.from("notification_settings").upsert({
     user_id: user.id,
     daily_reminder_enabled: enabled,
+    debt_reminder_enabled: debtEnabled,
     notify_time: `${notifyTime}:00`,
     timezone: "Asia/Tokyo",
   });
