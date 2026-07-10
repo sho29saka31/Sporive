@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { validateWorkoutInput } from "@/lib/workout-limits";
 
 export interface WorkoutLogInput {
   planItemId: string;
@@ -25,6 +26,11 @@ export async function logWorkout(input: WorkoutLogInput) {
 
   if (!user) {
     throw new Error("認証が必要です。");
+  }
+
+  const validationError = validateWorkoutInput(input);
+  if (validationError) {
+    throw new Error(validationError);
   }
 
   const { data: existing } = await supabase
