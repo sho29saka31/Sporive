@@ -167,6 +167,59 @@ export async function generateWeeklyPlan(params: {
   return JSON.parse(text) as WeeklyPlanDraft;
 }
 
+/** 未消化の負債に対するリカバリー提案（Phase 7）。短い日本語アドバイスを返す */
+export async function generateRecoveryAdvice(params: {
+  birthYear: number;
+  goal: GoalType;
+  gender?: GenderType | null;
+  debtLines: string[]; // 「スクワット：+2セット×10回（7/9未達成）」等
+}): Promise<string> {
+  const ai = getClient();
+  const profileContext = buildProfileContext({
+    ...params,
+    weeklyFrequency: 3,
+  });
+
+  const response = await ai.models.generateContent({
+    model: getModel(),
+    contents: [
+      {
+        role: "user",
+        parts: [
+          {
+            text:
+              "あなたはパーソナルトレーナーです。利用者に以下の未消化のトレーニング（負債）があります。" +
+              "無理なく数日以内に取り返すための現実的なリカバリー案を、日本語で3〜5文の簡潔なアドバイスとして提案してください。" +
+              "1日に詰め込みすぎず、体への負担と継続しやすさを重視してください。\n\n" +
+              profileContext +
+              "\n\n未消化の負債:\n" +
+              params.debtLines.join("\n"),
+          },
+        ],
+      },
+    ],
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          advice: {
+            type: Type.STRING,
+            description: "リカバリー案のアドバイス（日本語、3〜5文）",
+          },
+        },
+        required: ["advice"],
+      },
+    },
+  });
+
+  const text = response.text;
+  if (!text) {
+    throw new Error("Gemini APIから応答が得られませんでした。");
+  }
+  return (JSON.parse(text) as { advice: string }).advice;
+}
+
 /** 利用者が登録しようとしている計画に対する改善案を提示する */
 export async function generateImprovementSuggestion(params: {
   birthYear: number;
