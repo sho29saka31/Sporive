@@ -20,6 +20,12 @@ export default async function ProgressPage() {
 
   const since = daysAgo(30);
 
+  const { data: streak } = await supabase
+    .from("streaks")
+    .select("current_streak, longest_streak")
+    .eq("user_id", user!.id)
+    .maybeSingle();
+
   const { data: logs } = await supabase
     .from("workout_logs")
     .select(
@@ -87,6 +93,20 @@ export default async function ProgressPage() {
       <h1 className="text-xl font-bold">進捗</h1>
 
       <div className="mt-4 grid grid-cols-2 gap-3">
+        <div className="rounded-xl bg-white p-4 shadow-sm">
+          <p className="text-xs text-navy-400">連続達成</p>
+          <p className="mt-1 text-2xl font-bold text-accent-teal">
+            {streak?.current_streak ?? 0}
+            <span className="text-sm font-normal text-navy-400">日</span>
+          </p>
+        </div>
+        <div className="rounded-xl bg-white p-4 shadow-sm">
+          <p className="text-xs text-navy-400">最長記録</p>
+          <p className="mt-1 text-2xl font-bold text-navy-800">
+            {streak?.longest_streak ?? 0}
+            <span className="text-sm font-normal text-navy-400">日</span>
+          </p>
+        </div>
         <div className="rounded-xl bg-white p-4 shadow-sm">
           <p className="text-xs text-navy-400">今週のトレーニング日数</p>
           <p className="mt-1 text-2xl font-bold text-navy-800">

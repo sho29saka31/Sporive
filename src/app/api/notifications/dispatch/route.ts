@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendPush } from "@/lib/push";
+import { processDailyCheck } from "@/lib/daily-check";
 import { getCurrentWeekStartDate, getTodayDayOfWeek } from "@/lib/week";
 
 const SLOT_MINUTES = 5;
+/** 日次判定（負債記録・ストリーク更新）を実行するJSTスロット（03:00〜03:04） */
+const DAILY_CHECK_SLOT_START = 3 * 60;
 
 /** 現在のJST時刻を「その日の経過分数」で返す */
 function getJstMinutesOfDay(): number {
@@ -24,14 +27,14 @@ function timeToMinutes(time: string): number {
 }
 
 /**
- * 通知送信エンドポイント。GitHub Actions の scheduled workflow から
+ * 通知送信＋日次バッチのエンドポイント。GitHub Actions の scheduled workflow から
  * 5分おきに呼ばれる（CRON_SECRET で認証）。
  *
- * 現在時刻が属する5分スロット内に notify_time を設定している利用者のうち、
- * 当日予定通知が有効で、かつ今日のトレーニング予定がある利用者へ
- * Web Push を送信する。失効した購読（410/404）は削除する。
- *
- * 負債リマインダー（debt_reminder_enabled）は Phase 7 で有効化する。
+ * 1. 深夜の判定スロット（03:00）では、前日分の負債記録・ストリーク更新を実行（Phase 7）
+ * 2. 現在の5分スロット内に notify_time を設定している利用者へ通知を送信
+ *    - 当日予定通知（daily_reminder_enabled）：今日のトレーニング予定がある場合
+ *    - 負債リマインダー（debt_reminder_enabled）：未消化の負債がある場合（Phase 7）
+ *    両方ある場合は1通にまとめて送る。失効した購読（410/404）は削除する。
  */
 export async function POST(request: Request) {
   const authHeader = request.headers.get("authorization");
@@ -42,14 +45,24 @@ export async function POST(request: Request) {
 
   const admin = createAdminClient();
 
-  // 現在の5分スロット [slotStart, slotStart + 5)
   const nowMinutes = getJstMinutesOfDay();
   const slotStart = Math.floor(nowMinutes / SLOT_MINUTES) * SLOT_MINUTES;
 
+  // 日次判定（前日の負債記録・ストリーク更新）
+  let dailyCheck: { debtsCreated: number; streaksUpdated: number } | null =
+    null;
+  if (slotStart === DAILY_CHECK_SLOT_START) {
+    try {
+      dailyCheck = await processDailyCheck(admin);
+    } catch (error) {
+      console.error("Daily check failed", error);
+    }
+  }
+
   const { data: settings, error: settingsError } = await admin
     .from("notification_settings")
-    .select("user_id, notify_time, daily_reminder_enabled")
-    .eq("daily_reminder_enabled", true);
+    .select("user_id, notify_time, daily_reminder_enabled, debt_reminder_enabled")
+    .or("daily_reminder_enabled.eq.true,debt_reminder_enabled.eq.true");
 
   if (settingsError) {
     return NextResponse.json({ error: "db_error" }, { status: 500 });
@@ -60,36 +73,56 @@ export async function POST(request: Request) {
     return t >= slotStart && t < slotStart + SLOT_MINUTES;
   });
 
-  if (targets.length === 0) {
-    return NextResponse.json({ ok: true, sent: 0 });
-  }
-
   const weekStart = getCurrentWeekStartDate();
   const today = getTodayDayOfWeek();
   let sentCount = 0;
 
   for (const target of targets) {
-    // 今日のトレーニング予定があるか（今週のactiveな計画の当日項目）
-    const { data: plans } = await admin
-      .from("training_plans")
-      .select("id")
-      .eq("user_id", target.user_id)
-      .eq("week_start_date", weekStart)
-      .eq("status", "active");
+    const bodyLines: string[] = [];
 
-    if (!plans || plans.length === 0) continue;
+    if (target.daily_reminder_enabled) {
+      const { data: plans } = await admin
+        .from("training_plans")
+        .select("id")
+        .eq("user_id", target.user_id)
+        .eq("week_start_date", weekStart)
+        .eq("status", "active");
 
-    const { data: todayItems } = await admin
-      .from("plan_items")
-      .select("id")
-      .in(
-        "plan_id",
-        plans.map((p) => p.id)
-      )
-      .eq("day_of_week", today);
+      if (plans && plans.length > 0) {
+        const { data: todayItems } = await admin
+          .from("plan_items")
+          .select("id")
+          .in(
+            "plan_id",
+            plans.map((p) => p.id)
+          )
+          .eq("day_of_week", today);
 
-    const count = todayItems?.length ?? 0;
-    if (count === 0) continue;
+        const count = todayItems?.length ?? 0;
+        if (count > 0) {
+          bodyLines.push(
+            `今日は${count}件のトレーニング予定があります。頑張りましょう！`
+          );
+        }
+      }
+    }
+
+    if (target.debt_reminder_enabled) {
+      const { data: debts } = await admin
+        .from("debts")
+        .select("id")
+        .eq("user_id", target.user_id)
+        .is("resolved_at", null);
+
+      const debtCount = debts?.length ?? 0;
+      if (debtCount > 0) {
+        bodyLines.push(
+          `未消化の負債が${debtCount}件あります。今日の分に上乗せして取り返しましょう。`
+        );
+      }
+    }
+
+    if (bodyLines.length === 0) continue;
 
     const { data: subscriptions } = await admin
       .from("push_subscriptions")
@@ -99,7 +132,7 @@ export async function POST(request: Request) {
     for (const sub of subscriptions ?? []) {
       const result = await sendPush(sub, {
         title: "Sporive",
-        body: `今日は${count}件のトレーニング予定があります。頑張りましょう！`,
+        body: bodyLines.join("\n"),
         url: "/home",
       });
       if (result === "sent") {
@@ -113,5 +146,5 @@ export async function POST(request: Request) {
     }
   }
 
-  return NextResponse.json({ ok: true, sent: sentCount });
+  return NextResponse.json({ ok: true, sent: sentCount, dailyCheck });
 }

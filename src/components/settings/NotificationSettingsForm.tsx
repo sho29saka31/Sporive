@@ -6,12 +6,14 @@ import {
   type NotificationActionState,
 } from "@/app/(user)/settings/notifications/actions";
 
-/** 当日予定通知のON/OFFと通知時刻の設定フォーム */
+/** 当日予定通知・負債リマインダーのON/OFFと通知時刻の設定フォーム */
 export default function NotificationSettingsForm({
   dailyReminderEnabled,
+  debtReminderEnabled,
   notifyTime,
 }: {
   dailyReminderEnabled: boolean;
+  debtReminderEnabled: boolean;
   notifyTime: string; // HH:MM
 }) {
   const [state, formAction, isPending] = useActionState<
@@ -32,6 +34,22 @@ export default function NotificationSettingsForm({
           type="checkbox"
           name="daily_reminder_enabled"
           defaultChecked={dailyReminderEnabled}
+          className="h-5 w-5 accent-navy-700"
+        />
+      </label>
+      <label className="flex items-center justify-between">
+        <div>
+          <span className="text-sm font-medium text-navy-800">
+            負債リマインダー
+          </span>
+          <p className="mt-0.5 text-xs text-navy-400">
+            未消化の負債（未達成分）がある場合に、指定時刻に通知します
+          </p>
+        </div>
+        <input
+          type="checkbox"
+          name="debt_reminder_enabled"
+          defaultChecked={debtReminderEnabled}
           className="h-5 w-5 accent-navy-700"
         />
       </label>

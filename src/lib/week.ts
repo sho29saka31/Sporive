@@ -44,6 +44,30 @@ export function getCurrentWeekStartDate(): string {
   return sunday.toISOString().slice(0, 10);
 }
 
+/** 日付（YYYY-MM-DD）にn日を加算した日付を返す */
+export function addDays(date: string, n: number): string {
+  const [y, m, d] = date.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  dt.setUTCDate(dt.getUTCDate() + n);
+  return dt.toISOString().slice(0, 10);
+}
+
+/** 昨日の日付（JST基準）を YYYY-MM-DD 形式で返す */
+export function getYesterdayDate(): string {
+  return addDays(getTodayDate(), -1);
+}
+
+/** 任意の日付（YYYY-MM-DD）の曜日を 0=日曜〜6=土曜 で返す */
+export function getDayOfWeekOf(date: string): number {
+  const [y, m, d] = date.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+}
+
+/** 任意の日付（YYYY-MM-DD）が属する週の開始日（日曜日）を返す */
+export function getWeekStartDateOf(date: string): string {
+  return addDays(date, -getDayOfWeekOf(date));
+}
+
 export const DAY_LABELS = ["日", "月", "火", "水", "木", "金", "土"];
 
 /** 週の開始日（日曜日）から7日分の日付（YYYY-MM-DD）を返す */
