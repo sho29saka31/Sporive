@@ -160,10 +160,11 @@ export async function updateEmail(
 
 /**
  * パスワードの変更（未設定の場合は新規設定）。
- * 既にパスワードが設定済みの場合は、現在のパスワードで再認証してから変更する。
- * これはセッションの「最近ログインしたか」の判定を更新し、Supabaseのセキュアパスワード
- * 変更機能による再認証エラー（current_password_required）を避けるためでもある。
- * このエラーが発生した場合に成功扱いとして処理を進めると、実際にはパスワードが
+ * 設定済みの場合は、公式ドキュメント記載の current_password オプション
+ * （supabase-js v2.102.0+）を使い、updateUser() 1回で「現在のパスワードの検証＋変更」を
+ * 行う。Supabaseのセキュアパスワード変更機能が有効でも、この方式なら
+ * 再認証エラー（current_password_required）にならない。
+ * エラーが発生した場合に成功扱いとして処理を進めると、実際にはパスワードが
  * 変更されないままユーザーには成功したように見えてしまうため、必ず失敗として扱う。
  */
 export async function changePassword(
@@ -193,21 +194,13 @@ export async function changePassword(
 
   const hasPassword = user.user_metadata?.password_set === true;
 
-  if (hasPassword) {
-    if (!currentPassword) {
-      return { error: "現在のパスワードを入力してください。" };
-    }
-    const { error: reauthError } = await supabase.auth.signInWithPassword({
-      email: user.email,
-      password: currentPassword,
-    });
-    if (reauthError) {
-      return { error: "現在のパスワードが正しくありません。" };
-    }
+  if (hasPassword && !currentPassword) {
+    return { error: "現在のパスワードを入力してください。" };
   }
 
   const { error } = await supabase.auth.updateUser({
     password: newPassword,
+    ...(hasPassword ? { current_password: currentPassword } : {}),
     data: { password_set: true },
   });
 
@@ -215,10 +208,20 @@ export async function changePassword(
     if (error.code === "weak_password") {
       return { error: PASSWORD_HINT };
     }
+    if (
+      error.code === "invalid_credentials" ||
+      error.message?.toLowerCase().includes("password")
+    ) {
+      if (hasPassword) {
+        return { error: "現在のパスワードが正しくありません。" };
+      }
+    }
     if (error.code === "current_password_required") {
+      // パスワード未設定（OAuthのみ）のアカウントで、ログインから時間が経っている場合に
+      // セキュアパスワード変更機能が要求する再認証。一度ログインし直せば解消する。
       return {
         error:
-          "セキュリティ保護のため変更できませんでした。お手数ですが、一度ログアウトしてから再度お試しいただくか、ログイン画面の「パスワードをお忘れですか？」からリンクを送信してお試しください。",
+          "セキュリティ保護のため、ログインから時間が経つとこの操作はできません。一度ログアウトして再度ログインしてからお試しください。",
       };
     }
     return {
