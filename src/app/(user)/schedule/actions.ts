@@ -3,7 +3,20 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentWeekStartDate } from "@/lib/week";
-import type { WeeklyPlanDraft } from "@/lib/gemini";
+import { syncPlanToCalendar, type CalendarDayPlan } from "@/lib/calendar";
+import type { PlanItemDraft, WeeklyPlanDraft } from "@/lib/gemini";
+
+/** 種目1件をカレンダーの説明用テキストにする（例：スクワット（3セット×10回×45kg 20分）） */
+function toExerciseLine(item: PlanItemDraft): string {
+  const parts = [
+    item.sets ? `${item.sets}セット` : null,
+    item.reps ? `${item.reps}回` : null,
+    item.weightKg ? `${item.weightKg}kg` : null,
+  ].filter(Boolean);
+  const detail =
+    parts.join("×") + (item.durationMin ? ` ${item.durationMin}分` : "");
+  return detail ? `${item.exerciseName}（${detail.trim()}）` : item.exerciseName;
+}
 
 /**
  * 確認済みの週間計画を保存する。
@@ -81,6 +94,35 @@ export async function saveTrainingPlan(
     proposal_json: plan,
     accepted,
   });
+
+  // カレンダー連携済みならトレーニング予定をGoogleカレンダーへ自動追加（Phase 6）。
+  // 同期失敗は計画保存の成功を妨げない（連携は補助機能のため）。
+  const { data: calendarToken } = await supabase
+    .from("calendar_tokens")
+    .select("refresh_token")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (calendarToken) {
+    const byDay = new Map<number, string[]>();
+    for (const item of plan.items) {
+      byDay.set(item.dayOfWeek, [
+        ...(byDay.get(item.dayOfWeek) ?? []),
+        toExerciseLine(item),
+      ]);
+    }
+    const dayPlans: CalendarDayPlan[] = Array.from(byDay.entries()).map(
+      ([dayOfWeek, exerciseLines]) => ({ dayOfWeek, exerciseLines })
+    );
+    try {
+      await syncPlanToCalendar(
+        calendarToken.refresh_token,
+        weekStartDate,
+        dayPlans
+      );
+    } catch (error) {
+      console.error("Calendar sync failed", error);
+    }
+  }
 
   revalidatePath("/schedule");
   revalidatePath("/home");
