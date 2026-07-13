@@ -30,12 +30,15 @@ export async function saveNotificationSettings(
     redirect("/login");
   }
 
+  // last_notified_onをリセットすることで、設定変更後は（同日中でも）
+  // 新しい通知時刻を過ぎた最初のcron実行で通知が送られる
   const { error } = await supabase.from("notification_settings").upsert({
     user_id: user.id,
     daily_reminder_enabled: enabled,
     debt_reminder_enabled: debtEnabled,
     notify_time: `${notifyTime}:00`,
     timezone: "Asia/Tokyo",
+    last_notified_on: null,
   });
 
   if (error) {

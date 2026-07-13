@@ -20,16 +20,25 @@ export default async function HomePage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { data: plan } = await supabase
-    .from("training_plans")
-    .select("id")
-    .eq("user_id", user!.id)
-    .eq("week_start_date", getCurrentWeekStartDate())
-    .eq("status", "active")
-    .maybeSingle();
-
   const todayDayOfWeek = getTodayDayOfWeek();
   const today = getTodayDate();
+
+  // 計画と負債は互いに依存しないため並列で取得する（読み込み速度対策）
+  const [{ data: plan }, { data: debtRows }] = await Promise.all([
+    supabase
+      .from("training_plans")
+      .select("id")
+      .eq("user_id", user!.id)
+      .eq("week_start_date", getCurrentWeekStartDate())
+      .eq("status", "active")
+      .maybeSingle(),
+    supabase
+      .from("debts")
+      .select("id, plan_item_id, missed_on, sets_remaining, reps_remaining")
+      .eq("user_id", user!.id)
+      .is("resolved_at", null)
+      .order("missed_on", { ascending: true }),
+  ]);
 
   const { data: todayItems } = plan
     ? await supabase
@@ -54,14 +63,6 @@ export default async function HomePage() {
   const logsByPlanItemId = new Map(
     (todayLogs ?? []).map((log) => [log.plan_item_id, log])
   );
-
-  // 未消化の負債（Phase 7）：補填ルールに従い今日の計画への上乗せ分として表示する
-  const { data: debtRows } = await supabase
-    .from("debts")
-    .select("id, plan_item_id, missed_on, sets_remaining, reps_remaining")
-    .eq("user_id", user!.id)
-    .is("resolved_at", null)
-    .order("missed_on", { ascending: true });
 
   const debtItemIds = Array.from(
     new Set((debtRows ?? []).map((d) => d.plan_item_id).filter(Boolean))
