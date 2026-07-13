@@ -1,6 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database";
-import { addDays, getDayOfWeekOf, getTodayDate, getWeekStartDateOf } from "@/lib/week";
+import {
+  addDays,
+  getDayOfWeekOf,
+  getTodayDate,
+  getWeekStartDateOf,
+} from "@/lib/week";
 
 /**
  * 管理者ダッシュボード用の集計（Phase 9）。
@@ -8,53 +13,113 @@ import { addDays, getDayOfWeekOf, getTodayDate, getWeekStartDateOf } from "@/lib
  * （呼び出し側で is_admin の確認を済ませていること）。
  *
  * 「アクティブ」の定義：その日にトレーニング実績（workout_logs）を記録した利用者。
+ * 集計対象の期間 [from, to] は呼び出し側（画面の期間指定）から渡される。
  */
 
+export type DateRange = { from: string; to: string };
+
 export type AdminStats = {
+  range: DateRange;
   totalUsers: number;
-  dauSeries: { date: string; count: number }[]; // 直近14日
-  wauSeries: { weekStart: string; count: number }[]; // 直近8週
-  retentionRate: number | null; // 先週アクティブのうち今週もアクティブな割合（%）
+  dauSeries: { date: string; count: number }[];
+  wauSeries: { weekStart: string; count: number }[];
+  retentionRate: number | null; // 期間末尾の週の前週アクティブのうち、末尾の週もアクティブな割合（%）
   achievementSeries: {
     date: string;
     planned: number;
     done: number;
     rate: number | null; // %
-  }[]; // 直近14日
-  debtSeries: { date: string; created: number }[]; // 直近14日
-  debtResolutionRate: number | null; // 全期間の解消率（%）
-  totalDebts: number;
+  }[];
+  debtSeries: { date: string; created: number }[];
+  debtResolutionRate: number | null; // 期間内に発生した負債の解消率（%）
+  totalDebts: number; // 期間内に発生した負債数
   popularExercises: { name: string; count: number }[]; // AI提案の頻出種目 上位10
   aiAcceptanceRate: number | null; // AI提案の採用率（%）
-  aiProposalCount: number;
+  aiProposalCount: number; // 期間内のAI提案ログ数
 };
 
-const DAILY_RANGE = 14;
-const WEEKLY_RANGE = 8;
+/** 期間の最大日数（クエリ量の上限） */
+export const MAX_RANGE_DAYS = 92;
+/** デフォルトの期間日数 */
+export const DEFAULT_RANGE_DAYS = 14;
+
+function eachDate(from: string, to: string): string[] {
+  const dates: string[] = [];
+  for (let d = from; d <= to; d = addDays(d, 1)) {
+    dates.push(d);
+    if (dates.length > MAX_RANGE_DAYS) break;
+  }
+  return dates;
+}
+
+/** クエリパラメータから集計期間を決める（不正値はデフォルトに落とす） */
+export function resolveDateRange(
+  fromParam?: string,
+  toParam?: string
+): DateRange {
+  const today = getTodayDate();
+  const isDate = (v?: string): v is string => !!v && /^\d{4}-\d{2}-\d{2}$/.test(v);
+
+  let to = isDate(toParam) ? toParam : today;
+  if (to > today) to = today;
+  let from = isDate(fromParam) ? fromParam : addDays(to, -(DEFAULT_RANGE_DAYS - 1));
+  if (from > to) from = addDays(to, -(DEFAULT_RANGE_DAYS - 1));
+  if (eachDate(from, to).length > MAX_RANGE_DAYS) {
+    from = addDays(to, -(MAX_RANGE_DAYS - 1));
+  }
+  return { from, to };
+}
 
 export async function getAdminStats(
-  admin: SupabaseClient<Database>
+  admin: SupabaseClient<Database>,
+  range: DateRange
 ): Promise<AdminStats> {
+  const { from, to } = range;
+  const dates = eachDate(from, to);
   const today = getTodayDate();
-  const dailyStart = addDays(today, -(DAILY_RANGE - 1));
-  const currentWeekStart = getWeekStartDateOf(today);
-  const weeklyStart = addDays(currentWeekStart, -7 * (WEEKLY_RANGE - 1));
 
-  const [{ count: totalUsers }, logsResult, plansResult, debtsResult, aiLogsResult] =
-    await Promise.all([
-      admin.from("profiles").select("id", { count: "exact", head: true }),
-      admin
-        .from("workout_logs")
-        .select("user_id, performed_on, plan_item_id")
-        .gte("performed_on", weeklyStart),
-      admin
-        .from("training_plans")
-        .select("id, user_id, week_start_date")
-        .eq("status", "active")
-        .gte("week_start_date", addDays(dailyStart, -7)),
-      admin.from("debts").select("missed_on, resolved_at"),
-      admin.from("ai_proposal_logs").select("proposal_json, accepted"),
-    ]);
+  // 週の系列：fromを含む週の日曜〜toを含む週の日曜
+  const weekStarts: string[] = [];
+  for (
+    let w = getWeekStartDateOf(from);
+    w <= getWeekStartDateOf(to);
+    w = addDays(w, 7)
+  ) {
+    weekStarts.push(w);
+  }
+
+  const logsFrom = weekStarts[0]; // 週集計のため期間先頭の週の日曜から取得
+
+  const [
+    { count: totalUsers },
+    logsResult,
+    plansResult,
+    debtsResult,
+    aiLogsResult,
+  ] = await Promise.all([
+    admin.from("profiles").select("id", { count: "exact", head: true }),
+    admin
+      .from("workout_logs")
+      .select("user_id, performed_on, plan_item_id")
+      .gte("performed_on", logsFrom)
+      .lte("performed_on", to),
+    admin
+      .from("training_plans")
+      .select("id, user_id, week_start_date")
+      .eq("status", "active")
+      .gte("week_start_date", weekStarts[0])
+      .lte("week_start_date", weekStarts[weekStarts.length - 1]),
+    admin
+      .from("debts")
+      .select("missed_on, resolved_at")
+      .gte("missed_on", from)
+      .lte("missed_on", to),
+    admin
+      .from("ai_proposal_logs")
+      .select("proposal_json, accepted, created_at")
+      .gte("created_at", `${from}T00:00:00+09:00`)
+      .lte("created_at", `${to}T23:59:59+09:00`),
+  ]);
 
   const logs = logsResult.data ?? [];
   const plans = plansResult.data ?? [];
@@ -79,49 +144,48 @@ export async function getAdminStats(
     ]);
   }
 
-  // DAU（直近14日）
-  const dauSeries: AdminStats["dauSeries"] = [];
-  for (let i = 0; i < DAILY_RANGE; i++) {
-    const date = addDays(dailyStart, i);
-    const users = new Set(
+  // DAU
+  const dauSeries: AdminStats["dauSeries"] = dates.map((date) => ({
+    date,
+    count: new Set(
       logs.filter((l) => l.performed_on === date).map((l) => l.user_id)
-    );
-    dauSeries.push({ date, count: users.size });
-  }
+    ).size,
+  }));
 
-  // WAU（直近8週）と今週/先週のアクティブユーザー（リテンション用）
-  const wauSeries: AdminStats["wauSeries"] = [];
-  const weeklyUsers: Set<string>[] = [];
-  for (let i = 0; i < WEEKLY_RANGE; i++) {
-    const weekStart = addDays(weeklyStart, i * 7);
-    const weekEnd = addDays(weekStart, 6);
-    const users = new Set(
-      logs
-        .filter((l) => l.performed_on >= weekStart && l.performed_on <= weekEnd)
-        .map((l) => l.user_id)
-    );
-    weeklyUsers.push(users);
-    wauSeries.push({ weekStart, count: users.size });
-  }
-  const lastWeekUsers = weeklyUsers[WEEKLY_RANGE - 2] ?? new Set();
-  const thisWeekUsers = weeklyUsers[WEEKLY_RANGE - 1] ?? new Set();
-  const retained = Array.from(lastWeekUsers).filter((u) =>
-    thisWeekUsers.has(u)
+  // WAU とリテンション
+  const weeklyUsers = weekStarts.map(
+    (weekStart) =>
+      new Set(
+        logs
+          .filter(
+            (l) =>
+              l.performed_on >= weekStart &&
+              l.performed_on <= addDays(weekStart, 6)
+          )
+          .map((l) => l.user_id)
+      )
+  );
+  const wauSeries: AdminStats["wauSeries"] = weekStarts.map(
+    (weekStart, i) => ({ weekStart, count: weeklyUsers[i].size })
+  );
+  const prevWeekUsers = weeklyUsers[weeklyUsers.length - 2] ?? new Set();
+  const lastWeekUsers = weeklyUsers[weeklyUsers.length - 1] ?? new Set();
+  const retained = Array.from(prevWeekUsers).filter((u) =>
+    lastWeekUsers.has(u)
   ).length;
   const retentionRate =
-    lastWeekUsers.size > 0
-      ? Math.round((retained / lastWeekUsers.size) * 100)
+    prevWeekUsers.size > 0
+      ? Math.round((retained / prevWeekUsers.size) * 100)
       : null;
 
-  // 達成率（直近14日）：その日に予定されていた項目数に対する記録済み項目数
+  // 達成率
   const loggedItemKeySet = new Set(
     logs
       .filter((l) => l.plan_item_id)
       .map((l) => `${l.performed_on}:${l.plan_item_id}`)
   );
   const achievementSeries: AdminStats["achievementSeries"] = [];
-  for (let i = 0; i < DAILY_RANGE; i++) {
-    const date = addDays(dailyStart, i);
+  for (const date of dates) {
     if (date > today) break;
     const dow = getDayOfWeekOf(date);
     const weekStart = getWeekStartDateOf(date);
@@ -143,21 +207,17 @@ export async function getAdminStats(
     });
   }
 
-  // 負債（直近14日の発生数と全期間の解消率）
-  const debtSeries: AdminStats["debtSeries"] = [];
-  for (let i = 0; i < DAILY_RANGE; i++) {
-    const date = addDays(dailyStart, i);
-    debtSeries.push({
-      date,
-      created: debts.filter((d) => d.missed_on === date).length,
-    });
-  }
+  // 負債（期間内の発生数と解消率）
+  const debtSeries: AdminStats["debtSeries"] = dates.map((date) => ({
+    date,
+    created: debts.filter((d) => d.missed_on === date).length,
+  }));
   const totalDebts = debts.length;
   const resolvedDebts = debts.filter((d) => d.resolved_at !== null).length;
   const debtResolutionRate =
     totalDebts > 0 ? Math.round((resolvedDebts / totalDebts) * 100) : null;
 
-  // AI提案分析：頻出種目（上位10）と採用率
+  // AI提案分析（期間内）
   const exerciseCounts = new Map<string, number>();
   let accepted = 0;
   let judged = 0;
@@ -185,6 +245,7 @@ export async function getAdminStats(
     judged > 0 ? Math.round((accepted / judged) * 100) : null;
 
   return {
+    range,
     totalUsers: totalUsers ?? 0,
     dauSeries,
     wauSeries,

@@ -41,7 +41,7 @@ function ChartCard({
 export default function AdminCharts({ stats }: { stats: AdminStats }) {
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-      <ChartCard title="DAU（日次アクティブ利用者・直近14日）">
+      <ChartCard title="DAU（日次アクティブ利用者）">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={stats.dauSeries}>
             <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
@@ -64,7 +64,7 @@ export default function AdminCharts({ stats }: { stats: AdminStats }) {
         </ResponsiveContainer>
       </ChartCard>
 
-      <ChartCard title="WAU（週次アクティブ利用者・直近8週）">
+      <ChartCard title="WAU（週次アクティブ利用者）">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={stats.wauSeries}>
             <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
@@ -80,7 +80,7 @@ export default function AdminCharts({ stats }: { stats: AdminStats }) {
         </ResponsiveContainer>
       </ChartCard>
 
-      <ChartCard title="達成率（%・直近14日）">
+      <ChartCard title="達成率（%）">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={stats.achievementSeries}>
             <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
@@ -104,7 +104,7 @@ export default function AdminCharts({ stats }: { stats: AdminStats }) {
         </ResponsiveContainer>
       </ChartCard>
 
-      <ChartCard title="負債の発生件数（直近14日）">
+      <ChartCard title="負債の発生件数">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={stats.debtSeries}>
             <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
