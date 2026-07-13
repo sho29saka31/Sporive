@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentWeekStartDate } from "@/lib/week";
 import { syncPlanToCalendar, type CalendarDayPlan } from "@/lib/calendar";
@@ -96,7 +97,8 @@ export async function saveTrainingPlan(
   });
 
   // カレンダー連携済みならトレーニング予定をGoogleカレンダーへ自動追加（Phase 6）。
-  // 同期失敗は計画保存の成功を妨げない（連携は補助機能のため）。
+  // Google APIとの通信は数秒かかることがあるため、after()でレスポンス返却後に実行し、
+  // 保存ボタンの待ち時間を短くする（同期失敗は計画保存の成功を妨げない）。
   const { data: calendarToken } = await supabase
     .from("calendar_tokens")
     .select("refresh_token")
@@ -113,15 +115,17 @@ export async function saveTrainingPlan(
     const dayPlans: CalendarDayPlan[] = Array.from(byDay.entries()).map(
       ([dayOfWeek, exerciseLines]) => ({ dayOfWeek, exerciseLines })
     );
-    try {
-      await syncPlanToCalendar(
-        calendarToken.refresh_token,
-        weekStartDate,
-        dayPlans
-      );
-    } catch (error) {
-      console.error("Calendar sync failed", error);
-    }
+    after(async () => {
+      try {
+        await syncPlanToCalendar(
+          calendarToken.refresh_token,
+          weekStartDate,
+          dayPlans
+        );
+      } catch (error) {
+        console.error("Calendar sync failed", error);
+      }
+    });
   }
 
   revalidatePath("/schedule");

@@ -192,6 +192,7 @@ export interface Database {
           debt_reminder_enabled: boolean;
           notify_time: string;
           timezone: string;
+          last_notified_on: string | null;
         };
         Insert: {
           user_id: string;
@@ -199,12 +200,14 @@ export interface Database {
           debt_reminder_enabled?: boolean;
           notify_time?: string;
           timezone?: string;
+          last_notified_on?: string | null;
         };
         Update: Partial<{
           daily_reminder_enabled: boolean;
           debt_reminder_enabled: boolean;
           notify_time: string;
           timezone: string;
+          last_notified_on: string | null;
         }>;
         Relationships: [];
       };

@@ -7,6 +7,8 @@ const STATIC_PATHS = ["/privacy", "/terms"];
 
 const MOBILE_PREVIEW_COOKIE = "force-mobile-preview";
 const MOBILE_PREVIEW_PARAM = "demo-mobile-admin";
+/** プロフィール登録済み確認のキャッシュ（値はuser.id。セッションCookie） */
+const ONBOARDED_COOKIE = "sporive-onboarded";
 
 /**
  * URLに `?demo-mobile-admin` が付いている場合、PC等でもスマホ表示を確認できるように
@@ -116,16 +118,23 @@ export async function updateSession(request: NextRequest) {
   }
 
   if (hasPassword && !isOnboardingPath && !isAdminPath) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("id")
-      .eq("id", user.id)
-      .maybeSingle();
+    // プロフィール登録済みの確認は毎リクエストのDB往復になるため、
+    // 一度確認できたらセッションCookieに記録して以降はスキップする（読み込み速度対策）。
+    // 値にuser.idを入れることで、同じブラウザでの別アカウント切り替えにも対応する。
+    const onboardedCookie = request.cookies.get(ONBOARDED_COOKIE)?.value;
+    if (onboardedCookie !== user.id) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("id", user.id)
+        .maybeSingle();
 
-    if (!profile) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/onboarding/profile";
-      return applyMobilePreviewParam(request, NextResponse.redirect(url));
+      if (!profile) {
+        const url = request.nextUrl.clone();
+        url.pathname = "/onboarding/profile";
+        return applyMobilePreviewParam(request, NextResponse.redirect(url));
+      }
+      supabaseResponse.cookies.set(ONBOARDED_COOKIE, user.id, { path: "/" });
     }
   }
 

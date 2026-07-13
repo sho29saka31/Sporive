@@ -330,7 +330,7 @@ export default function PlanBuilder({
               disabled={isPending}
               className="flex-1 rounded-lg bg-navy-700 px-4 py-2 text-xs font-medium text-white hover:bg-navy-600 disabled:opacity-60"
             >
-              改善案を採用して登録
+              {isPending ? "登録中..." : "改善案を採用して登録"}
             </button>
             <button
               type="button"
@@ -338,7 +338,7 @@ export default function PlanBuilder({
               disabled={isPending}
               className="flex-1 rounded-lg border border-navy-200 px-4 py-2 text-xs font-medium text-navy-600 hover:bg-navy-50 disabled:opacity-60"
             >
-              このまま登録
+              {isPending ? "登録中..." : "このまま登録"}
             </button>
           </div>
         </div>
