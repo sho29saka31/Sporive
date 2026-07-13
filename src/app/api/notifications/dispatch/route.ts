@@ -2,11 +2,15 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendPush } from "@/lib/push";
 import { processDailyCheck } from "@/lib/daily-check";
-import { getCurrentWeekStartDate, getTodayDayOfWeek } from "@/lib/week";
+import {
+  getCurrentWeekStartDate,
+  getTodayDate,
+  getTodayDayOfWeek,
+} from "@/lib/week";
 
-const SLOT_MINUTES = 5;
-/** 日次判定（負債記録・ストリーク更新）を実行するJSTスロット（03:00〜03:04） */
-const DAILY_CHECK_SLOT_START = 3 * 60;
+/** 日次判定（負債記録・ストリーク更新）を実行するJST時間帯（03:00〜08:59） */
+const DAILY_CHECK_START_MIN = 3 * 60;
+const DAILY_CHECK_END_MIN = 9 * 60;
 
 /** 現在のJST時刻を「その日の経過分数」で返す */
 function getJstMinutesOfDay(): number {
@@ -30,10 +34,16 @@ function timeToMinutes(time: string): number {
  * 通知送信＋日次バッチのエンドポイント。GitHub Actions の scheduled workflow から
  * 5分おきに呼ばれる（CRON_SECRET で認証）。
  *
- * 1. 深夜の判定スロット（03:00）では、前日分の負債記録・ストリーク更新を実行（Phase 7）
- * 2. 現在の5分スロット内に notify_time を設定している利用者へ通知を送信
+ * GitHub Actionsのcronは5分間隔を保証せず、混雑時は数十分以上遅延することがある。
+ * そのため「現在の5分スロットとnotify_timeの一致」ではなく、
+ * 「notify_timeを過ぎていて、今日まだ通知していない利用者」へ送信する方式にする
+ * （last_notified_onで同日の重複送信を防ぐ）。遅延しても、遅延後の最初の実行で
+ * 必ず通知が届く。
+ *
+ * 1. JST 03:00〜08:59の実行では、前日分の負債記録・ストリーク更新も実行（冪等）
+ * 2. 通知の内容：
  *    - 当日予定通知（daily_reminder_enabled）：今日のトレーニング予定がある場合
- *    - 負債リマインダー（debt_reminder_enabled）：未消化の負債がある場合（Phase 7）
+ *    - 負債リマインダー（debt_reminder_enabled）：未消化の負債がある場合
  *    両方ある場合は1通にまとめて送る。失効した購読（410/404）は削除する。
  */
 export async function POST(request: Request) {
@@ -44,14 +54,17 @@ export async function POST(request: Request) {
   }
 
   const admin = createAdminClient();
-
   const nowMinutes = getJstMinutesOfDay();
-  const slotStart = Math.floor(nowMinutes / SLOT_MINUTES) * SLOT_MINUTES;
+  const today = getTodayDate();
 
-  // 日次判定（前日の負債記録・ストリーク更新）
+  // 日次判定（前日の負債記録・ストリーク更新）。処理自体が冪等なので
+  // 時間帯内の複数回実行でも問題ない
   let dailyCheck: { debtsCreated: number; streaksUpdated: number } | null =
     null;
-  if (slotStart === DAILY_CHECK_SLOT_START) {
+  if (
+    nowMinutes >= DAILY_CHECK_START_MIN &&
+    nowMinutes < DAILY_CHECK_END_MIN
+  ) {
     try {
       dailyCheck = await processDailyCheck(admin);
     } catch (error) {
@@ -61,20 +74,24 @@ export async function POST(request: Request) {
 
   const { data: settings, error: settingsError } = await admin
     .from("notification_settings")
-    .select("user_id, notify_time, daily_reminder_enabled, debt_reminder_enabled")
+    .select(
+      "user_id, notify_time, daily_reminder_enabled, debt_reminder_enabled, last_notified_on"
+    )
     .or("daily_reminder_enabled.eq.true,debt_reminder_enabled.eq.true");
 
   if (settingsError) {
     return NextResponse.json({ error: "db_error" }, { status: 500 });
   }
 
-  const targets = (settings ?? []).filter((s) => {
-    const t = timeToMinutes(s.notify_time);
-    return t >= slotStart && t < slotStart + SLOT_MINUTES;
-  });
+  // 通知時刻を過ぎていて、今日まだ通知判定をしていない利用者
+  const targets = (settings ?? []).filter(
+    (s) =>
+      timeToMinutes(s.notify_time) <= nowMinutes &&
+      s.last_notified_on !== today
+  );
 
   const weekStart = getCurrentWeekStartDate();
-  const today = getTodayDayOfWeek();
+  const todayDow = getTodayDayOfWeek();
   let sentCount = 0;
 
   for (const target of targets) {
@@ -96,7 +113,7 @@ export async function POST(request: Request) {
             "plan_id",
             plans.map((p) => p.id)
           )
-          .eq("day_of_week", today);
+          .eq("day_of_week", todayDow);
 
         const count = todayItems?.length ?? 0;
         if (count > 0) {
@@ -121,6 +138,12 @@ export async function POST(request: Request) {
         );
       }
     }
+
+    // 送る内容がない日も「判定済み」として記録し、同日の再判定を防ぐ
+    await admin
+      .from("notification_settings")
+      .update({ last_notified_on: today })
+      .eq("user_id", target.user_id);
 
     if (bodyLines.length === 0) continue;
 
