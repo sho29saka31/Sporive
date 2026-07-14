@@ -211,6 +211,28 @@ export interface Database {
         }>;
         Relationships: [];
       };
+      notification_logs: {
+        Row: {
+          id: string;
+          user_id: string;
+          title: string;
+          body: string;
+          sent_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          title: string;
+          body: string;
+          sent_at?: string;
+        };
+        Update: Partial<{
+          title: string;
+          body: string;
+          sent_at: string;
+        }>;
+        Relationships: [];
+      };
       debts: {
         Row: {
           id: string;

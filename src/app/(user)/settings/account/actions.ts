@@ -2,9 +2,10 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { isAuthWeakPasswordError } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { PASSWORD_HINT, validatePassword } from "@/lib/password";
+import { describeWeakPasswordError, validatePassword } from "@/lib/password";
 import { getOrigin } from "@/lib/origin";
 import type { GenderType, GoalType } from "@/types/database";
 
@@ -207,7 +208,8 @@ export async function changePassword(
 
   if (error) {
     if (error.code === "weak_password") {
-      return { error: PASSWORD_HINT };
+      const reasons = isAuthWeakPasswordError(error) ? error.reasons : undefined;
+      return { error: describeWeakPasswordError(reasons) };
     }
     if (error.code === "current_password_required") {
       // 既存パスワードありのアカウント。現在のパスワード入力欄を出して再試行させる。

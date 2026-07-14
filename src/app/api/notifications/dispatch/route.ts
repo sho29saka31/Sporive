@@ -152,20 +152,33 @@ export async function POST(request: Request) {
       .select("endpoint, p256dh, auth")
       .eq("user_id", target.user_id);
 
+    const body = bodyLines.join("\n");
+    let deliveredToUser = false;
+
     for (const sub of subscriptions ?? []) {
       const result = await sendPush(sub, {
         title: "Sporive",
-        body: bodyLines.join("\n"),
+        body,
         url: "/home",
       });
       if (result === "sent") {
         sentCount++;
+        deliveredToUser = true;
       } else if (result === "expired") {
         await admin
           .from("push_subscriptions")
           .delete()
           .eq("endpoint", sub.endpoint);
       }
+    }
+
+    // 履歴表示（/settings/notifications）用に、実際に届いた通知の内容を記録する
+    if (deliveredToUser) {
+      await admin.from("notification_logs").insert({
+        user_id: target.user_id,
+        title: "Sporive",
+        body,
+      });
     }
   }
 

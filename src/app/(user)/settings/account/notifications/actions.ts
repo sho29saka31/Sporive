@@ -45,6 +45,6 @@ export async function saveNotificationSettings(
     return { error: "通知設定の保存に失敗しました。" };
   }
 
-  revalidatePath("/settings/notifications");
+  revalidatePath("/settings/account/notifications");
   return { success: "通知設定を保存しました。" };
 }
