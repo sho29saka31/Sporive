@@ -53,7 +53,12 @@ export async function deleteAccount() {
   redirect("/login");
 }
 
-export type ActionState = { error?: string; success?: string } | null;
+export type ActionState = {
+  error?: string;
+  success?: string;
+  /** 現在のパスワード入力が必要な場合にtrue（既存パスワードありのアカウント） */
+  needsCurrentPassword?: boolean;
+} | null;
 
 const CURRENT_YEAR = new Date().getFullYear();
 const MIN_AGE = 13;
@@ -123,7 +128,7 @@ export async function updateProfile(
     return { error: "プロフィールの更新に失敗しました。" };
   }
 
-  revalidatePath("/settings/account");
+  revalidatePath("/settings/account/profile");
   return { success: "プロフィールを更新しました。" };
 }
 
@@ -143,7 +148,7 @@ export async function updateEmail(
     { email },
     {
       emailRedirectTo: `${await getOrigin()}/auth/callback?next=${encodeURIComponent(
-        "/settings/account?email_changed=1"
+        "/settings/account/security?email_changed=1"
       )}`,
     }
   );
@@ -160,12 +165,14 @@ export async function updateEmail(
 
 /**
  * パスワードの変更（未設定の場合は新規設定）。
- * 設定済みの場合は、公式ドキュメント記載の current_password オプション
- * （supabase-js v2.102.0+）を使い、updateUser() 1回で「現在のパスワードの検証＋変更」を
- * 行う。Supabaseのセキュアパスワード変更機能が有効でも、この方式なら
- * 再認証エラー（current_password_required）にならない。
- * エラーが発生した場合に成功扱いとして処理を進めると、実際にはパスワードが
- * 変更されないままユーザーには成功したように見えてしまうため、必ず失敗として扱う。
+ *
+ * アカウント種別（OAuthのみ／既存パスワードあり）を user_metadata では確実に判定できない
+ * （Supabaseダッシュボードやメールで作成したアカウントは password_set フラグが立たない）ため、
+ * 適応的に処理する：
+ *   1. まず current_password なしで updateUser を試す（OAuthのみのアカウントはこれで成功）
+ *   2. current_password_required が返ったら「既にパスワードあり」と判明するので、
+ *      needsCurrentPassword を返してUIに現在のパスワード入力欄を出させ、再送信時に検証する
+ * これにより、ダッシュボード作成アカウントでもサイト画面からパスワードを変更できる。
  */
 export async function changePassword(
   _prevState: ActionState,
@@ -192,15 +199,9 @@ export async function changePassword(
     redirect("/login");
   }
 
-  const hasPassword = user.user_metadata?.password_set === true;
-
-  if (hasPassword && !currentPassword) {
-    return { error: "現在のパスワードを入力してください。" };
-  }
-
   const { error } = await supabase.auth.updateUser({
     password: newPassword,
-    ...(hasPassword ? { current_password: currentPassword } : {}),
+    ...(currentPassword ? { current_password: currentPassword } : {}),
     data: { password_set: true },
   });
 
@@ -208,20 +209,22 @@ export async function changePassword(
     if (error.code === "weak_password") {
       return { error: PASSWORD_HINT };
     }
-    if (
-      error.code === "invalid_credentials" ||
-      error.message?.toLowerCase().includes("password")
-    ) {
-      if (hasPassword) {
-        return { error: "現在のパスワードが正しくありません。" };
-      }
-    }
     if (error.code === "current_password_required") {
-      // パスワード未設定（OAuthのみ）のアカウントで、ログインから時間が経っている場合に
-      // セキュアパスワード変更機能が要求する再認証。一度ログインし直せば解消する。
+      // 既存パスワードありのアカウント。現在のパスワード入力欄を出して再試行させる。
       return {
+        needsCurrentPassword: true,
         error:
-          "セキュリティ保護のため、ログインから時間が経つとこの操作はできません。一度ログアウトして再度ログインしてからお試しください。",
+          "このアカウントには既にパスワードが設定されています。現在のパスワードを入力して変更してください。",
+      };
+    }
+    if (
+      currentPassword &&
+      (error.code === "invalid_credentials" ||
+        error.message?.toLowerCase().includes("password"))
+    ) {
+      return {
+        needsCurrentPassword: true,
+        error: "現在のパスワードが正しくありません。",
       };
     }
     return {
@@ -229,8 +232,6 @@ export async function changePassword(
     };
   }
 
-  revalidatePath("/settings/account");
-  return {
-    success: hasPassword ? "パスワードを変更しました。" : "パスワードを設定しました。",
-  };
+  revalidatePath("/settings/account/security");
+  return { success: "パスワードを変更しました。" };
 }

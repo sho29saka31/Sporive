@@ -66,6 +66,7 @@ export default function FooterTabs() {
             <Link
               key={tab.href}
               href={tab.href}
+              prefetch={false}
               className={`flex flex-col items-center justify-center gap-0.5 text-[10px] font-medium transition-colors ${
                 active ? "text-navy-600" : "text-navy-300"
               }`}

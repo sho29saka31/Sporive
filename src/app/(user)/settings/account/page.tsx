@@ -1,73 +1,61 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
-import { signOut, signOutEverywhere } from "./actions";
-import ProfileEditForm from "@/components/settings/ProfileEditForm";
-import EmailEditForm from "@/components/settings/EmailEditForm";
-import PasswordChangeForm from "@/components/settings/PasswordChangeForm";
-import DeleteAccountButton from "@/components/settings/DeleteAccountButton";
+import { signOut } from "./actions";
 
 export const metadata: Metadata = { title: "アカウント設定" };
 
-/** アカウント設定：プロフィール・メールアドレスの編集とログアウト（requirements.md §4） */
-export default async function AccountSettingsPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ email_changed?: string }>;
-}) {
-  const { email_changed } = await searchParams;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("display_name, birth_year, goal, gender")
-    .eq("id", user!.id)
-    .maybeSingle();
+const MENU = [
+  {
+    href: "/settings/account/profile",
+    title: "プロフィール",
+    description: "表示名・生年・性別・目標",
+  },
+  {
+    href: "/settings/account/security",
+    title: "セキュリティ",
+    description: "メールアドレス・パスワード・セッション・アカウント削除",
+  },
+  {
+    href: "/settings/notifications",
+    title: "通知",
+    description: "当日予定通知・負債リマインダー",
+  },
+];
 
+/** アカウント設定のハブ。各設定ページへの入口（requirements.md §4） */
+export default function AccountSettingsPage() {
   return (
     <div className="py-6">
       <h1 className="text-xl font-bold">アカウント設定</h1>
 
-      {email_changed === "1" && (
-        <p className="mt-4 rounded-xl bg-accent-teal/10 p-3 text-xs text-accent-teal">
-          メールアドレスを変更しました。
-        </p>
-      )}
-
-      <div className="mt-4 rounded-xl bg-white p-6 shadow-sm">
-        <h2 className="text-sm font-bold text-navy-800">メールアドレス</h2>
-        <div className="mt-3">
-          <EmailEditForm currentEmail={user?.email ?? ""} />
-        </div>
+      <div className="mt-4 flex flex-col gap-3">
+        {MENU.map((item) => (
+          <Link
+            key={item.href}
+            href={item.href}
+            prefetch={false}
+            className="flex items-center justify-between rounded-xl bg-white p-4 shadow-sm transition-colors hover:bg-navy-50"
+          >
+            <div>
+              <p className="text-sm font-bold text-navy-800">{item.title}</p>
+              <p className="mt-0.5 text-xs text-navy-400">{item.description}</p>
+            </div>
+            <svg
+              className="h-4 w-4 shrink-0 text-navy-300"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
+          </Link>
+        ))}
       </div>
 
-      <div className="mt-4 rounded-xl bg-white p-6 shadow-sm">
-        <h2 className="text-sm font-bold text-navy-800">パスワード</h2>
-        <div className="mt-3">
-          <PasswordChangeForm
-            hasPassword={user?.user_metadata?.password_set === true}
-            email={user?.email ?? ""}
-          />
-        </div>
-      </div>
-
-      {profile && (
-        <div className="mt-4 rounded-xl bg-white p-6 shadow-sm">
-          <h2 className="text-sm font-bold text-navy-800">プロフィール</h2>
-          <div className="mt-3">
-            <ProfileEditForm
-              displayName={profile.display_name}
-              birthYear={profile.birth_year}
-              goal={profile.goal}
-              gender={profile.gender}
-            />
-          </div>
-        </div>
-      )}
-
-      <div className="mt-6 flex flex-col gap-3">
+      <div className="mt-6">
         <form action={signOut}>
           <button
             type="submit"
@@ -76,16 +64,8 @@ export default async function AccountSettingsPage({
             ログアウト
           </button>
         </form>
-        <form action={signOutEverywhere}>
-          <button
-            type="submit"
-            className="w-full rounded-lg border border-navy-200 px-4 py-3 text-sm font-medium text-navy-600 transition-colors hover:bg-navy-50"
-          >
-            全デバイスからログアウト
-          </button>
-        </form>
-        <DeleteAccountButton />
       </div>
+
       <p className="mt-6 text-center text-xs text-navy-300">
         <Link href="/terms" className="underline">
           利用規約
