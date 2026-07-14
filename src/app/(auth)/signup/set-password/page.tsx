@@ -6,13 +6,18 @@ import PasswordField from "@/components/auth/PasswordField";
 import { PASSWORD_HINT, validatePassword } from "@/lib/password";
 
 /**
- * OAuth登録後のパスワード設定画面（requirements.md §4）。
- * 同じメールアドレスに対してパスワードを設定し、以降メール＋パスワードでもログイン可能にする。
- * パスワード要件はSupabase側のPassword Requirements設定（英大文字・小文字・数字・記号必須）に合わせている。
+ * パスワード設定・再設定画面（requirements.md §4）。
+ * - OAuthのみで登録したアカウント：現在のパスワードなしで新規設定できる
+ * - すでにパスワードを持つアカウント（Supabaseダッシュボード作成・メール登録など）：
+ *   Supabaseのセキュアパスワード変更機能により current_password が必要になる。
+ *   最初の試行で current_password_required が返ったら、現在のパスワード入力欄を出して
+ *   再試行できるようにする（アカウント種別を事前に判定できないため適応的に対応）。
  */
 export default function SetPasswordPage() {
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [needsCurrent, setNeedsCurrent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isReset] = useState(
@@ -34,12 +39,19 @@ export default function SetPasswordPage() {
       setError("パスワードが一致しません。");
       return;
     }
+    if (needsCurrent && !currentPassword) {
+      setError("現在のパスワードを入力してください。");
+      return;
+    }
 
     setLoading(true);
     try {
       const supabase = createClient();
       const { error } = await supabase.auth.updateUser({
         password,
+        ...(needsCurrent && currentPassword
+          ? { current_password: currentPassword }
+          : {}),
         data: { password_set: true },
       });
 
@@ -47,14 +59,17 @@ export default function SetPasswordPage() {
         if (error.code === "weak_password") {
           setError(PASSWORD_HINT);
         } else if (error.code === "current_password_required") {
-          // このセッションでは再認証が必要なためパスワードを変更できなかった。
-          // ここでpassword_setフラグだけを立てて次へ進めると、入力された新しい
-          // パスワードが実際には保存されないまま「設定成功」として扱われてしまい、
-          // 後で本来のパスワードでログインできなくなる不具合につながるため、
-          // 必ず失敗として扱い、リンクの再送を案内する。
+          // このアカウントは既にパスワードを持っている。現在のパスワード入力欄を出して再試行させる。
+          setNeedsCurrent(true);
           setError(
-            "セキュリティ保護のため、この操作には再認証が必要です。お手数ですが「パスワードをお忘れですか？」から再度リンクを送信してお試しください。"
+            "このアカウントには既にパスワードが設定されています。現在のパスワードを入力して変更してください。"
           );
+        } else if (
+          needsCurrent &&
+          (error.code === "invalid_credentials" ||
+            error.message?.toLowerCase().includes("password"))
+        ) {
+          setError("現在のパスワードが正しくありません。");
         } else {
           setError("パスワードの設定に失敗しました。時間をおいて再度お試しください。");
         }
@@ -62,11 +77,9 @@ export default function SetPasswordPage() {
         return;
       }
 
-      // クライアントルーターのキャッシュ起因の遷移不具合を避けるため、
-      // 認証状態が変わった直後はフルページ遷移でmiddlewareを再評価させる。
-      // リセット経由の場合は既存アカウントのためオンボーディングを経由せずホームへ
-      // （プロフィール未登録であればmiddlewareが自動でオンボーディングへ誘導する）。
-      window.location.href = isReset ? "/home" : "/onboarding/profile";
+      // クライアントルーターのキャッシュ起因の遷移不具合を避けるため、フルページ遷移で
+      // middlewareを再評価させる。リセット/既存アカウントはホーム、新規はオンボーディングへ。
+      window.location.href = isReset || needsCurrent ? "/home" : "/onboarding/profile";
     } catch {
       setError("パスワードの設定に失敗しました。時間をおいて再度お試しください。");
       setLoading(false);
@@ -86,6 +99,14 @@ export default function SetPasswordPage() {
         </p>
       </div>
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+        {needsCurrent && (
+          <PasswordField
+            label="現在のパスワード"
+            value={currentPassword}
+            onChange={setCurrentPassword}
+            autoComplete="current-password"
+          />
+        )}
         <PasswordField
           label="新しいパスワード"
           value={password}
@@ -93,6 +114,7 @@ export default function SetPasswordPage() {
           autoComplete="new-password"
           minLength={8}
           hint={PASSWORD_HINT}
+          showStrength
         />
         <PasswordField
           label="パスワード（確認）"

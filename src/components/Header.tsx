@@ -8,12 +8,12 @@ export default function Header() {
   return (
     <header className="fixed inset-x-0 top-0 z-50 h-header bg-navy-700 text-white shadow-md">
       <div className="mx-auto flex h-full max-w-md items-center justify-between px-4">
-        <Link href="/home" className="text-lg font-bold tracking-wide">
+        <Link href="/home" prefetch={false} className="text-lg font-bold tracking-wide">
           Sporive
         </Link>
         <div className="flex items-center gap-1">
           <Link
-            href="/settings/notifications"
+            href="/settings/notifications" prefetch={false}
             aria-label="通知設定"
             className="flex h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-navy-600 active:bg-navy-500"
           >
@@ -31,7 +31,7 @@ export default function Header() {
             </svg>
           </Link>
           <Link
-            href="/settings/account"
+            href="/settings/account" prefetch={false}
             aria-label="アカウント設定"
             className="flex h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-navy-600 active:bg-navy-500"
           >

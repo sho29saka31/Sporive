@@ -6,17 +6,14 @@ import {
   type ActionState,
 } from "@/app/(user)/settings/account/actions";
 import PasswordField from "@/components/auth/PasswordField";
-import { PASSWORD_HINT } from "@/lib/password";
 import { createClient } from "@/lib/supabase/client";
 
-/** パスワードの変更（未設定の場合は新規設定）。requirements.md §4 */
-export default function PasswordChangeForm({
-  hasPassword,
-  email,
-}: {
-  hasPassword: boolean;
-  email: string;
-}) {
+/**
+ * パスワードの変更（未設定の場合は新規設定）。
+ * 既存パスワードありのアカウントでは、サーバーが needsCurrentPassword を返した時点で
+ * 現在のパスワード入力欄が表示され、再送信で変更できる（アカウント種別を事前判定しない）。
+ */
+export default function PasswordChangeForm({ email }: { email: string }) {
   const [state, formAction, isPending] = useActionState<ActionState, FormData>(
     changePassword,
     null
@@ -27,6 +24,8 @@ export default function PasswordChangeForm({
   const [resetSending, setResetSending] = useState(false);
   const [resetSent, setResetSent] = useState(false);
   const [resetError, setResetError] = useState<string | null>(null);
+
+  const needsCurrent = state?.needsCurrentPassword === true;
 
   async function handleSendReset() {
     setResetSending(true);
@@ -49,7 +48,7 @@ export default function PasswordChangeForm({
 
   return (
     <form action={formAction} className="flex flex-col gap-3">
-      {hasPassword && (
+      {needsCurrent && (
         <>
           <PasswordField
             name="current_password"
@@ -60,7 +59,7 @@ export default function PasswordChangeForm({
           />
           <div className="rounded-lg bg-navy-50 p-3">
             <p className="text-xs text-navy-500">
-              現在のパスワードが分からない、または正しく動作しない場合は、再設定メールを送信できます。
+              現在のパスワードが分からない場合は、再設定メールを送信できます。
             </p>
             {resetSent ? (
               <p className="mt-2 text-xs text-accent-teal">
@@ -89,7 +88,7 @@ export default function PasswordChangeForm({
         onChange={setNewPassword}
         autoComplete="new-password"
         minLength={8}
-        hint={PASSWORD_HINT}
+        showStrength
       />
       <PasswordField
         name="confirm_password"
@@ -103,8 +102,7 @@ export default function PasswordChangeForm({
       {state?.success && (
         <p className="text-xs text-accent-teal">
           {state.success}
-          {hasPassword &&
-            " 心当たりのない変更の場合は「全デバイスからログアウト」もご利用ください。"}
+          {" 心当たりのない変更の場合は「全デバイスからログアウト」もご利用ください。"}
         </p>
       )}
       <button
@@ -112,7 +110,7 @@ export default function PasswordChangeForm({
         disabled={isPending}
         className="rounded-lg border border-navy-200 px-4 py-3 text-sm font-medium text-navy-600 transition-colors hover:bg-navy-50 disabled:opacity-60"
       >
-        {isPending ? "変更中..." : hasPassword ? "パスワードを変更" : "パスワードを設定"}
+        {isPending ? "変更中..." : "パスワードを変更"}
       </button>
     </form>
   );
