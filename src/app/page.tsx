@@ -1,5 +1,205 @@
-import { redirect } from "next/navigation";
+import type { Metadata } from "next";
+import Link from "next/link";
 
-export default function RootPage() {
-  redirect("/home");
+export const metadata: Metadata = {
+  title: "Sporive — AIパーソナライズ・トレーニング計画アプリ",
+  description:
+    "Sporiveは、あなたの目標・年齢・体力に合わせてAIが週間トレーニング計画を提案するフィットネスPWAです。進捗記録、達成通知、Googleカレンダー連携で、無理なく続けられるトレーニング習慣をサポートします。",
+  alternates: { canonical: "https://sporive.vercel.app/" },
+};
+
+const FEATURES = [
+  {
+    title: "AIパーソナライズ計画",
+    description:
+      "目標（減量・増量・筋力向上・シニア向け維持）と生年・性別をもとに、AIが1週間分のトレーニング計画を自動で提案します。",
+  },
+  {
+    title: "進捗の記録とグラフ",
+    description:
+      "セット数・回数・重量・時間を記録し、回数や重量の推移をグラフで可視化。トレーニング頻度や連続達成日数も一目で確認できます。",
+  },
+  {
+    title: "リマインダー通知",
+    description:
+      "その日のトレーニング予定を指定した時刻にプッシュ通知でお知らせ。やり残しがあるときはリマインドで取り返しをサポートします。",
+  },
+  {
+    title: "Googleカレンダー連携",
+    description:
+      "カレンダーの予定を考慮してAIが無理のない日程を提案。確定した計画は自動でGoogleカレンダーに追加されます。",
+  },
+  {
+    title: "負債管理・ストリーク",
+    description:
+      "達成できなかった分を「負債」として翌日以降に補填。連続達成記録（ストリーク）でモチベーションを維持します。",
+  },
+  {
+    title: "運動強度の安全チェック",
+    description:
+      "年齢層に応じた推奨範囲をもとに、過度な重量・回数・急な負荷増加を自動でチェックし、無理のないトレーニングを促します。",
+  },
+];
+
+const STEPS = [
+  {
+    step: "1",
+    title: "Googleアカウントで登録",
+    description: "数タップで登録完了。目標と簡単なプロフィールを入力します。",
+  },
+  {
+    step: "2",
+    title: "AIが計画を提案",
+    description: "あなたに合った1週間分のトレーニング計画をAIが作成します。",
+  },
+  {
+    step: "3",
+    title: "記録して続ける",
+    description:
+      "実施した内容を記録し、通知と進捗グラフで習慣化をサポートします。",
+  },
+];
+
+/**
+ * 公開ランディングページ（トップページ）。
+ * サービスの機能紹介を掲載し、Google OAuth審査で求められるホームページとしても機能する。
+ * 未ログインでも閲覧可能（middlewareのPUBLIC_PATHSに"/"を含める）。PC/スマホ両対応。
+ */
+export default function LandingPage() {
+  return (
+    <div className="min-h-dvh bg-white text-navy-800">
+      {/* ヘッダー */}
+      <header className="border-b border-navy-100">
+        <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
+          <div className="flex items-center gap-2">
+            <svg
+              className="h-6 w-6 text-navy-700"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <rect x="5" y="2" width="14" height="20" rx="2" ry="2" />
+              <line x1="12" y1="18" x2="12.01" y2="18" />
+            </svg>
+            <span className="text-lg font-bold">Sporive</span>
+          </div>
+          <Link
+            href="/login"
+            className="rounded-lg bg-navy-700 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-navy-600"
+          >
+            ログイン / 新規登録
+          </Link>
+        </div>
+      </header>
+
+      {/* ヒーロー */}
+      <section className="bg-navy-800 text-white">
+        <div className="mx-auto max-w-5xl px-6 py-20 text-center">
+          <h1 className="text-3xl font-bold leading-tight sm:text-4xl">
+            AIがあなたに合わせて
+            <br className="sm:hidden" />
+            トレーニング計画を提案
+          </h1>
+          <p className="mx-auto mt-4 max-w-2xl leading-relaxed text-navy-100">
+            Sporive（スポライブ）は、目標・年齢・体力に合わせてAIが週間トレーニング計画を作成するフィットネスPWAです。
+            記録・通知・カレンダー連携で、無理なく続けられるトレーニング習慣をサポートします。
+          </p>
+          <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+            <Link
+              href="/signup"
+              className="w-full rounded-lg bg-accent-sky px-6 py-3 text-sm font-bold text-navy-900 transition-opacity hover:opacity-90 sm:w-auto"
+            >
+              無料で始める
+            </Link>
+            <Link
+              href="/login"
+              className="w-full rounded-lg border border-navy-100/40 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-navy-700 sm:w-auto"
+            >
+              ログイン
+            </Link>
+          </div>
+          <p className="mt-4 text-xs text-navy-200">
+            スマートフォンでの利用を推奨しています。
+          </p>
+        </div>
+      </section>
+
+      {/* 機能一覧 */}
+      <section className="mx-auto max-w-5xl px-6 py-16">
+        <h2 className="text-center text-2xl font-bold">主な機能</h2>
+        <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {FEATURES.map((feature) => (
+            <div
+              key={feature.title}
+              className="rounded-xl border border-navy-100 p-6 shadow-sm"
+            >
+              <h3 className="text-base font-bold text-navy-800">
+                {feature.title}
+              </h3>
+              <p className="mt-2 text-sm leading-relaxed text-navy-500">
+                {feature.description}
+              </p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* 使い方 */}
+      <section className="bg-navy-50">
+        <div className="mx-auto max-w-5xl px-6 py-16">
+          <h2 className="text-center text-2xl font-bold">使い方は3ステップ</h2>
+          <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-3">
+            {STEPS.map((step) => (
+              <div key={step.step} className="text-center">
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-navy-700 text-lg font-bold text-white">
+                  {step.step}
+                </div>
+                <h3 className="mt-4 text-base font-bold text-navy-800">
+                  {step.title}
+                </h3>
+                <p className="mt-2 text-sm leading-relaxed text-navy-500">
+                  {step.description}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* CTA */}
+      <section className="mx-auto max-w-5xl px-6 py-16 text-center">
+        <h2 className="text-2xl font-bold">今日からトレーニングを習慣に</h2>
+        <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-navy-500">
+          登録は無料です。Googleアカウントですぐに始められます。
+        </p>
+        <Link
+          href="/signup"
+          className="mt-6 inline-block rounded-lg bg-navy-700 px-8 py-3 text-sm font-bold text-white transition-colors hover:bg-navy-600"
+        >
+          無料で始める
+        </Link>
+      </section>
+
+      {/* フッター */}
+      <footer className="border-t border-navy-100">
+        <div className="mx-auto flex max-w-5xl flex-col items-center justify-between gap-4 px-6 py-8 text-xs text-navy-400 sm:flex-row">
+          <span>© {new Date().getFullYear()} Sporive</span>
+          <nav className="flex items-center gap-4">
+            <Link href="/terms" className="underline hover:text-navy-600">
+              利用規約
+            </Link>
+            <Link href="/privacy" className="underline hover:text-navy-600">
+              プライバシーポリシー
+            </Link>
+            <Link href="/login" className="underline hover:text-navy-600">
+              ログイン
+            </Link>
+          </nav>
+        </div>
+      </footer>
+    </div>
+  );
 }

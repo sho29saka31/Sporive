@@ -3,7 +3,9 @@ import { NextResponse, type NextRequest } from "next/server";
 import type { Database } from "@/types/database";
 
 const PUBLIC_PATHS = ["/login", "/signup", "/reset-password"];
-const STATIC_PATHS = ["/privacy", "/terms"];
+// 未ログインでも常に表示する静的ページ（トップの機能紹介・規約類）。
+// ログイン済みでもリダイレクトせずそのまま表示する（Google審査用の公開ページ）。
+const STATIC_PATHS = ["/", "/privacy", "/terms"];
 
 const MOBILE_PREVIEW_COOKIE = "force-mobile-preview";
 const MOBILE_PREVIEW_PARAM = "demo-mobile-admin";
