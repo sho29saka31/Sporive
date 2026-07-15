@@ -1,6 +1,18 @@
 {
   "version": 1,
   "skills": {
+    "google-analytics-admin-api-basics": {
+      "source": "google/skills",
+      "sourceType": "github",
+      "skillPath": "skills/analytics/google-analytics-admin-api-basics/SKILL.md",
+      "computedHash": "ca3512f79a59cd8a87bddb52cba9bae9d3f121bf8e95a7abe6c012787a090430"
+    },
+    "google-analytics-data-api-basics": {
+      "source": "google/skills",
+      "sourceType": "github",
+      "skillPath": "skills/analytics/google-analytics-data-api-basics/SKILL.md",
+      "computedHash": "a91d820458025bf613638eb2a9a4ef1e1173c9b82e65335d4849c789c1be678e"
+    },
     "supabase": {
       "source": "supabase/agent-skills",
       "sourceType": "github",
