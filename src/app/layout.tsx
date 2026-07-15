@@ -1,12 +1,12 @@
 import type { Metadata, Viewport } from "next";
 import { Noto_Sans_JP } from "next/font/google";
-import Script from "next/script";
+import { GoogleTagManager } from "@next/third-parties/google";
 import { Suspense } from "react";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
-import GoogleAnalyticsPageview from "@/components/GoogleAnalyticsPageview";
+import GtmPageview from "@/components/GtmPageview";
 import "./globals.css";
 
-const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
+const GTM_CONTAINER_ID = process.env.NEXT_PUBLIC_GTM_CONTAINER_ID;
 
 const notoSansJp = Noto_Sans_JP({
   variable: "--font-noto-sans-jp",
@@ -44,22 +44,20 @@ export default function RootLayout({
   return (
     <html lang="ja" className={`${notoSansJp.variable} h-full antialiased`}>
       <body className="min-h-full font-sans">
-        {GA_MEASUREMENT_ID && (
+        {GTM_CONTAINER_ID && (
           <>
-            <Script
-              src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
-              strategy="afterInteractive"
-            />
-            <Script id="gtag-init" strategy="afterInteractive">
-              {`
-                window.dataLayer = window.dataLayer || [];
-                function gtag(){dataLayer.push(arguments);}
-                gtag('js', new Date());
-                gtag('config', '${GA_MEASUREMENT_ID}', { send_page_view: false });
-              `}
-            </Script>
+            {/* JS無効時のフォールバック（Googleの標準スニペット通り、body直後に設置） */}
+            <noscript>
+              <iframe
+                src={`https://www.googletagmanager.com/ns.html?id=${GTM_CONTAINER_ID}`}
+                height="0"
+                width="0"
+                style={{ display: "none", visibility: "hidden" }}
+              />
+            </noscript>
+            <GoogleTagManager gtmId={GTM_CONTAINER_ID} />
             <Suspense fallback={null}>
-              <GoogleAnalyticsPageview measurementId={GA_MEASUREMENT_ID} />
+              <GtmPageview />
             </Suspense>
           </>
         )}
