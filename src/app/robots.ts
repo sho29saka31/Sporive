@@ -9,7 +9,7 @@ export default function robots(): MetadataRoute.Robots {
   return {
     rules: {
       userAgent: "*",
-      allow: ["/", "/terms", "/privacy"],
+      allow: ["/", "/terms", "/privacy", "/login", "/signup"],
       disallow: [
         "/home",
         "/schedule",
@@ -20,8 +20,7 @@ export default function robots(): MetadataRoute.Robots {
         "/admin",
         "/api",
         "/onboarding",
-        "/login",
-        "/signup",
+        "/signup/set-password",
         "/reset-password",
         "/auth",
       ],

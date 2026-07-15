@@ -2,7 +2,30 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import GoogleAuthButton from "@/components/auth/GoogleAuthButton";
 
-export const metadata: Metadata = { title: "新規登録" };
+const TITLE = "新規登録";
+const DESCRIPTION =
+  "Sporiveに登録して、あなたの目標・年齢・体力に合わせたAIトレーニング計画を始めましょう。";
+
+export const metadata: Metadata = {
+  title: TITLE,
+  description: DESCRIPTION,
+  alternates: { canonical: "https://sporive.vercel.app/signup" },
+  // ログイン不要でアクセスできる公開ページのため、検索経由で直接たどり着けるようにする
+  robots: { index: true, follow: true, noarchive: true },
+  openGraph: {
+    title: TITLE,
+    description: DESCRIPTION,
+    url: "https://sporive.vercel.app/signup",
+    siteName: "Sporive",
+    locale: "ja_JP",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: TITLE,
+    description: DESCRIPTION,
+  },
+};
 
 /**
  * アカウント作成（requirements.md §4）。
