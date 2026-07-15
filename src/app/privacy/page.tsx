@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 
-export const metadata: Metadata = { title: "プライバシーポリシー" };
+export const metadata: Metadata = {
+  title: "プライバシーポリシー",
+  robots: { index: true, follow: true },
+};
 
 const UPDATED_AT = "2026年7月7日";
 const CONTACT_EMAIL = "deskside31@gmail.com";

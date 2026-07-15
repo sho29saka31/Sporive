@@ -30,6 +30,11 @@ export const metadata: Metadata = {
   verification: {
     google: "Oi-fSlcoKbljQWcxJniM5N46R0yIDSow6zPFkx3eemE",
   },
+  // 既定は非公開扱い（noindex）。公開ページ（/, /terms, /privacy）は各ページのmetadataで上書きする
+  robots: {
+    index: false,
+    follow: false,
+  },
 };
 
 export const viewport: Viewport = {

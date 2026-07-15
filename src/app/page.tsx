@@ -6,6 +6,7 @@ export const metadata: Metadata = {
   description:
     "Sporiveは、あなたの目標・年齢・体力に合わせてAIが週間トレーニング計画を提案するフィットネスPWAです。進捗記録、達成通知、Googleカレンダー連携で、無理なく続けられるトレーニング習慣をサポートします。",
   alternates: { canonical: "https://sporive.vercel.app/" },
+  robots: { index: true, follow: true },
 };
 
 const FEATURES = [
