@@ -1,7 +1,12 @@
 import type { Metadata, Viewport } from "next";
 import { Noto_Sans_JP } from "next/font/google";
+import Script from "next/script";
+import { Suspense } from "react";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
+import GoogleAnalyticsPageview from "@/components/GoogleAnalyticsPageview";
 import "./globals.css";
+
+const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
 
 const notoSansJp = Noto_Sans_JP({
   variable: "--font-noto-sans-jp",
@@ -39,6 +44,25 @@ export default function RootLayout({
   return (
     <html lang="ja" className={`${notoSansJp.variable} h-full antialiased`}>
       <body className="min-h-full font-sans">
+        {GA_MEASUREMENT_ID && (
+          <>
+            <Script
+              src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
+              strategy="afterInteractive"
+            />
+            <Script id="gtag-init" strategy="afterInteractive">
+              {`
+                window.dataLayer = window.dataLayer || [];
+                function gtag(){dataLayer.push(arguments);}
+                gtag('js', new Date());
+                gtag('config', '${GA_MEASUREMENT_ID}', { send_page_view: false });
+              `}
+            </Script>
+            <Suspense fallback={null}>
+              <GoogleAnalyticsPageview measurementId={GA_MEASUREMENT_ID} />
+            </Suspense>
+          </>
+        )}
         <ServiceWorkerRegister />
         {children}
       </body>

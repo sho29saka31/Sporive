@@ -16,9 +16,9 @@ const MENU = [
     description: "メールアドレス・パスワード・セッション・アカウント削除",
   },
   {
-    href: "/settings/notifications",
+    href: "/settings/account/notifications",
     title: "通知",
-    description: "当日予定通知・負債リマインダー",
+    description: "プッシュ通知の購読・当日予定通知・負債リマインダー",
   },
 ];
 
