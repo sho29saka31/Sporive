@@ -5,7 +5,30 @@ import PasswordLoginForm from "@/components/auth/PasswordLoginForm";
 import AuthRecoveryHandler from "@/components/auth/AuthRecoveryHandler";
 import MagicLinkForm from "@/components/auth/MagicLinkForm";
 
-export const metadata: Metadata = { title: "ログイン" };
+const TITLE = "ログイン";
+const DESCRIPTION =
+  "Sporiveにログインして、AIパーソナライズトレーニング計画を確認・記録しましょう。";
+
+export const metadata: Metadata = {
+  title: TITLE,
+  description: DESCRIPTION,
+  alternates: { canonical: "https://sporive.vercel.app/login" },
+  // ログイン不要でアクセスできる公開ページのため、検索経由で直接たどり着けるようにする
+  robots: { index: true, follow: true, noarchive: true },
+  openGraph: {
+    title: TITLE,
+    description: DESCRIPTION,
+    url: "https://sporive.vercel.app/login",
+    siteName: "Sporive",
+    locale: "ja_JP",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: TITLE,
+    description: DESCRIPTION,
+  },
+};
 
 /**
  * ログイン（requirements.md §4）：Google OAuth またはメール＋パスワード。
