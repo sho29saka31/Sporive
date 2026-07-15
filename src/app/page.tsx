@@ -17,13 +17,11 @@ export const metadata: Metadata = {
     siteName: "Sporive",
     locale: "ja_JP",
     type: "website",
-    images: [{ url: "/icons/icon-512.png", width: 512, height: 512, alt: "Sporive" }],
   },
   twitter: {
     card: "summary_large_image",
     title: TITLE,
     description: DESCRIPTION,
-    images: ["/icons/icon-512.png"],
   },
 };
 
@@ -79,6 +77,21 @@ const STEPS = [
   },
 ];
 
+const STRUCTURED_DATA = {
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  name: "Sporive",
+  applicationCategory: "HealthApplication",
+  operatingSystem: "Web",
+  description: DESCRIPTION,
+  url: "https://sporive.vercel.app/",
+  offers: {
+    "@type": "Offer",
+    price: "0",
+    priceCurrency: "JPY",
+  },
+};
+
 /**
  * 公開ランディングページ（トップページ）。
  * サービスの機能紹介を掲載し、Google OAuth審査で求められるホームページとしても機能する。
@@ -87,6 +100,10 @@ const STEPS = [
 export default function LandingPage() {
   return (
     <div className="min-h-dvh bg-white text-navy-800">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(STRUCTURED_DATA) }}
+      />
       {/* ヘッダー */}
       <header className="border-b border-navy-100">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">

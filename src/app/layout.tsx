@@ -22,11 +22,26 @@ export const metadata: Metadata = {
   },
   description:
     "AIによるパーソナライズされたトレーニング計画を提案するフィットネスPWA",
+  applicationName: "Sporive",
+  keywords: [
+    "トレーニング",
+    "フィットネス",
+    "AI",
+    "パーソナライズ",
+    "ワークアウト管理",
+    "運動記録",
+    "PWA",
+  ],
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
     title: "Sporive",
+  },
+  // トレーニング記録の重量・回数等の数字が、iOS Safari等で電話番号として
+  // 自動リンク化されるのを防ぐ
+  formatDetection: {
+    telephone: false,
   },
   verification: {
     google: "Oi-fSlcoKbljQWcxJniM5N46R0yIDSow6zPFkx3eemE",

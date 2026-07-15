@@ -15,13 +15,11 @@ export const metadata: Metadata = {
     siteName: "Sporive",
     locale: "ja_JP",
     type: "website",
-    images: [{ url: "/icons/icon-512.png", width: 512, height: 512, alt: "Sporive" }],
   },
   twitter: {
     card: "summary_large_image",
     title: TITLE,
     description: DESCRIPTION,
-    images: ["/icons/icon-512.png"],
   },
 };
 
