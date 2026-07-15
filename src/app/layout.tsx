@@ -1,7 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import { Noto_Sans_JP } from "next/font/google";
 import Script from "next/script";
+import { Suspense } from "react";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
+import GoogleAnalyticsPageview from "@/components/GoogleAnalyticsPageview";
 import "./globals.css";
 
 const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
@@ -53,9 +55,12 @@ export default function RootLayout({
                 window.dataLayer = window.dataLayer || [];
                 function gtag(){dataLayer.push(arguments);}
                 gtag('js', new Date());
-                gtag('config', '${GA_MEASUREMENT_ID}');
+                gtag('config', '${GA_MEASUREMENT_ID}', { send_page_view: false });
               `}
             </Script>
+            <Suspense fallback={null}>
+              <GoogleAnalyticsPageview measurementId={GA_MEASUREMENT_ID} />
+            </Suspense>
           </>
         )}
         <ServiceWorkerRegister />
