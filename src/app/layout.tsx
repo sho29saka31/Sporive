@@ -15,20 +15,44 @@ const notoSansJp = Noto_Sans_JP({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://sporive.vercel.app"),
   title: {
     default: "Sporive",
     template: "%s | Sporive",
   },
   description:
     "AIによるパーソナライズされたトレーニング計画を提案するフィットネスPWA",
+  applicationName: "Sporive",
+  keywords: [
+    "トレーニング",
+    "フィットネス",
+    "AI",
+    "パーソナライズ",
+    "ワークアウト管理",
+    "運動記録",
+    "PWA",
+  ],
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
     title: "Sporive",
   },
+  // トレーニング記録の重量・回数等の数字が、iOS Safari等で電話番号として
+  // 自動リンク化されるのを防ぐ
+  formatDetection: {
+    telephone: false,
+  },
   verification: {
     google: "Oi-fSlcoKbljQWcxJniM5N46R0yIDSow6zPFkx3eemE",
+  },
+  // 既定は非公開扱い（noindex）。公開ページ（/, /terms, /privacy）は各ページのmetadataで上書きする。
+  // noarchive/nosnippetはnoindexなら実質no-opだが、robots.txtと同様の二重対策として明示する
+  robots: {
+    index: false,
+    follow: false,
+    nosnippet: true,
+    noarchive: true,
   },
 };
 
