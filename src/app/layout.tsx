@@ -27,6 +27,9 @@ export const metadata: Metadata = {
     statusBarStyle: "default",
     title: "Sporive",
   },
+  verification: {
+    google: "Oi-fSlcoKbljQWcxJniM5N46R0yIDSow6zPFkx3eemE",
+  },
 };
 
 export const viewport: Viewport = {
