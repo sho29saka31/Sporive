@@ -14,7 +14,7 @@ export default function Header() {
         <div className="flex items-center gap-1">
           <Link
             href="/settings/notifications" prefetch={false}
-            aria-label="通知設定"
+            aria-label="通知履歴"
             className="flex h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-navy-600 active:bg-navy-500"
           >
             <svg

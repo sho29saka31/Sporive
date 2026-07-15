@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { isAuthWeakPasswordError } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import PasswordField from "@/components/auth/PasswordField";
-import { PASSWORD_HINT, validatePassword } from "@/lib/password";
+import { PASSWORD_HINT, describeWeakPasswordError, validatePassword } from "@/lib/password";
 
 /**
  * パスワード設定・再設定画面（requirements.md §4）。
@@ -25,6 +26,14 @@ export default function SetPasswordPage() {
       typeof window !== "undefined" &&
       new URLSearchParams(window.location.search).get("reason") === "reset"
   );
+  const [email, setEmail] = useState("");
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user?.email) setEmail(data.user.email);
+    });
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -57,7 +66,8 @@ export default function SetPasswordPage() {
 
       if (error) {
         if (error.code === "weak_password") {
-          setError(PASSWORD_HINT);
+          const reasons = isAuthWeakPasswordError(error) ? error.reasons : undefined;
+          setError(describeWeakPasswordError(reasons));
         } else if (error.code === "current_password_required") {
           // このアカウントは既にパスワードを持っている。現在のパスワード入力欄を出して再試行させる。
           setNeedsCurrent(true);
@@ -99,6 +109,16 @@ export default function SetPasswordPage() {
         </p>
       </div>
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+        {/* ブラウザの自動入力がパスワード欄を誤検出しないよう、ユーザー名欄を隠しで用意する
+            https://goo.gl/9p2vKg */}
+        <input
+          type="text"
+          name="username"
+          autoComplete="username"
+          value={email}
+          readOnly
+          hidden
+        />
         {needsCurrent && (
           <PasswordField
             label="現在のパスワード"
@@ -123,6 +143,9 @@ export default function SetPasswordPage() {
           autoComplete="new-password"
           minLength={8}
         />
+        {confirm.length > 0 && confirm !== password && (
+          <p className="text-xs text-accent-coral">パスワードが一致しません。</p>
+        )}
         {error && <p className="text-xs text-accent-coral">{error}</p>}
         <button
           type="submit"

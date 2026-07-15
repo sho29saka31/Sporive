@@ -41,6 +41,20 @@ export function validatePassword(password: string): string | null {
   return null;
 }
 
+/**
+ * Supabaseの weak_password エラーを reasons に応じたメッセージに変換する。
+ * reasons に "pwned" が含まれる場合、文字種の条件はすべて満たしていても
+ * 「漏えいパスワードデータベースに一致した」ことが理由であり、文字種不足を示す
+ * PASSWORD_HINT を出すと利用者に誤解を与えるため区別する。
+ * https://supabase.com/docs/guides/auth/password-security
+ */
+export function describeWeakPasswordError(reasons?: readonly string[] | null): string {
+  if (reasons?.includes("pwned")) {
+    return "このパスワードは過去の情報漏えいで確認されているため使用できません。別のパスワードをお試しください。";
+  }
+  return PASSWORD_HINT;
+}
+
 export type PasswordStrength = {
   /** 0=空 / 1=弱 / 2=中 / 3=強 */
   score: 0 | 1 | 2 | 3;

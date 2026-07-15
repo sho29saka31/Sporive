@@ -11,8 +11,8 @@ const MENU_ITEMS = [
   },
   {
     href: "/settings/notifications",
-    title: "通知設定",
-    description: "当日予定通知・負債リマインダー",
+    title: "通知履歴",
+    description: "送信された通知の内容を確認",
   },
   {
     href: "/settings/account",

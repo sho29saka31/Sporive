@@ -4,7 +4,7 @@ import { useActionState } from "react";
 import {
   saveNotificationSettings,
   type NotificationActionState,
-} from "@/app/(user)/settings/notifications/actions";
+} from "@/app/(user)/settings/account/notifications/actions";
 
 /** 当日予定通知・負債リマインダーのON/OFFと通知時刻の設定フォーム */
 export default function NotificationSettingsForm({

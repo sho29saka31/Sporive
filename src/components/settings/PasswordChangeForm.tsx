@@ -48,6 +48,9 @@ export default function PasswordChangeForm({ email }: { email: string }) {
 
   return (
     <form action={formAction} className="flex flex-col gap-3">
+      {/* ブラウザの自動入力がパスワード欄を誤検出しないよう、ユーザー名欄を隠しで用意する
+          https://goo.gl/9p2vKg */}
+      <input type="text" name="username" autoComplete="username" value={email} readOnly hidden />
       {needsCurrent && (
         <>
           <PasswordField
@@ -98,6 +101,9 @@ export default function PasswordChangeForm({ email }: { email: string }) {
         autoComplete="new-password"
         minLength={8}
       />
+      {confirmPassword.length > 0 && confirmPassword !== newPassword && (
+        <p className="text-xs text-accent-coral">パスワードが一致しません。</p>
+      )}
       {state?.error && <p className="text-xs text-accent-coral">{state.error}</p>}
       {state?.success && (
         <p className="text-xs text-accent-teal">
