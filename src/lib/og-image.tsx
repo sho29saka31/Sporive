@@ -1,3 +1,10 @@
+import { readFileSync } from "fs";
+import { join } from "path";
+
+const ICON_DATA_URL = `data:image/png;base64,${readFileSync(
+  join(process.cwd(), "public/icons/icon-512.png")
+).toString("base64")}`;
+
 /** OGP画像（opengraph-image.tsx）で共有するJSX生成ヘルパー */
 export function renderOgImageContent(subtitle: string) {
   return (
@@ -15,22 +22,14 @@ export function renderOgImageContent(subtitle: string) {
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
-        <div
-          style={{
-            display: "flex",
-            width: 96,
-            height: 96,
-            borderRadius: 24,
-            backgroundColor: "#38bdf8",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: 56,
-            fontWeight: 700,
-            color: "#132338",
-          }}
-        >
-          S
-        </div>
+        {/* eslint-disable-next-line @next/next/no-img-element -- ImageResponse(satori)はnext/imageを使えないため通常のimgが必要 */}
+        <img
+          src={ICON_DATA_URL}
+          width={96}
+          height={96}
+          style={{ borderRadius: 24 }}
+          alt=""
+        />
         <div style={{ display: "flex", fontSize: 88, fontWeight: 700 }}>
           Sporive
         </div>
