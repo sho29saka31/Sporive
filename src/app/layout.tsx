@@ -15,6 +15,7 @@ const notoSansJp = Noto_Sans_JP({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://sporive.vercel.app"),
   title: {
     default: "Sporive",
     template: "%s | Sporive",

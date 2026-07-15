@@ -1,12 +1,30 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+const TITLE = "Sporive — AIパーソナライズ・トレーニング計画アプリ";
+const DESCRIPTION =
+  "Sporiveは、あなたの目標・年齢・体力に合わせてAIが週間トレーニング計画を提案するフィットネスPWAです。進捗記録、達成通知、Googleカレンダー連携で、無理なく続けられるトレーニング習慣をサポートします。";
+
 export const metadata: Metadata = {
-  title: "Sporive — AIパーソナライズ・トレーニング計画アプリ",
-  description:
-    "Sporiveは、あなたの目標・年齢・体力に合わせてAIが週間トレーニング計画を提案するフィットネスPWAです。進捗記録、達成通知、Googleカレンダー連携で、無理なく続けられるトレーニング習慣をサポートします。",
+  title: TITLE,
+  description: DESCRIPTION,
   alternates: { canonical: "https://sporive.vercel.app/" },
   robots: { index: true, follow: true, noarchive: true },
+  openGraph: {
+    title: TITLE,
+    description: DESCRIPTION,
+    url: "https://sporive.vercel.app/",
+    siteName: "Sporive",
+    locale: "ja_JP",
+    type: "website",
+    images: [{ url: "/icons/icon-512.png", width: 512, height: 512, alt: "Sporive" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: TITLE,
+    description: DESCRIPTION,
+    images: ["/icons/icon-512.png"],
+  },
 };
 
 const FEATURES = [
