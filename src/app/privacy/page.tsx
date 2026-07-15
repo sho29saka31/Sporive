@@ -1,6 +1,27 @@
 import type { Metadata } from "next";
 
-export const metadata: Metadata = { title: "プライバシーポリシー" };
+const TITLE = "プライバシーポリシー";
+const DESCRIPTION = "Sporiveのプライバシーポリシーです。";
+
+export const metadata: Metadata = {
+  title: TITLE,
+  description: DESCRIPTION,
+  alternates: { canonical: "https://sporive.vercel.app/privacy" },
+  robots: { index: true, follow: true, noarchive: true },
+  openGraph: {
+    title: TITLE,
+    description: DESCRIPTION,
+    url: "https://sporive.vercel.app/privacy",
+    siteName: "Sporive",
+    locale: "ja_JP",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: TITLE,
+    description: DESCRIPTION,
+  },
+};
 
 const UPDATED_AT = "2026年7月7日";
 const CONTACT_EMAIL = "deskside31@gmail.com";
