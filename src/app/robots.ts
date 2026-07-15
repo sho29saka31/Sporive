@@ -26,5 +26,6 @@ export default function robots(): MetadataRoute.Robots {
       ],
     },
     host: "https://sporive.vercel.app",
+    sitemap: "https://sporive.vercel.app/sitemap.xml",
   };
 }
