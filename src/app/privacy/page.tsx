@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "プライバシーポリシー",
-  robots: { index: true, follow: true },
+  robots: { index: true, follow: true, noarchive: true },
 };
 
 const UPDATED_AT = "2026年7月7日";

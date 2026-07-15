@@ -30,10 +30,13 @@ export const metadata: Metadata = {
   verification: {
     google: "Oi-fSlcoKbljQWcxJniM5N46R0yIDSow6zPFkx3eemE",
   },
-  // 既定は非公開扱い（noindex）。公開ページ（/, /terms, /privacy）は各ページのmetadataで上書きする
+  // 既定は非公開扱い（noindex）。公開ページ（/, /terms, /privacy）は各ページのmetadataで上書きする。
+  // noarchive/nosnippetはnoindexなら実質no-opだが、robots.txtと同様の二重対策として明示する
   robots: {
     index: false,
     follow: false,
+    nosnippet: true,
+    noarchive: true,
   },
 };
 
