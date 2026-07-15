@@ -2,7 +2,12 @@
 
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect } from "react";
-import { sendGTMEvent } from "@next/third-parties/google";
+
+declare global {
+  interface Window {
+    dataLayer?: Record<string, unknown>[];
+  }
+}
 
 /**
  * App RouterのSPA遷移はページ全体を再読み込みしないため、GTMの標準的な
@@ -16,8 +21,9 @@ export default function GtmPageview() {
   const searchParams = useSearchParams();
 
   useEffect(() => {
+    window.dataLayer = window.dataLayer || [];
     const query = searchParams.toString();
-    sendGTMEvent({
+    window.dataLayer.push({
       event: "page_view",
       page_path: query ? `${pathname}?${query}` : pathname,
     });

@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from "next";
 import { Noto_Sans_JP } from "next/font/google";
-import { GoogleTagManager } from "@next/third-parties/google";
 import { Suspense } from "react";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 import GtmPageview from "@/components/GtmPageview";
@@ -46,6 +45,26 @@ export default function RootLayout({
       <body className="min-h-full font-sans">
         {GTM_CONTAINER_ID && (
           <>
+            {/*
+              App Routerのroot layoutに手動で<head>を追加しても、Next.jsの
+              メタデータ生成が上書きしてしまい初期HTMLに反映されない。
+              また next/script はstrategyに関わらずハイドレーション後に
+              クライアント側でDOM挿入されるケースがあり、いずれもSearch Consoleの
+              「Google タグ マネージャー」による所有権確認が
+              「スニペットが正しい場所に配置されていない」で失敗する原因になる。
+              <body>直下に生のscriptタグとして出力すれば、Next.jsの
+              読み込み戦略に関係なく必ず初期HTMLに含まれる。
+            */}
+            {/* eslint-disable-next-line @next/next/next-script-for-ga -- 上記コメントの通り意図的 */}
+            <script
+              dangerouslySetInnerHTML={{
+                __html: `(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+                  new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+                  j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+                  'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+                  })(window,document,'script','dataLayer','${GTM_CONTAINER_ID}');`,
+              }}
+            />
             {/* JS無効時のフォールバック（Googleの標準スニペット通り、body直後に設置） */}
             <noscript>
               <iframe
@@ -55,7 +74,6 @@ export default function RootLayout({
                 style={{ display: "none", visibility: "hidden" }}
               />
             </noscript>
-            <GoogleTagManager gtmId={GTM_CONTAINER_ID} />
             <Suspense fallback={null}>
               <GtmPageview />
             </Suspense>
