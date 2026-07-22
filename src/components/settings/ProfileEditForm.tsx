@@ -6,12 +6,7 @@ import { updateProfile, type ActionState } from "@/app/(user)/settings/account/a
 const CURRENT_YEAR = new Date().getFullYear();
 const MIN_AGE = 13;
 
-const GOALS = [
-  { value: "lose_weight", label: "減量" },
-  { value: "gain_muscle", label: "増量" },
-  { value: "strength", label: "筋力向上" },
-  { value: "senior_maintenance", label: "筋力維持（シニア向け）" },
-];
+const GOAL_MAX_LENGTH = 500;
 
 const GENDERS = [
   { value: "", label: "未設定" },
@@ -99,19 +94,18 @@ export default function ProfileEditForm({
         <label htmlFor="goal" className="text-xs font-medium text-navy-500">
           目標
         </label>
-        <select
+        <textarea
           id="goal"
           name="goal"
           required
+          rows={4}
+          maxLength={GOAL_MAX_LENGTH}
           defaultValue={goal}
-          className="mt-1 w-full rounded-lg border border-navy-200 bg-white px-3 py-2 text-sm focus:border-navy-500 focus:outline-none"
-        >
-          {GOALS.map((g) => (
-            <option key={g.value} value={g.value}>
-              {g.label}
-            </option>
-          ))}
-        </select>
+          className="mt-1 w-full rounded-lg border border-navy-200 px-3 py-2 text-sm focus:border-navy-500 focus:outline-none"
+        />
+        <p className="mt-1 text-[10px] text-navy-300">
+          大きくしたい部位や重視したいことなど、具体的な要望があれば自由に書いてください。AIが内容を整理してトレーニング提案に活用します。
+        </p>
       </div>
       {state?.error && (
         <p className="text-xs text-accent-coral">{state.error}</p>

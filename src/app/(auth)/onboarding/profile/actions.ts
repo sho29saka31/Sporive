@@ -2,21 +2,13 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import type { GenderType, GoalType } from "@/types/database";
+import { summarizeGoal } from "@/lib/gemini";
+import type { GenderType } from "@/types/database";
 
 const CURRENT_YEAR = new Date().getFullYear();
 const MIN_AGE = 13;
-const GOAL_TYPES: readonly GoalType[] = [
-  "lose_weight",
-  "gain_muscle",
-  "strength",
-  "senior_maintenance",
-];
+const GOAL_MAX_LENGTH = 500;
 const GENDER_TYPES: readonly GenderType[] = ["male", "female", "other"];
-
-function isGoalType(value: string): value is GoalType {
-  return (GOAL_TYPES as readonly string[]).includes(value);
-}
 
 function isGenderType(value: string): value is GenderType {
   return (GENDER_TYPES as readonly string[]).includes(value);
@@ -25,7 +17,7 @@ function isGenderType(value: string): value is GenderType {
 export async function createProfile(formData: FormData) {
   const displayName = String(formData.get("display_name") ?? "").trim();
   const birthYear = Number(formData.get("birth_year"));
-  const goal = String(formData.get("goal") ?? "");
+  const goalInput = String(formData.get("goal") ?? "").trim();
   const genderInput = String(formData.get("gender") ?? "");
 
   if (
@@ -33,7 +25,8 @@ export async function createProfile(formData: FormData) {
     !Number.isInteger(birthYear) ||
     birthYear < CURRENT_YEAR - 100 ||
     birthYear > CURRENT_YEAR - MIN_AGE ||
-    !isGoalType(goal) ||
+    !goalInput ||
+    goalInput.length > GOAL_MAX_LENGTH ||
     (genderInput && !isGenderType(genderInput))
   ) {
     throw new Error("入力内容を確認してください。");
@@ -46,6 +39,15 @@ export async function createProfile(formData: FormData) {
 
   if (!user) {
     redirect("/login");
+  }
+
+  // Gemini APIで要望を簡潔な文章に整形する。API障害時も登録自体は止めず、
+  // 入力された文章をそのまま保存してフォールバックする。
+  let goal = goalInput;
+  try {
+    goal = await summarizeGoal(goalInput);
+  } catch (error) {
+    console.error("Gemini goal summarization failed", error);
   }
 
   const { error } = await supabase.from("profiles").insert({
