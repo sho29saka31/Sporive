@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/server";
 import { isSmartphone } from "@/lib/device";
 
@@ -56,7 +57,7 @@ export default async function AdminLayout({
       <header className="border-b border-navy-100 bg-white">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <div className="flex items-center gap-3">
-            <span className="text-lg font-bold text-navy-800">Sporive</span>
+            <Image src="/logo-wordmark.png" alt="Sporive" width={96} height={40} priority />
             <span className="rounded-full bg-navy-700 px-2 py-0.5 text-xs font-medium text-white">
               管理者
             </span>
