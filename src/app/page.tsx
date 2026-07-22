@@ -260,9 +260,9 @@ export default async function LandingPage() {
           <Image
             src="/logo-horizontal.png"
             alt="Sporive"
-            width={160}
-            height={57}
-            className="mx-auto h-auto w-40"
+            width={280}
+            height={99}
+            className="mx-auto h-auto w-64 sm:w-72"
           />
         </div>
         <div className="mx-auto flex max-w-5xl flex-col items-center justify-between gap-4 px-6 py-8 text-xs text-navy-400 sm:flex-row">
