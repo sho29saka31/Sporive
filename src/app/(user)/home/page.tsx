@@ -40,40 +40,53 @@ export default async function HomePage() {
       .order("missed_on", { ascending: true }),
   ]);
 
-  const { data: todayItems } = plan
-    ? await supabase
-        .from("plan_items")
-        .select("id, exercise_name, sets, reps, weight_kg, duration_min")
-        .eq("plan_id", plan.id)
-        .eq("day_of_week", todayDayOfWeek)
-        .order("sort_order")
-    : { data: null };
+  // 「今日の計画項目→実績ログ」の連鎖と「負債の種目名」の連鎖は互いに依存しないため
+  // 並列で取得する（読み込み速度対策）
+  const [{ todayItems, todayLogs }, { debtItems }] = await Promise.all([
+    (async () => {
+      const { data: todayItems } = plan
+        ? await supabase
+            .from("plan_items")
+            .select("id, exercise_name, sets, reps, weight_kg, duration_min")
+            .eq("plan_id", plan.id)
+            .eq("day_of_week", todayDayOfWeek)
+            .order("sort_order")
+        : { data: null };
 
-  const planItemIds = (todayItems ?? []).map((item) => item.id);
-  const { data: todayLogs } =
-    planItemIds.length > 0
-      ? await supabase
-          .from("workout_logs")
-          .select("plan_item_id, sets_done, reps_done, weight_kg, duration_min")
-          .eq("user_id", user!.id)
-          .eq("performed_on", today)
-          .in("plan_item_id", planItemIds)
-      : { data: null };
+      const planItemIds = (todayItems ?? []).map((item) => item.id);
+      const { data: todayLogs } =
+        planItemIds.length > 0
+          ? await supabase
+              .from("workout_logs")
+              .select(
+                "plan_item_id, sets_done, reps_done, weight_kg, duration_min"
+              )
+              .eq("user_id", user!.id)
+              .eq("performed_on", today)
+              .in("plan_item_id", planItemIds)
+          : { data: null };
+
+      return { todayItems, todayLogs };
+    })(),
+    (async () => {
+      const debtItemIds = Array.from(
+        new Set((debtRows ?? []).map((d) => d.plan_item_id).filter(Boolean))
+      ) as string[];
+      const { data: debtItems } =
+        debtItemIds.length > 0
+          ? await supabase
+              .from("plan_items")
+              .select("id, exercise_name")
+              .in("id", debtItemIds)
+          : { data: null };
+      return { debtItems };
+    })(),
+  ]);
 
   const logsByPlanItemId = new Map(
     (todayLogs ?? []).map((log) => [log.plan_item_id, log])
   );
 
-  const debtItemIds = Array.from(
-    new Set((debtRows ?? []).map((d) => d.plan_item_id).filter(Boolean))
-  ) as string[];
-  const { data: debtItems } =
-    debtItemIds.length > 0
-      ? await supabase
-          .from("plan_items")
-          .select("id, exercise_name")
-          .in("id", debtItemIds)
-      : { data: null };
   const debtNameById = new Map(
     (debtItems ?? []).map((item) => [item.id, item.exercise_name])
   );

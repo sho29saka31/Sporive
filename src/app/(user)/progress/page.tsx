@@ -20,20 +20,22 @@ export default async function ProgressPage() {
 
   const since = daysAgo(30);
 
-  const { data: streak } = await supabase
-    .from("streaks")
-    .select("current_streak, longest_streak")
-    .eq("user_id", user!.id)
-    .maybeSingle();
-
-  const { data: logs } = await supabase
-    .from("workout_logs")
-    .select(
-      "id, plan_item_id, performed_on, sets_done, reps_done, weight_kg, duration_min"
-    )
-    .eq("user_id", user!.id)
-    .gte("performed_on", since)
-    .order("performed_on", { ascending: false });
+  // streakとlogsは互いに依存しないため並列で取得する（読み込み速度対策）
+  const [{ data: streak }, { data: logs }] = await Promise.all([
+    supabase
+      .from("streaks")
+      .select("current_streak, longest_streak")
+      .eq("user_id", user!.id)
+      .maybeSingle(),
+    supabase
+      .from("workout_logs")
+      .select(
+        "id, plan_item_id, performed_on, sets_done, reps_done, weight_kg, duration_min"
+      )
+      .eq("user_id", user!.id)
+      .gte("performed_on", since)
+      .order("performed_on", { ascending: false }),
+  ]);
 
   const planItemIds = Array.from(
     new Set((logs ?? []).map((log) => log.plan_item_id).filter(Boolean))
