@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import type { GenderType, GoalType } from "@/types/database";
+import type { GenderType } from "@/types/database";
 
 function getModel(): string {
   const model = process.env.GEMINI_MODEL;
@@ -11,13 +11,6 @@ function getModel(): string {
 
 /** シニア判定の年齢閾値。65歳以上を「低強度中心」の対象とする */
 const SENIOR_AGE_THRESHOLD = 65;
-
-const GOAL_LABELS: Record<GoalType, string> = {
-  lose_weight: "減量",
-  gain_muscle: "増量",
-  strength: "筋力向上",
-  senior_maintenance: "筋力維持（シニア向け）",
-};
 
 const GENDER_LABELS: Record<GenderType, string> = {
   male: "男性",
@@ -79,7 +72,7 @@ function isSenior(birthYear: number): boolean {
 
 function buildProfileContext(params: {
   birthYear: number;
-  goal: GoalType;
+  goal: string;
   gender?: GenderType | null;
   weeklyFrequency: number;
 }): string {
@@ -89,7 +82,7 @@ function buildProfileContext(params: {
 
   const lines = [
     `年齢: ${age}歳`,
-    `目標: ${GOAL_LABELS[goal]}`,
+    `目標: ${goal}`,
     `希望トレーニング頻度: 週${weeklyFrequency}日`,
   ];
 
@@ -119,7 +112,7 @@ function getClient(): GoogleGenAI {
 /** プロフィール・希望頻度から週間トレーニング計画を新規生成する */
 export async function generateWeeklyPlan(params: {
   birthYear: number;
-  goal: GoalType;
+  goal: string;
   gender?: GenderType | null;
   weeklyFrequency: number;
   /** Googleカレンダーの忙しい時間帯の要約（Phase 6。連携済みの場合のみ） */
@@ -170,7 +163,7 @@ export async function generateWeeklyPlan(params: {
 /** 未消化の負債に対するリカバリー提案（Phase 7）。短い日本語アドバイスを返す */
 export async function generateRecoveryAdvice(params: {
   birthYear: number;
-  goal: GoalType;
+  goal: string;
   gender?: GenderType | null;
   debtLines: string[]; // 「スクワット：+2セット×10回（7/9未達成）」等
 }): Promise<string> {
@@ -223,7 +216,7 @@ export async function generateRecoveryAdvice(params: {
 /** 利用者が登録しようとしている計画に対する改善案を提示する */
 export async function generateImprovementSuggestion(params: {
   birthYear: number;
-  goal: GoalType;
+  goal: string;
   gender?: GenderType | null;
   currentPlan: WeeklyPlanDraft;
 }): Promise<WeeklyPlanDraft> {
@@ -263,4 +256,52 @@ export async function generateImprovementSuggestion(params: {
     throw new Error("Gemini APIから応答が得られませんでした。");
   }
   return JSON.parse(text) as WeeklyPlanDraft;
+}
+
+/**
+ * 利用者がプロフィール画面で自由記述した目標・要望を、AI提案で使いやすい
+ * 簡潔な日本語の文章に整形する。内容の追加・脚色はせず、書かれた要望
+ * （大きくしたい部位など）はできるだけ保持する。
+ */
+export async function summarizeGoal(rawText: string): Promise<string> {
+  const ai = getClient();
+
+  const response = await ai.models.generateContent({
+    model: getModel(),
+    contents: [
+      {
+        role: "user",
+        parts: [
+          {
+            text:
+              "以下は利用者が自由に書いたトレーニングの目標・要望です。" +
+              "後でパーソナルトレーナーAIがトレーニング計画を作成する際の参考情報として使えるよう、" +
+              "内容を保ったまま100〜150文字程度の簡潔な日本語の文章に整えてください。" +
+              "大きくしたい部位や重視したい点など、具体的な要望はできるだけ残してください。" +
+              "元の文章にない情報を勝手に追加しないでください。\n\n" +
+              `利用者の入力:\n${rawText}`,
+          },
+        ],
+      },
+    ],
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          summary: {
+            type: Type.STRING,
+            description: "整形後のトレーニング目標（日本語）",
+          },
+        },
+        required: ["summary"],
+      },
+    },
+  });
+
+  const text = response.text;
+  if (!text) {
+    throw new Error("Gemini APIから応答が得られませんでした。");
+  }
+  return (JSON.parse(text) as { summary: string }).summary;
 }

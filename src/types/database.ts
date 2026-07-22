@@ -3,12 +3,6 @@
  * supabase/migrations/ の内容と一致させる（CLIでの型生成は未接続のため手書き管理）。
  */
 
-export type GoalType =
-  | "lose_weight"
-  | "gain_muscle"
-  | "strength"
-  | "senior_maintenance";
-
 export type GenderType = "male" | "female" | "other";
 
 export type PlanStatus = "draft" | "active" | "archived";
@@ -22,7 +16,7 @@ export interface Database {
           id: string;
           display_name: string;
           birth_year: number;
-          goal: GoalType;
+          goal: string;
           gender: GenderType | null;
           is_admin: boolean;
           created_at: string;
@@ -31,14 +25,14 @@ export interface Database {
           id: string;
           display_name: string;
           birth_year: number;
-          goal: GoalType;
+          goal: string;
           gender?: GenderType | null;
           is_admin?: boolean;
         };
         Update: Partial<{
           display_name: string;
           birth_year: number;
-          goal: GoalType;
+          goal: string;
           gender: GenderType | null;
           is_admin: boolean;
         }>;

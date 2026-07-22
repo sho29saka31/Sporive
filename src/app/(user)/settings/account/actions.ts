@@ -7,7 +7,8 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { describeWeakPasswordError, validatePassword } from "@/lib/password";
 import { getOrigin } from "@/lib/origin";
-import type { GenderType, GoalType } from "@/types/database";
+import { summarizeGoal } from "@/lib/gemini";
+import type { GenderType } from "@/types/database";
 
 export async function signOut() {
   const supabase = await createClient();
@@ -63,17 +64,8 @@ export type ActionState = {
 
 const CURRENT_YEAR = new Date().getFullYear();
 const MIN_AGE = 13;
-const GOAL_TYPES: readonly GoalType[] = [
-  "lose_weight",
-  "gain_muscle",
-  "strength",
-  "senior_maintenance",
-];
+const GOAL_MAX_LENGTH = 500;
 const GENDER_TYPES: readonly GenderType[] = ["male", "female", "other"];
-
-function isGoalType(value: string): value is GoalType {
-  return (GOAL_TYPES as readonly string[]).includes(value);
-}
 
 function isGenderType(value: string): value is GenderType {
   return (GENDER_TYPES as readonly string[]).includes(value);
@@ -86,7 +78,7 @@ export async function updateProfile(
 ): Promise<ActionState> {
   const displayName = String(formData.get("display_name") ?? "").trim();
   const birthYear = Number(formData.get("birth_year"));
-  const goal = String(formData.get("goal") ?? "");
+  const goalInput = String(formData.get("goal") ?? "").trim();
   const genderInput = String(formData.get("gender") ?? "");
 
   if (!displayName) {
@@ -99,8 +91,11 @@ export async function updateProfile(
   ) {
     return { error: "生年を正しく入力してください。" };
   }
-  if (!isGoalType(goal)) {
-    return { error: "目標を選択してください。" };
+  if (!goalInput) {
+    return { error: "目標を入力してください。" };
+  }
+  if (goalInput.length > GOAL_MAX_LENGTH) {
+    return { error: `目標は${GOAL_MAX_LENGTH}文字以内で入力してください。` };
   }
   if (genderInput && !isGenderType(genderInput)) {
     return { error: "性別の選択が不正です。" };
@@ -113,6 +108,15 @@ export async function updateProfile(
 
   if (!user) {
     redirect("/login");
+  }
+
+  // Gemini APIで要望を簡潔な文章に整形する。API障害時も更新自体は止めず、
+  // 入力された文章をそのまま保存してフォールバックする。
+  let goal = goalInput;
+  try {
+    goal = await summarizeGoal(goalInput);
+  } catch (error) {
+    console.error("Gemini goal summarization failed", error);
   }
 
   const { error } = await supabase
