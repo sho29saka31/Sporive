@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import Image from "next/image";
 
 const TITLE = "Sporive — AIパーソナライズ・トレーニング計画アプリ";
 const DESCRIPTION =
@@ -107,21 +108,7 @@ export default function LandingPage() {
       {/* ヘッダー */}
       <header className="border-b border-navy-100">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-2">
-            <svg
-              className="h-6 w-6 text-navy-700"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <rect x="5" y="2" width="14" height="20" rx="2" ry="2" />
-              <line x1="12" y1="18" x2="12.01" y2="18" />
-            </svg>
-            <span className="text-lg font-bold">Sporive</span>
-          </div>
+          <Image src="/logo-wordmark.png" alt="Sporive" width={112} height={47} priority />
           <Link
             href="/login"
             className="rounded-lg bg-navy-700 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-navy-600"

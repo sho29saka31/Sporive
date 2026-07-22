@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 
 /**
  * 固定ヘッダー（requirements.md §9-1）
@@ -8,8 +9,8 @@ export default function Header() {
   return (
     <header className="fixed inset-x-0 top-0 z-50 h-header bg-navy-700 text-white shadow-md">
       <div className="mx-auto flex h-full max-w-md items-center justify-between px-4">
-        <Link href="/home" prefetch={false} className="text-lg font-bold tracking-wide">
-          Sporive
+        <Link href="/home" prefetch={false}>
+          <Image src="/logo-wordmark-white.png" alt="Sporive" width={112} height={47} priority />
         </Link>
         <div className="flex items-center gap-1">
           <Link
