@@ -1,4 +1,4 @@
-# Sporive
+![Sporive](public/logo-horizontal.png)
 
 AIによるパーソナライズされたトレーニング計画を提案するフィットネスPWA。
 
