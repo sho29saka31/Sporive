@@ -43,6 +43,8 @@ function toNumberOrNull(value: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+const REQUEST_TEXT_MAX_LENGTH = 300;
+
 export default function PlanBuilder({
   goal,
   initialItems,
@@ -54,6 +56,7 @@ export default function PlanBuilder({
   const [items, setItems] = useState<PlanItemDraft[]>(initialItems);
   const [summary, setSummary] = useState("");
   const [weeklyFrequency, setWeeklyFrequency] = useState(3);
+  const [requestText, setRequestText] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
   const [suggestLoading, setSuggestLoading] = useState(false);
   const [suggestion, setSuggestion] = useState<WeeklyPlanDraft | null>(null);
@@ -68,7 +71,7 @@ export default function PlanBuilder({
       const res = await fetch("/api/ai/propose-plan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ weeklyFrequency }),
+        body: JSON.stringify({ weeklyFrequency, requestText }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "生成に失敗しました。");
@@ -157,15 +160,32 @@ export default function PlanBuilder({
               </option>
             ))}
           </select>
-          <button
-            type="button"
-            onClick={handleAiPropose}
-            disabled={aiLoading}
-            className="ml-auto rounded-lg bg-navy-700 px-4 py-2 text-xs font-medium text-white hover:bg-navy-600 disabled:opacity-60"
-          >
-            {aiLoading ? "生成中..." : "AI提案を生成"}
-          </button>
         </div>
+        <div className="mt-3">
+          <label htmlFor="requestText" className="text-xs text-navy-500">
+            今回の要望（任意）
+          </label>
+          <textarea
+            id="requestText"
+            rows={3}
+            maxLength={REQUEST_TEXT_MAX_LENGTH}
+            value={requestText}
+            onChange={(e) => setRequestText(e.target.value)}
+            placeholder="例: 今週は上半身を重点的に鍛えたい。腰に不安があるので負荷は控えめにしてほしい。"
+            className="mt-1 w-full rounded-lg border border-navy-200 px-3 py-2 text-sm focus:border-navy-500 focus:outline-none"
+          />
+          <p className="mt-1 text-[10px] text-navy-300">
+            プロフィールの目標に加えて、今回だけ伝えたい要望があれば書いてください。
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={handleAiPropose}
+          disabled={aiLoading}
+          className="mt-3 w-full rounded-lg bg-navy-700 px-4 py-2 text-xs font-medium text-white hover:bg-navy-600 disabled:opacity-60"
+        >
+          {aiLoading ? "生成中..." : "AI提案を生成"}
+        </button>
         {summary && (
           <p className="mt-3 rounded-lg bg-navy-50 p-3 text-xs text-navy-600">
             {summary}
