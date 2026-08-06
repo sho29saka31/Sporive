@@ -4,6 +4,8 @@ import { generateWeeklyPlan } from "@/lib/gemini";
 import { getWeekBusySummary } from "@/lib/calendar";
 import { getCurrentWeekStartDate } from "@/lib/week";
 
+const REQUEST_TEXT_MAX_LENGTH = 300;
+
 /** プロフィール・希望頻度からAIが週間トレーニング計画を新規提案する */
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -42,6 +44,16 @@ export async function POST(request: Request) {
     );
   }
 
+  const rawRequestText =
+    typeof body.requestText === "string" ? body.requestText.trim() : "";
+  if (rawRequestText.length > REQUEST_TEXT_MAX_LENGTH) {
+    return NextResponse.json(
+      { error: `要望は${REQUEST_TEXT_MAX_LENGTH}文字以内で入力してください。` },
+      { status: 400 }
+    );
+  }
+  const requestText = rawRequestText || null;
+
   // カレンダー連携済みなら今週の忙しい時間帯を取得してプロンプトに反映する。
   // 取得に失敗しても提案自体は続行する（連携は補助情報のため）。
   let calendarContext: string | null = null;
@@ -68,6 +80,7 @@ export async function POST(request: Request) {
       gender: profile.gender,
       weeklyFrequency,
       calendarContext,
+      requestText,
     });
     return NextResponse.json({ plan });
   } catch (error) {
