@@ -8,6 +8,10 @@ import {
   getTodayDayOfWeek,
 } from "@/lib/week";
 
+// pg_net側のリクエストタイムアウト（15秒、supabase/migrations/0009_notify_pg_cron.sql）より
+// 先にVercel関数がkillされないよう、Hobbyプランの上限（60秒）内で余裕を持たせる
+export const maxDuration = 20;
+
 /** 日次判定（負債記録・ストリーク更新）を実行するJST時間帯（03:00〜08:59） */
 const DAILY_CHECK_START_MIN = 3 * 60;
 const DAILY_CHECK_END_MIN = 9 * 60;
@@ -31,12 +35,12 @@ function timeToMinutes(time: string): number {
 }
 
 /**
- * 通知送信＋日次バッチのエンドポイント。GitHub Actions の scheduled workflow から
- * 5分おきに呼ばれる（CRON_SECRET で認証）。
+ * 通知送信＋日次バッチのエンドポイント。Supabase pg_cron + pg_net から
+ * 10分おきに呼ばれる（CRON_SECRET で認証。以前はGitHub Actions scheduled workflowから
+ * 5分おきに呼んでいたが、無料枠での遅延が大きかったため2026-08-24にpg_cronへ移行）。
  *
- * GitHub Actionsのcronは5分間隔を保証せず、混雑時は数十分以上遅延することがある。
- * そのため「現在の5分スロットとnotify_timeの一致」ではなく、
- * 「notify_timeを過ぎていて、今日まだ通知していない利用者」へ送信する方式にする
+ * pg_cronも厳密な間隔を保証するものではないため、「現在の10分スロットとnotify_timeの一致」
+ * ではなく、「notify_timeを過ぎていて、今日まだ通知していない利用者」へ送信する方式にする
  * （last_notified_onで同日の重複送信を防ぐ）。遅延しても、遅延後の最初の実行で
  * 必ず通知が届く。
  *
