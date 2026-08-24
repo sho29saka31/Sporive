@@ -66,7 +66,7 @@ export default function NotificationSettingsForm({
           className="mt-1 w-full rounded-lg border border-navy-200 bg-white px-3 py-2 text-sm focus:border-navy-500 focus:outline-none"
         />
         <p className="mt-1 text-[10px] text-navy-300">
-          5分単位で判定されます（例: 08:00 に設定すると 08:00〜08:04 の間に送信）
+          10分単位で判定されます（例: 08:03 に設定すると 08:03〜08:12 の間に送信）
         </p>
       </div>
       {state?.error && <p className="text-xs text-accent-coral">{state.error}</p>}
