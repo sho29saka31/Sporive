@@ -10,7 +10,7 @@ AIによるパーソナライズされたトレーニング計画を提案する
 - Next.js 16（App Router / TypeScript）+ Tailwind CSS v4
 - Supabase（PostgreSQL + Auth）
 - Google Gemini API
-- Web Push（VAPID）+ GitHub Actions scheduled workflow
+- Web Push（VAPID）+ Supabase pg_cron
 - ホスティング: Vercel
 
 ## 開発

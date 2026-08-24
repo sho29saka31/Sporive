@@ -38,7 +38,7 @@
 | AI | Google Gemini API（Google AI Studio） | 無料枠内で運用。トレーニング計画の提案に使用。使用モデル：`gemini-3.5-flash-lite`（環境変数で変更可能） |
 | データベース/認証 | Supabase（PostgreSQL + Supabase Auth） | 進捗データ・負債管理・アカウント情報を保存 |
 | 通知 | Web Push（VAPID、Firebase不使用の素のPush API） | 購読情報はSupabaseに保存 |
-| 通知送信トリガー | GitHub Actions の scheduled workflow（無料・最短5分おき） | Vercel Cron Jobsは無料プランで実行頻度に制限があり、利用者ごとの個別通知時間指定に対応できないため採用。GitHub Actionsから一定間隔でVercelのAPIエンドポイントを呼び出し、その時刻に通知すべき利用者を判定して送信する |
+| 通知送信トリガー | Supabase pg_cron + pg_net（10分おき） | Vercel Cron Jobsは無料プランで実行頻度に制限があり、利用者ごとの個別通知時間指定に対応できないため不採用。GitHub Actions scheduled workflowを採用していたが、無料枠では混雑時に実測で数十分規模の遅延が発生したため、Supabase内部のPostgresから直接VercelのAPIエンドポイントを呼び出すpg_cron+pg_net方式に移行（第15章の更新履歴を参照） |
 | カレンダー連携 | Google Calendar API（OAuth2） | 提案とカレンダー追加の両方に使用（詳細は6章） |
 | ドメイン | `xxx.vercel.app`（デフォルト無料サブドメイン） | 独自ドメイン購入なし |
 | アクセス解析 | Google Tag Manager（GTM）経由でGoogle Analytics（GA4）を計測 | 無料枠内で運用（詳細は13章） |
@@ -110,7 +110,7 @@ AIが提案する運動強度が妥当かどうかをアプリ内でチェック
 
 ## 8. 通知機能
 
-- **実装方式**：Web Push（VAPID、素のPush API）。GitHub Actions の scheduled workflow で送信トリガーを管理（第15章の更新履歴を参照）
+- **実装方式**：Web Push（VAPID、素のPush API）。Supabase pg_cron + pg_net で送信トリガーを管理（第15章の更新履歴を参照）
 - **設定画面でカスタマイズ可能な項目**：
   - 当日のトレーニング予定通知
   - 未達成（負債）リマインダー
@@ -217,3 +217,4 @@ AIが提案する運動強度が妥当かどうかをアプリ内でチェック
 | 2026-07-22 | §14「今後の検討事項」に「独自ドメインの取得検討」を追加 | `sporive.vercel.app`（共有サブドメイン）ではGoogleのクロール優先度が下がる傾向があり、Search Consoleでのサイトマップ読み込みエラーが解消しない。原因を切り分けた結果、アプリ側の設定は正しく、Vercel無料サブドメイン特有の既知の制約と判明したため、現状は放置し今後の検討事項として記録 |
 | 2026-07-22 | §3の技術構成表の使用モデルを`gemini-3.5-flash-lite`に更新 | ユーザーの指示によりGeminiのモデルを変更したため |
 | 2026-07-23 | §5を更新：AI提案（週間トレーニング計画の新規生成）時に、プロフィールの目標とは別に「今回の要望」を自由記述（任意、最大300文字）で追加入力できる機能を追加。保存はせず提案生成の都度の一時的な入力として扱う | クライアントより「AIでスケジュールを提案してもらう時に利用者が文章を使って具体的にAIに要望できるようにしたい」との要望があったため |
+| 2026-08-24 | §3・§8を更新：通知送信トリガーを「GitHub Actions scheduled workflow（5分おき）」から「Supabase pg_cron + pg_net（10分おき）」に変更。GitHub Actionsのnotify.ymlは廃止し、Supabase内部のPostgresから直接dispatch APIを呼び出す方式に統一 | GitHub Actions scheduled workflowは無料枠では混雑時に実測で数十分規模の遅延が発生し、通知が正常に動作しない事象が発生したため。pg_cron+pg_netならSupabase内部から直接呼び出すため外部キュー待ちの影響を受けない。間隔は10分刻みへの変更をユーザーが指示 |

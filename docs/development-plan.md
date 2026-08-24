@@ -20,7 +20,7 @@
 要件定義書 §12 の注記どおり、スケジュールが逼迫した場合は以下の順で後ろ倒しする：
 
 1. **Google カレンダー連携（Phase 6）** — OAuth スコープ・トークン管理が最も外部依存が大きい。デモでは「連携ボタンはあるが Coming Soon」まで許容
-2. **Web Push 通知（Phase 5）** — GitHub Actions トリガーは仕組みが独立しており後付けしやすい
+2. **Web Push 通知（Phase 5）** — 通知トリガー（pg_cron）は仕組みが独立しており後付けしやすい
 3. AI提案（Phase 3）・進捗記録（Phase 4）はデモの核なので削らない
 
 ---
@@ -35,7 +35,7 @@
 | DB / 認証 | Supabase（`@supabase/supabase-js` + `@supabase/ssr`） | RLS（Row Level Security）を全テーブルで有効化 |
 | AI | Gemini API（`@google/genai`） | JSON構造化出力（responseSchema）で週間プランを生成。使用モデルは`GEMINI_MODEL`環境変数で指定（コード側にデフォルト値は持たず、未設定時はエラー）。現在の設定値：`gemini-3.5-flash-lite` |
 | Web Push | `web-push` npm パッケージ（VAPID） | 購読情報は Supabase に保存 |
-| 通知トリガー | GitHub Actions scheduled workflow（5分間隔） | `CRON_SECRET` 付きで Vercel の API を叩く |
+| 通知トリガー | Supabase pg_cron + pg_net（10分間隔） | `CRON_SECRET`（Supabase Vault保存）付きで Vercel の API を叩く。GitHub Actions scheduled workflowから2026-08-24に移行（無料枠での遅延が大きかったため） |
 | カレンダー | Google Calendar API（`googleapis`） | freebusy 取得＋イベント作成 |
 | グラフ（進捗・管理画面） | Recharts | 軽量・無料 |
 
@@ -48,7 +48,7 @@
 | `GEMINI_API_KEY` | Gemini API |
 | `NEXT_PUBLIC_VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | Web Push |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google OAuth（Calendar スコープ） |
-| `CRON_SECRET` | GitHub Actions → 通知APIの認証 |
+| `CRON_SECRET` | Supabase pg_cron → 通知APIの認証（Supabase Vaultに`cron_secret`として保存） |
 
 ---
 
@@ -57,8 +57,8 @@
 ```
 sporive/
 ├── docs/                        # 要件定義書・開発プラン
-├── .github/workflows/
-│   └── notify.yml               # 5分おきの通知トリガー（Phase 5）
+├── supabase/migrations/
+│   └── 0009_notify_pg_cron.sql  # pg_cron+pg_netによる10分おきの通知トリガー（Phase 5、2026-08-24移行）
 ├── public/
 │   ├── manifest.webmanifest     # PWAマニフェスト
 │   ├── sw.js                    # Service Worker（push受信・通知表示）
@@ -193,9 +193,9 @@ Next.js プロジェクトの土台と、全画面共通の骨格を作る。
 - 購読登録 API（`push_subscriptions` に保存）と購読 UI
 - 通知設定画面（当日予定通知 ON/OFF・時刻指定。負債リマインダーは Phase 7 で有効化）
 - 送信 API `/api/notifications/dispatch`（`CRON_SECRET` 認証、その時刻に通知すべき利用者を判定して web-push 送信）
-- GitHub Actions scheduled workflow（5分おきに dispatch を呼ぶ）
+- Supabase pg_cron + pg_net（10分おきに dispatch を呼ぶ。当初はGitHub Actions scheduled workflowだったが、無料枠での遅延が大きく2026-08-24に移行）
 
-**ユーザー作業**：VAPID鍵の生成（コマンド提供）、GitHub リポジトリに `CRON_SECRET` 等のシークレット登録
+**ユーザー作業**：VAPID鍵の生成（コマンド提供）、Supabase VaultへCRON_SECRETの登録（`select vault.create_secret(...)`）
 
 ### 📅 Phase 6：Google カレンダー連携（デモ版・最後）✅完了
 
@@ -244,10 +244,11 @@ Next.js プロジェクトの土台と、全画面共通の骨格を作る。
 
 ## 7. 実装時の判断メモ
 
-- 要件定義書 §8 に「Vercel Cron Jobs」の記載が残っていたが、§15 更新履歴（2026-07-05）のとおり **GitHub Actions scheduled workflow** が最新決定であり、本プランはそれに従う（docs/requirements.md 取り込み時に §8 を修正済み）
+- 通知トリガーは当初「GitHub Actions scheduled workflow」だったが、無料枠での遅延が大きく（実測で数十分規模）、§15 更新履歴（2026-08-24）のとおり **Supabase pg_cron + pg_net** に移行した。本プランはそれに従う
 - タイムゾーンは Asia/Tokyo を既定とし、通知時刻判定は `notification_settings.timezone` で将来拡張可能にする
 - Gemini のモデル名は`GEMINI_MODEL`環境変数で指定する。コード側にデフォルト値は持たせず、未設定時はエラーとする（特定モデルの混雑時に暗黙のフォールバックへ切り替わらないようにするため。2026-07-22時点の実運用モデルは `gemini-3.5-flash-lite`）
 - シニア判定の年齢閾値は65歳とした（要件定義書に明記がないため実装時に決定。低強度中心のAIプロンプトへの切り替えに使用）
 - Supabaseの`identities`はメール/パスワードをOAuth登録後に`updateUser`で後付けしても更新されないため、パスワード設定済みかどうかの判定は`user_metadata.password_set`フラグで行う（Phase 1実装時に判明した仕様）
 - `/api/*` はmiddlewareのルートガード対象外とし、認証チェックは各Route Handler自身に委ねる（middlewareでリダイレクトすると、APIの`fetch`呼び出しがJSONではなくHTMLリダイレクト応答を受け取ってしまうため）
-- `notify.yml`（Phase 5）が5分おきに本番APIを呼び出し、その都度Supabaseへ実際にSELECTクエリが発行されるため、副次的にSupabase無料プランの自動一時停止（7日間アクティビティなしで発生）を防止できている。専用のスリープ防止機構ではなく通知機能の副産物だが、実質的に対策済みとみなせる
+- pg_cronジョブ（Phase 5、`0009_notify_pg_cron.sql`）が10分おきにSupabase内部からdispatch APIを呼び出し、その都度実際にSELECTクエリが発行されるため、副次的にSupabase無料プランの自動一時停止（7日間アクティビティなしで発生）を防止できている。専用のスリープ防止機構ではなく通知機能の副産物だが、実質的に対策済みとみなせる（GitHub Actions時代からの継続効果）
+- pg_net の `net.http_post` はデフォルトタイムアウトが2000msと短く、dispatch APIは対象利用者数分のDB問い合わせ・push送信を順に行うため超過しうる。`timeout_milliseconds := 15000` を明示指定して余裕を持たせている（無料プランでもpg_cron/pg_netの利用自体に制限はないが、pg_netは200 req/秒までを想定した設計であり、レスポンスは6時間で自動削除される点に留意）

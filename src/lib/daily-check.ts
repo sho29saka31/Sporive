@@ -12,7 +12,7 @@ import {
  * - 未達成分を debts（負債）に記録する
  * - streaks（連続達成記録）を更新する
  *
- * 通知dispatchと同じcron経路（GitHub Actions → /api/notifications/dispatch）から、
+ * 通知dispatchと同じcron経路（Supabase pg_cron → /api/notifications/dispatch）から、
  * 1日1回（深夜の判定スロット）に service_role クライアントで呼ばれる。
  * 同じ日に複数回呼ばれても二重登録しないよう冪等に作る。
  */

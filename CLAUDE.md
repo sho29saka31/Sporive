@@ -15,7 +15,7 @@ AIパーソナライズトレーニング計画を提案するPWA。スマホ専
 ## 重要な決定事項
 
 - 技術スタック：Next.js (App Router, TypeScript) / Tailwind CSS / Supabase (DB+Auth) / Gemini API / Web Push (VAPID) / Vercel 無料プラン
-- 通知トリガーは **GitHub Actions scheduled workflow**（Vercel Cron は不採用）
+- 通知トリガーは **Supabase pg_cron + pg_net**（GitHub Actions scheduled workflowは遅延が大きく2026-08-24に移行、Vercel Cronは不採用）
 - すべて無料プラン内で運用する（有料サービスを導入しない）
 - 利用者画面はスマホ専用（他デバイスは誘導画面）、管理者画面はPC/タブレット専用
 - 基調カラーはネイビー、アクセントにカラフルな配色
