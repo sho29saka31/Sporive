@@ -38,6 +38,9 @@
 | 通知トリガー | Supabase pg_cron + pg_net（10分間隔） | `CRON_SECRET`（Supabase Vault保存）付きで Vercel の API を叩く。GitHub Actions scheduled workflowから2026-08-24に移行（無料枠での遅延が大きかったため） |
 | カレンダー | Google Calendar API（`googleapis`） | freebusy 取得＋イベント作成 |
 | グラフ（進捗・管理画面） | Recharts | 軽量・無料 |
+| メール送信（計画） | Resend（カスタムSMTP） | Supabase既定のメール送信（1時間あたり数通に制限）を置き換える。無料枠：3,000通/月・100通/日 |
+| CAPTCHA（計画） | Cloudflare Turnstile | hCaptchaより無料枠の制約がないため採用。Supabase Auth の Attack Protection 設定で有効化 |
+| MFA（計画） | Supabase Auth TOTP | 認証アプリ方式のみ。電話番号方式（Advanced MFA Phone）は有料（$75/月〜）のため不採用 |
 
 ### 環境変数（Vercel / ローカル `.env.local`）
 
@@ -49,6 +52,8 @@
 | `NEXT_PUBLIC_VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | Web Push |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google OAuth（Calendar スコープ） |
 | `CRON_SECRET` | Supabase pg_cron → 通知APIの認証（Supabase Vaultに`cron_secret`として保存） |
+| `RESEND_API_KEY`（計画） | Resend経由のメール送信（Supabase Auth SMTP設定） |
+| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET_KEY`（計画） | Cloudflare Turnstile（CAPTCHA） |
 
 ---
 
@@ -133,6 +138,36 @@ calendar_tokens       -- Google Calendar 用 refresh token（Phase 6）
 
 ai_proposal_logs      -- AI提案の分析用ログ（管理画面 Phase 9 で利用）
   id, user_id, goal, proposal_json, accepted (bool), created_at
+```
+
+### 4-1. 追加予定テーブル・カラム（計画、Phase 10〜）
+
+```
+-- notification_settings に追加
+  daily_reminder_time (time, default '08:00')
+  debt_reminder_time (time, default '20:00')
+  reengagement_enabled (bool, default true)
+  weekly_report_enabled (bool, default false)
+  weekly_report_time (time, default '09:00')
+  quiet_hours_start / quiet_hours_end (time, nullable)
+  quiet_days (smallint[], 空配列=無効)
+  -- notify_time（共通1時刻）は種別ごとの時刻に置き換えるため廃止
+  -- 週次レポートの曜日は日曜固定（カラム化しない）
+  -- 再エンゲージメントは17:00固定（時刻カラム化しない、システム定数）
+
+profiles に追加
+  is_super_admin (bool, default false)
+
+feature_flags          -- 高度な設定「機能」タブ
+  key (text, PK), enabled (bool), updated_by, updated_at
+
+site_announcements     -- 高度な設定「お知らせ」タブ
+  id, title, body, level (enum: info/notice/warning),
+  affected_pages (text[], info/notice用), blocked_pages (text[], warning用),
+  is_active (bool), created_by, created_at
+
+announcement_reads     -- お知らせの既読管理
+  user_id, announcement_id, read_at (PK: user_id + announcement_id)
 ```
 
 ---
@@ -228,6 +263,45 @@ Next.js プロジェクトの土台と、全画面共通の骨格を作る。
 - DAU/WAU・リテンション、達成率・負債発生率・負債解消率
 - AI提案分析（人気メニューなど：`ai_proposal_logs` を集計）
 - 発表用に推移グラフ中心のダッシュボード構成
+
+---
+
+### ⬇️ ここから追加計画フェーズ（2026-08-24策定、未着手）
+
+### 🔔 Phase 10：通知機能の再構成・定期メンテナンスモード（計画）
+
+要件定義書 §8-1〜8-4 に対応。
+
+- `notification_settings` に §4-1 のカラムを追加するマイグレーション
+- 通知種別ごとの時刻・ON/OFF可否UI（`NotificationSettingsForm.tsx`の作り直し。時刻入力は10分刻み）
+- 非通知時間帯・非通知曜日の判定ロジックを `dispatch` に追加
+- 再エンゲージメント通知（3日以上未記録の判定）・週次レポート（Gemini呼び出し、日曜固定）を `dispatch` に追加
+- `notification_logs` の30日超過分・期限切れ`push_subscriptions`を削除する定期クリーンアップジョブ（pg_cron、SQLのみ、Vercel API非経由）
+- 定期メンテナンスモード：`middleware.ts`にJST 1:00〜2:30（お知らせバー）・2:30〜3:30（トップページ以外アクセス不可・ログイン不可、`/admin`配下は対象外）の時間帯判定を追加
+- `/settings/notifications` を「お知らせ」画面に改名し、通知履歴／お知らせタブの切替UIを追加
+
+### 🔑 Phase 11：管理者権限の拡張・高度な設定（計画）
+
+要件定義書 §10-2〜10-3、§4-1（カスタムアクセストークンフック関連）に対応。
+
+- `profiles.is_super_admin` 追加、カスタムアクセストークンフック（Postgres関数のAuth Hook）でJWTに`is_admin`・`is_super_admin`を埋め込み
+- `feature_flags`・`site_announcements`・`announcement_reads` テーブルの作成
+- `/admin/settings`（仮称）に「高度な設定」ページを新設。`is_super_admin`のJWTクレームでガード
+  - 機能タブ：AI機能（マスター＋個別4機能）・運動強度チェック・新規ユーザー登録・通知機能全体・Googleカレンダー連携・緊急メンテナンスモード・負債管理機能の各フラグと、各機能側でのフラグ参照実装
+  - お知らせタブ：タイトル・本文・レベル（お知らせ/注意/警告）・影響範囲ページ／開けなくするページの入力フォーム。レベルごとに専用スタイルで表示するコンポーネント
+- 利用者側：お知らせバー（該当ページで警告時にブロック）、お知らせ履歴タブでの一覧・既読管理
+
+### 🔒 Phase 12：認証セキュリティ強化（計画）
+
+要件定義書 §4-1 に対応。
+
+- Supabase Dashboard設定：JWT有効期限30分、リフレッシュトークンローテーション、Auth Rate Limits、メールテンプレート日本語化（コード変更なし、手順書を作成しユーザーが実施）
+- Cloudflare Turnstile導入（要外部アカウント登録）
+- Resend導入・カスタムSMTP設定（要外部アカウント登録）
+- MFA（TOTP）：アカウント設定画面に有効化UIを追加
+- ログイン中の端末一覧・全ログアウト：Supabase側API調査結果次第で仕様確定・実装
+
+**ユーザー作業**：Cloudflare Turnstile・Resendのアカウント登録とAPIキー取得、Supabase Dashboardでの各種Auth設定変更
 
 ---
 
