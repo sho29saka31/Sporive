@@ -4,8 +4,9 @@ import Image from "next/image";
 import { headers, cookies } from "next/headers";
 import QRCode from "qrcode";
 import { isSmartphone } from "@/lib/device";
-import { getMaintenanceState } from "@/lib/maintenance";
+import { isLockdownActive } from "@/lib/maintenance";
 import MaintenanceNoticeBar from "@/components/MaintenanceNoticeBar";
+import { createClient } from "@/lib/supabase/server";
 
 const SITE_URL = "https://sporive.vercel.app/";
 
@@ -112,7 +113,8 @@ export default async function LandingPage() {
   const forceMobilePreview =
     (await cookies()).get("force-mobile-preview")?.value === "1";
   const canUseButtons = isSmartphone(userAgent) || forceMobilePreview;
-  const { isLockdown } = getMaintenanceState();
+  const supabase = await createClient();
+  const isLockdown = await isLockdownActive(supabase);
 
   const qrDataUrl = canUseButtons
     ? null
@@ -128,7 +130,7 @@ export default async function LandingPage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(STRUCTURED_DATA) }}
       />
-      <MaintenanceNoticeBar />
+      <MaintenanceNoticeBar suppress={isLockdown} />
 
       {/* ヘッダー */}
       <header className="border-b border-navy-100">
