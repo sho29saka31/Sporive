@@ -96,9 +96,16 @@ export async function updateSession(request: NextRequest) {
   );
 
   // 緊急メンテナンスモード（要件定義書 §8-3, §10-3）：super-adminが機能フラグで
-  // 任意のタイミングで即座に全サイトを止められる。定期メンテナンスと同じ除外対象
+  // 任意のタイミングで即座に全サイトを止められる。定期メンテナンスとは異なり
+  // 時間経過での自動解除がないため、/login と /auth/（Google OAuthのコールバック
+  // 等、セッション確立前のエンドポイント）だけは除外する。ここを塞ぐと
+  // セッション切れ・パスワード未設定（Googleログインのみ）のsuper-adminが
+  // 誰もログインできなくなり、解除する手段がなくなってサイトが
+  // 恒久的にロックされてしまうため
   if (
     requestPath !== "/" &&
+    requestPath !== "/login" &&
+    !requestPath.startsWith("/auth/") &&
     !requestPath.startsWith("/admin") &&
     !requestPath.startsWith("/api/") &&
     (await isEmergencyMaintenanceActive(supabase))

@@ -2,14 +2,12 @@
 
 import { useState } from "react";
 import { markAnnouncementRead } from "@/app/(user)/settings/notifications/actions";
-import { announcementPageLabel } from "@/lib/site-announcements";
 
 export type AnnouncementItem = {
   id: string;
   title: string;
   body: string;
   level: "info" | "notice" | "warning";
-  affectedPages: string[];
   isRead: boolean;
 };
 
@@ -102,12 +100,6 @@ export default function AnnouncementList({
             <p className="mt-4 whitespace-pre-line text-sm leading-relaxed text-navy-600">
               {openItem.body}
             </p>
-            {openItem.affectedPages.length > 0 && (
-              <p className="mt-6 text-xs text-navy-400">
-                影響範囲:{" "}
-                {openItem.affectedPages.map(announcementPageLabel).join("・")}
-              </p>
-            )}
           </div>
         </div>
       )}

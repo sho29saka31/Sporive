@@ -3,7 +3,8 @@ import type { Database } from "@/types/database";
 
 /**
  * お知らせ（要件定義書 §10-3）で選択可能なページの一覧。
- * value は site_announcements.affected_pages / blocked_pages に保存する文字列。
+ * 警告レベルのblocked_pagesにのみ使う（お知らせ・注意はページ選択なし）。
+ * value は site_announcements.blocked_pages に保存する文字列。
  * "*" はワイルドカード（すべてのページ）。
  */
 export const ANNOUNCEMENT_PAGES = [
@@ -31,9 +32,51 @@ export function matchesAnnouncementPages(
   );
 }
 
+export type UnreadAnnouncement = {
+  id: string;
+  title: string;
+  level: "info" | "notice" | "warning";
+};
+
 /**
- * 指定パスへのアクセスをブロックしている、有効な警告レベルのお知らせを取得する。
- * 複数該当する場合は最新のもの（created_atが最も新しいもの）を返す。
+ * まだ予約公開時刻に達していない（scheduled_atが未来の）行を除外する。
+ * 利用者側に見せる一覧はすべてこのフィルタを通す必要がある
+ * （管理画面の一覧だけは予約中のものも見せたいので通さない）。
+ */
+function isPublished(row: { scheduled_at: string | null }): boolean {
+  return !row.scheduled_at || row.scheduled_at <= new Date().toISOString();
+}
+
+/**
+ * 本人が未読の、公開済み（予約時刻に達した）お知らせを新しい順に取得する。
+ * ヘッダーのベルバッジ・全ページ上部のお知らせバーの両方で使う。
+ */
+export async function getUnreadAnnouncements(
+  client: SupabaseClient<Database>,
+  userId: string
+): Promise<UnreadAnnouncement[]> {
+  const [{ data: announcements }, { data: reads }] = await Promise.all([
+    client
+      .from("site_announcements")
+      .select("id, title, level, scheduled_at")
+      .eq("is_active", true)
+      .order("published_at", { ascending: false }),
+    client
+      .from("announcement_reads")
+      .select("announcement_id")
+      .eq("user_id", userId),
+  ]);
+
+  const readIds = new Set((reads ?? []).map((r) => r.announcement_id));
+  return (announcements ?? [])
+    .filter(isPublished)
+    .filter((a) => !readIds.has(a.id));
+}
+
+/**
+ * 指定パスへのアクセスをブロックしている、有効かつ公開済みの警告レベルの
+ * お知らせを取得する。複数該当する場合は最新のもの（published_atが最も
+ * 新しいもの）を返す。
  */
 export async function getBlockingAnnouncement(
   client: SupabaseClient<Database>,
@@ -41,12 +84,12 @@ export async function getBlockingAnnouncement(
 ): Promise<{ id: string; title: string } | null> {
   const { data } = await client
     .from("site_announcements")
-    .select("id, title, blocked_pages")
+    .select("id, title, blocked_pages, scheduled_at")
     .eq("is_active", true)
     .eq("level", "warning")
-    .order("created_at", { ascending: false });
+    .order("published_at", { ascending: false });
 
-  for (const row of data ?? []) {
+  for (const row of (data ?? []).filter(isPublished)) {
     if (matchesAnnouncementPages(requestPath, row.blocked_pages)) {
       return { id: row.id, title: row.title };
     }

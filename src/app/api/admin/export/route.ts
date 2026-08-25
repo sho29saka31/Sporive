@@ -49,10 +49,11 @@ export async function GET(request: Request) {
   }
   const { data: profile } = await supabase
     .from("profiles")
-    .select("is_admin")
+    .select("is_admin, is_super_admin")
     .eq("id", user.id)
     .maybeSingle();
-  if (!profile?.is_admin) {
+  // is_super_admin は is_admin の上位権限（requirements.md §10-2）のため許可する
+  if (!profile?.is_admin && !profile?.is_super_admin) {
     return new Response("forbidden", { status: 403 });
   }
 

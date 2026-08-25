@@ -51,24 +51,27 @@ export default async function NotificationHistoryPage({
     const [{ data: siteAnnouncements }, { data: reads }] = await Promise.all([
       supabase
         .from("site_announcements")
-        .select("id, title, body, level, affected_pages")
+        .select("id, title, body, level, scheduled_at")
         .eq("is_active", true)
-        .order("created_at", { ascending: false }),
+        .order("published_at", { ascending: false }),
       supabase
         .from("announcement_reads")
         .select("announcement_id")
         .eq("user_id", user!.id),
     ]);
 
+    const now = new Date().toISOString();
     const readIds = new Set((reads ?? []).map((r) => r.announcement_id));
-    announcements = (siteAnnouncements ?? []).map((a) => ({
-      id: a.id,
-      title: a.title,
-      body: a.body,
-      level: a.level,
-      affectedPages: a.affected_pages,
-      isRead: readIds.has(a.id),
-    }));
+    announcements = (siteAnnouncements ?? [])
+      // 予約公開時刻に達していないものは利用者側には見せない
+      .filter((a) => !a.scheduled_at || a.scheduled_at <= now)
+      .map((a) => ({
+        id: a.id,
+        title: a.title,
+        body: a.body,
+        level: a.level,
+        isRead: readIds.has(a.id),
+      }));
   }
 
   return (
