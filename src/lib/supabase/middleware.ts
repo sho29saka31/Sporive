@@ -7,6 +7,8 @@ import { isEmergencyMaintenanceActive } from "@/lib/feature-flags";
 import { getBlockingAnnouncement } from "@/lib/site-announcements";
 
 const PUBLIC_PATHS = ["/login", "/signup", "/reset-password"];
+/** MFA（TOTP）を有効にしている利用者が、ログイン後に認証コード入力を求められる画面 */
+const MFA_CHALLENGE_PATH = "/mfa-challenge";
 // 未ログインでも常に表示する静的ページ（トップの機能紹介・規約類）。
 // ログイン済みでもリダイレクトせずそのまま表示する（Google審査用の公開ページ）。
 const STATIC_PATHS = ["/", "/privacy", "/terms"];
@@ -138,6 +140,19 @@ export async function updateSession(request: NextRequest) {
     if (isPublicPath) return applyMobilePreviewParam(request, supabaseResponse);
     const url = request.nextUrl.clone();
     url.pathname = "/login";
+    return applyMobilePreviewParam(request, NextResponse.redirect(url));
+  }
+
+  // MFA（TOTP、要件定義書 §4-1）：多要素認証を有効にしている利用者は、
+  // パスワード/Googleログイン直後の時点ではAAL1（第一要素のみ）のセッションになる。
+  // AAL2（第二要素）が必要なのに満たしていない場合は、認証コード入力画面以外への
+  // アクセスを許可しない
+  const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+  const mfaPending =
+    !!aal && aal.nextLevel === "aal2" && aal.currentLevel !== aal.nextLevel;
+  if (mfaPending && pathname !== MFA_CHALLENGE_PATH) {
+    const url = request.nextUrl.clone();
+    url.pathname = MFA_CHALLENGE_PATH;
     return applyMobilePreviewParam(request, NextResponse.redirect(url));
   }
 
