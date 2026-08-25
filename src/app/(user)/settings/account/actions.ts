@@ -8,6 +8,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { describeWeakPasswordError, validatePassword } from "@/lib/password";
 import { getOrigin } from "@/lib/origin";
 import { summarizeGoal } from "@/lib/gemini";
+import { getFeatureFlags } from "@/lib/feature-flags";
 import type { GenderType } from "@/types/database";
 
 export async function signOut() {
@@ -110,13 +111,16 @@ export async function updateProfile(
     redirect("/login");
   }
 
-  // Gemini APIで要望を簡潔な文章に整形する。API障害時も更新自体は止めず、
-  // 入力された文章をそのまま保存してフォールバックする。
+  // Gemini APIで要望を簡潔な文章に整形する。API障害時・機能フラグ停止時も
+  // 更新自体は止めず、入力された文章をそのまま保存してフォールバックする。
   let goal = goalInput;
-  try {
-    goal = await summarizeGoal(goalInput);
-  } catch (error) {
-    console.error("Gemini goal summarization failed", error);
+  const flags = await getFeatureFlags(supabase, ["ai_master", "ai_goal_summarize"]);
+  if (flags.ai_master && flags.ai_goal_summarize) {
+    try {
+      goal = await summarizeGoal(goalInput);
+    } catch (error) {
+      console.error("Gemini goal summarization failed", error);
+    }
   }
 
   const { error } = await supabase

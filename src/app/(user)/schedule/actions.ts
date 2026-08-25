@@ -5,6 +5,7 @@ import { after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentWeekStartDate } from "@/lib/week";
 import { syncPlanToCalendar, type CalendarDayPlan } from "@/lib/calendar";
+import { getFeatureFlag } from "@/lib/feature-flags";
 import type { PlanItemDraft, WeeklyPlanDraft } from "@/lib/gemini";
 
 /** 種目1件をカレンダーの説明用テキストにする（例：スクワット（3セット×10回×45kg 20分）） */
@@ -99,11 +100,17 @@ export async function saveTrainingPlan(
   // カレンダー連携済みならトレーニング予定をGoogleカレンダーへ自動追加（Phase 6）。
   // Google APIとの通信は数秒かかることがあるため、after()でレスポンス返却後に実行し、
   // 保存ボタンの待ち時間を短くする（同期失敗は計画保存の成功を妨げない）。
-  const { data: calendarToken } = await supabase
-    .from("calendar_tokens")
-    .select("refresh_token")
-    .eq("user_id", user.id)
-    .maybeSingle();
+  const calendarIntegrationEnabled = await getFeatureFlag(
+    supabase,
+    "calendar_integration"
+  );
+  const { data: calendarToken } = calendarIntegrationEnabled
+    ? await supabase
+        .from("calendar_tokens")
+        .select("refresh_token")
+        .eq("user_id", user.id)
+        .maybeSingle()
+    : { data: null };
   if (calendarToken) {
     const byDay = new Map<number, string[]>();
     for (const item of plan.items) {

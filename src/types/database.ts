@@ -19,6 +19,7 @@ export interface Database {
           goal: string;
           gender: GenderType | null;
           is_admin: boolean;
+          is_super_admin: boolean;
           created_at: string;
         };
         Insert: {
@@ -28,6 +29,7 @@ export interface Database {
           goal: string;
           gender?: GenderType | null;
           is_admin?: boolean;
+          is_super_admin?: boolean;
         };
         Update: Partial<{
           display_name: string;
@@ -35,6 +37,7 @@ export interface Database {
           goal: string;
           gender: GenderType | null;
           is_admin: boolean;
+          is_super_admin: boolean;
         }>;
         Relationships: [];
       };
