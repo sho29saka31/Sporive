@@ -11,6 +11,7 @@ AIパーソナライズトレーニング計画を提案するPWA。スマホ専
 
 - `docs/requirements.md` — 要件定義書（仕様の一次情報。§15更新履歴が最新の決定）
 - `docs/development-plan.md` — フェーズ分割された開発プラン。実装はこのフェーズ順に進める
+- `docs/setup.md` — 外部サービス（Supabase / Google Cloud / Turnstile / Resend）のセットアップ手順（ユーザー作業）
 
 ## 重要な決定事項
 
