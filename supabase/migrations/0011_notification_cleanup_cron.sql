@@ -29,3 +29,7 @@ select cron.schedule(
   '0 18 * * *',
   $$ select cleanup_old_notifications(); $$
 );
+
+-- pg_cronから内部的に呼ばれるだけの関数のため、anon/authenticatedロールからの
+-- RPC経由の実行（/rest/v1/rpc/cleanup_old_notifications）を明示的に禁止する
+revoke execute on function cleanup_old_notifications() from anon, authenticated, public;
