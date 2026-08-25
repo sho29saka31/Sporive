@@ -2,8 +2,11 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendPush } from "@/lib/push";
 import { processDailyCheck } from "@/lib/daily-check";
+import { generateWeeklyReport } from "@/lib/gemini";
 import {
+  addDays,
   getCurrentWeekStartDate,
+  getJstMinutesOfDay,
   getTodayDate,
   getTodayDayOfWeek,
 } from "@/lib/week";
@@ -16,17 +19,11 @@ export const maxDuration = 20;
 const DAILY_CHECK_START_MIN = 3 * 60;
 const DAILY_CHECK_END_MIN = 9 * 60;
 
-/** 現在のJST時刻を「その日の経過分数」で返す */
-function getJstMinutesOfDay(): number {
-  const parts = new Intl.DateTimeFormat("en-GB", {
-    timeZone: "Asia/Tokyo",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).format(new Date());
-  const [h, m] = parts.split(":").map(Number);
-  return h * 60 + m;
-}
+/** 再エンゲージメント通知の送信時刻（固定、要件定義書 §8-1） */
+const REENGAGEMENT_TIME_MIN = 17 * 60;
+
+/** 週次レポートの送信曜日（0=日曜、固定、要件定義書 §8-1） */
+const WEEKLY_REPORT_DAY_OF_WEEK = 0;
 
 /** "HH:MM:SS" 形式の time 文字列を「その日の経過分数」に変換 */
 function timeToMinutes(time: string): number {
@@ -34,21 +31,42 @@ function timeToMinutes(time: string): number {
   return h * 60 + m;
 }
 
+/** 非通知時間帯・非通知曜日（要件定義書 §8-1）に該当するかどうか */
+function isQuietTime(
+  nowMinutes: number,
+  todayDow: number,
+  quietHoursStart: string | null,
+  quietHoursEnd: string | null,
+  quietDays: number[]
+): boolean {
+  if (quietDays.includes(todayDow)) return true;
+  if (!quietHoursStart || !quietHoursEnd) return false;
+  const start = timeToMinutes(quietHoursStart);
+  const end = timeToMinutes(quietHoursEnd);
+  // 日をまたぐ範囲（例: 22:00〜翌7:00）にも対応する
+  return start <= end
+    ? nowMinutes >= start && nowMinutes < end
+    : nowMinutes >= start || nowMinutes < end;
+}
+
 /**
  * 通知送信＋日次バッチのエンドポイント。Supabase pg_cron + pg_net から
- * 10分おきに呼ばれる（CRON_SECRET で認証。以前はGitHub Actions scheduled workflowから
- * 5分おきに呼んでいたが、無料枠での遅延が大きかったため2026-08-24にpg_cronへ移行）。
+ * 10分おきに呼ばれる（CRON_SECRET で認証）。
  *
- * pg_cronも厳密な間隔を保証するものではないため、「現在の10分スロットとnotify_timeの一致」
- * ではなく、「notify_timeを過ぎていて、今日まだ通知していない利用者」へ送信する方式にする
- * （last_notified_onで同日の重複送信を防ぐ）。遅延しても、遅延後の最初の実行で
- * 必ず通知が届く。
+ * pg_cronは厳密な間隔を保証するものではないため、「現在の10分スロットと時刻の一致」
+ * ではなく、「指定時刻を過ぎていて、今日まだその種別を通知判定していない利用者」へ
+ * 送信する方式にする。種別ごとに時刻が異なる（要件定義書 §8-1）ため、
+ * 判定済みフラグ（*_last_notified_on）も種別ごとに独立して持つ。
  *
  * 1. JST 03:00〜08:59の実行では、前日分の負債記録・ストリーク更新も実行（冪等）
- * 2. 通知の内容：
- *    - 当日予定通知（daily_reminder_enabled）：今日のトレーニング予定がある場合
- *    - 負債リマインダー（debt_reminder_enabled）：未消化の負債がある場合
- *    両方ある場合は1通にまとめて送る。失効した購読（410/404）は削除する。
+ * 2. 通知種別：
+ *    - 当日予定通知：常時有効。今日のトレーニング予定がある場合
+ *    - 負債リマインダー：常時有効。未消化の負債がある場合
+ *    - 再エンゲージメント通知：17:00固定。3日以上記録がない場合
+ *    - 週次レポート：日曜固定。Geminiで1週間の振り返りを生成
+ *    複数該当する場合は1通にまとめて送る。失効した購読（410/404）は削除する。
+ *    非通知時間帯・非通知曜日に該当する場合は、いずれの種別も送信をスキップする
+ *    （判定済みとして記録し、後追い送信はしない）。
  */
 export async function POST(request: Request) {
   const authHeader = request.headers.get("authorization");
@@ -60,6 +78,7 @@ export async function POST(request: Request) {
   const admin = createAdminClient();
   const nowMinutes = getJstMinutesOfDay();
   const today = getTodayDate();
+  const todayDow = getTodayDayOfWeek();
 
   // 日次判定（前日の負債記録・ストリーク更新）。処理自体が冪等なので
   // 時間帯内の複数回実行でも問題ない
@@ -79,75 +98,168 @@ export async function POST(request: Request) {
   const { data: settings, error: settingsError } = await admin
     .from("notification_settings")
     .select(
-      "user_id, notify_time, daily_reminder_enabled, debt_reminder_enabled, last_notified_on"
-    )
-    .or("daily_reminder_enabled.eq.true,debt_reminder_enabled.eq.true");
+      "user_id, daily_reminder_time, debt_reminder_time, reengagement_enabled, weekly_report_enabled, weekly_report_time, quiet_hours_start, quiet_hours_end, quiet_days, daily_last_notified_on, debt_last_notified_on, reengagement_last_notified_on, weekly_report_last_notified_on"
+    );
 
   if (settingsError) {
     return NextResponse.json({ error: "db_error" }, { status: 500 });
   }
 
-  // 通知時刻を過ぎていて、今日まだ通知判定をしていない利用者
-  const targets = (settings ?? []).filter(
-    (s) =>
-      timeToMinutes(s.notify_time) <= nowMinutes &&
-      s.last_notified_on !== today
-  );
-
   const weekStart = getCurrentWeekStartDate();
-  const todayDow = getTodayDayOfWeek();
   let sentCount = 0;
 
-  for (const target of targets) {
+  for (const target of settings ?? []) {
+    const quiet = isQuietTime(
+      nowMinutes,
+      todayDow,
+      target.quiet_hours_start,
+      target.quiet_hours_end,
+      target.quiet_days
+    );
+
     const bodyLines: string[] = [];
+    const notifiedUpdate: Partial<{
+      daily_last_notified_on: string;
+      debt_last_notified_on: string;
+      reengagement_last_notified_on: string;
+      weekly_report_last_notified_on: string;
+    }> = {};
 
-    if (target.daily_reminder_enabled) {
-      const { data: plans } = await admin
-        .from("training_plans")
-        .select("id")
-        .eq("user_id", target.user_id)
-        .eq("week_start_date", weekStart)
-        .eq("status", "active");
-
-      if (plans && plans.length > 0) {
-        const { data: todayItems } = await admin
-          .from("plan_items")
+    // 当日予定通知（常時有効）。quiet中でも「判定済み」は記録し、後追い送信を防ぐ
+    if (
+      timeToMinutes(target.daily_reminder_time) <= nowMinutes &&
+      target.daily_last_notified_on !== today
+    ) {
+      if (!quiet) {
+        const { data: plans } = await admin
+          .from("training_plans")
           .select("id")
-          .in(
-            "plan_id",
-            plans.map((p) => p.id)
-          )
-          .eq("day_of_week", todayDow);
+          .eq("user_id", target.user_id)
+          .eq("week_start_date", weekStart)
+          .eq("status", "active");
 
-        const count = todayItems?.length ?? 0;
-        if (count > 0) {
+        if (plans && plans.length > 0) {
+          const { data: todayItems } = await admin
+            .from("plan_items")
+            .select("id")
+            .in(
+              "plan_id",
+              plans.map((p) => p.id)
+            )
+            .eq("day_of_week", todayDow);
+
+          const count = todayItems?.length ?? 0;
+          if (count > 0) {
+            bodyLines.push(
+              `今日は${count}件のトレーニング予定があります。頑張りましょう！`
+            );
+          }
+        }
+      }
+      notifiedUpdate.daily_last_notified_on = today;
+    }
+
+    // 負債リマインダー（常時有効）。quiet中でも「判定済み」は記録し、後追い送信を防ぐ
+    if (
+      timeToMinutes(target.debt_reminder_time) <= nowMinutes &&
+      target.debt_last_notified_on !== today
+    ) {
+      if (!quiet) {
+        const { data: debts } = await admin
+          .from("debts")
+          .select("id")
+          .eq("user_id", target.user_id)
+          .is("resolved_at", null);
+
+        const debtCount = debts?.length ?? 0;
+        if (debtCount > 0) {
           bodyLines.push(
-            `今日は${count}件のトレーニング予定があります。頑張りましょう！`
+            `未消化の負債が${debtCount}件あります。今日の分に上乗せして取り返しましょう。`
           );
         }
       }
+      notifiedUpdate.debt_last_notified_on = today;
     }
 
-    if (target.debt_reminder_enabled) {
-      const { data: debts } = await admin
-        .from("debts")
-        .select("id")
-        .eq("user_id", target.user_id)
-        .is("resolved_at", null);
+    // 再エンゲージメント通知（17:00固定）。quiet中でも「判定済み」は記録し、後追い送信を防ぐ
+    if (
+      target.reengagement_enabled &&
+      REENGAGEMENT_TIME_MIN <= nowMinutes &&
+      target.reengagement_last_notified_on !== today
+    ) {
+      if (!quiet) {
+        const threeDaysAgo = addDays(today, -2);
+        const { data: recentLogs } = await admin
+          .from("workout_logs")
+          .select("id")
+          .eq("user_id", target.user_id)
+          .gte("performed_on", threeDaysAgo)
+          .limit(1);
 
-      const debtCount = debts?.length ?? 0;
-      if (debtCount > 0) {
-        bodyLines.push(
-          `未消化の負債が${debtCount}件あります。今日の分に上乗せして取り返しましょう。`
-        );
+        if (!recentLogs || recentLogs.length === 0) {
+          bodyLines.push(
+            "3日以上トレーニング記録がありません。無理のない範囲で再開しましょう！"
+          );
+        }
       }
+      notifiedUpdate.reengagement_last_notified_on = today;
     }
 
-    // 送る内容がない日も「判定済み」として記録し、同日の再判定を防ぐ
-    await admin
-      .from("notification_settings")
-      .update({ last_notified_on: today })
-      .eq("user_id", target.user_id);
+    // 週次レポート（日曜固定）。quiet中でも「判定済み」は記録し、後追い送信を防ぐ
+    if (
+      target.weekly_report_enabled &&
+      todayDow === WEEKLY_REPORT_DAY_OF_WEEK &&
+      timeToMinutes(target.weekly_report_time) <= nowMinutes &&
+      target.weekly_report_last_notified_on !== today
+    ) {
+      if (!quiet) {
+        try {
+          const { data: profile } = await admin
+            .from("profiles")
+            .select("birth_year, goal, gender")
+            .eq("id", target.user_id)
+            .single();
+
+          if (profile) {
+            const weekAgo = addDays(today, -6);
+            const { data: weekLogs } = await admin
+              .from("workout_logs")
+              .select("performed_on, sets_done")
+              .eq("user_id", target.user_id)
+              .gte("performed_on", weekAgo);
+
+            const distinctDays = new Set(
+              (weekLogs ?? []).map((l) => l.performed_on)
+            ).size;
+            const totalSets = (weekLogs ?? []).reduce(
+              (sum, l) => sum + (l.sets_done ?? 0),
+              0
+            );
+
+            const report = await generateWeeklyReport({
+              birthYear: profile.birth_year,
+              goal: profile.goal,
+              gender: profile.gender,
+              summaryLines: [
+                `実施日数: ${distinctDays}日`,
+                `合計セット数: ${totalSets}セット`,
+              ],
+            });
+            bodyLines.push(`【今週の振り返り】\n${report}`);
+          }
+        } catch (error) {
+          console.error("Weekly report generation failed", error);
+        }
+      }
+      notifiedUpdate.weekly_report_last_notified_on = today;
+    }
+
+    if (Object.keys(notifiedUpdate).length > 0) {
+      await admin
+        .from("notification_settings")
+        .update(notifiedUpdate)
+        .eq("user_id", target.user_id);
+    }
 
     if (bodyLines.length === 0) continue;
 
@@ -156,7 +268,7 @@ export async function POST(request: Request) {
       .select("endpoint, p256dh, auth")
       .eq("user_id", target.user_id);
 
-    const body = bodyLines.join("\n");
+    const body = bodyLines.join("\n\n");
     let deliveredToUser = false;
 
     for (const sub of subscriptions ?? []) {

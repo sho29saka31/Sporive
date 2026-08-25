@@ -11,8 +11,8 @@ const MENU_ITEMS = [
   },
   {
     href: "/settings/notifications",
-    title: "通知履歴",
-    description: "送信された通知の内容を確認",
+    title: "お知らせ",
+    description: "送信された通知の履歴・管理者からのお知らせを確認",
   },
   {
     href: "/settings/account",
