@@ -18,4 +18,7 @@ export async function markAnnouncementRead(announcementId: string) {
   );
 
   revalidatePath("/settings/notifications");
+  // ヘッダーのベルバッジ・全ページ上部のお知らせバーは(user)レイアウトに
+  // 常駐しているため、レイアウト単位で再検証して未読状態を反映させる
+  revalidatePath("/", "layout");
 }

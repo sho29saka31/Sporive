@@ -31,6 +31,36 @@ export function matchesAnnouncementPages(
   );
 }
 
+export type UnreadAnnouncement = {
+  id: string;
+  title: string;
+  level: "info" | "notice" | "warning";
+};
+
+/**
+ * 本人が未読の、有効なお知らせを新しい順に取得する。
+ * ヘッダーのベルバッジ・全ページ上部のお知らせバーの両方で使う。
+ */
+export async function getUnreadAnnouncements(
+  client: SupabaseClient<Database>,
+  userId: string
+): Promise<UnreadAnnouncement[]> {
+  const [{ data: announcements }, { data: reads }] = await Promise.all([
+    client
+      .from("site_announcements")
+      .select("id, title, level")
+      .eq("is_active", true)
+      .order("created_at", { ascending: false }),
+    client
+      .from("announcement_reads")
+      .select("announcement_id")
+      .eq("user_id", userId),
+  ]);
+
+  const readIds = new Set((reads ?? []).map((r) => r.announcement_id));
+  return (announcements ?? []).filter((a) => !readIds.has(a.id));
+}
+
 /**
  * 指定パスへのアクセスをブロックしている、有効な警告レベルのお知らせを取得する。
  * 複数該当する場合は最新のもの（created_atが最も新しいもの）を返す。
