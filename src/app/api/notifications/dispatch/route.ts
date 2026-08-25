@@ -125,127 +125,131 @@ export async function POST(request: Request) {
       weekly_report_last_notified_on: string;
     }> = {};
 
-    // 当日予定通知（常時有効）
+    // 当日予定通知（常時有効）。quiet中でも「判定済み」は記録し、後追い送信を防ぐ
     if (
-      !quiet &&
       timeToMinutes(target.daily_reminder_time) <= nowMinutes &&
       target.daily_last_notified_on !== today
     ) {
-      const { data: plans } = await admin
-        .from("training_plans")
-        .select("id")
-        .eq("user_id", target.user_id)
-        .eq("week_start_date", weekStart)
-        .eq("status", "active");
-
-      if (plans && plans.length > 0) {
-        const { data: todayItems } = await admin
-          .from("plan_items")
+      if (!quiet) {
+        const { data: plans } = await admin
+          .from("training_plans")
           .select("id")
-          .in(
-            "plan_id",
-            plans.map((p) => p.id)
-          )
-          .eq("day_of_week", todayDow);
+          .eq("user_id", target.user_id)
+          .eq("week_start_date", weekStart)
+          .eq("status", "active");
 
-        const count = todayItems?.length ?? 0;
-        if (count > 0) {
-          bodyLines.push(
-            `今日は${count}件のトレーニング予定があります。頑張りましょう！`
-          );
+        if (plans && plans.length > 0) {
+          const { data: todayItems } = await admin
+            .from("plan_items")
+            .select("id")
+            .in(
+              "plan_id",
+              plans.map((p) => p.id)
+            )
+            .eq("day_of_week", todayDow);
+
+          const count = todayItems?.length ?? 0;
+          if (count > 0) {
+            bodyLines.push(
+              `今日は${count}件のトレーニング予定があります。頑張りましょう！`
+            );
+          }
         }
       }
       notifiedUpdate.daily_last_notified_on = today;
     }
 
-    // 負債リマインダー（常時有効）
+    // 負債リマインダー（常時有効）。quiet中でも「判定済み」は記録し、後追い送信を防ぐ
     if (
-      !quiet &&
       timeToMinutes(target.debt_reminder_time) <= nowMinutes &&
       target.debt_last_notified_on !== today
     ) {
-      const { data: debts } = await admin
-        .from("debts")
-        .select("id")
-        .eq("user_id", target.user_id)
-        .is("resolved_at", null);
+      if (!quiet) {
+        const { data: debts } = await admin
+          .from("debts")
+          .select("id")
+          .eq("user_id", target.user_id)
+          .is("resolved_at", null);
 
-      const debtCount = debts?.length ?? 0;
-      if (debtCount > 0) {
-        bodyLines.push(
-          `未消化の負債が${debtCount}件あります。今日の分に上乗せして取り返しましょう。`
-        );
+        const debtCount = debts?.length ?? 0;
+        if (debtCount > 0) {
+          bodyLines.push(
+            `未消化の負債が${debtCount}件あります。今日の分に上乗せして取り返しましょう。`
+          );
+        }
       }
       notifiedUpdate.debt_last_notified_on = today;
     }
 
-    // 再エンゲージメント通知（17:00固定）
+    // 再エンゲージメント通知（17:00固定）。quiet中でも「判定済み」は記録し、後追い送信を防ぐ
     if (
       target.reengagement_enabled &&
-      !quiet &&
       REENGAGEMENT_TIME_MIN <= nowMinutes &&
       target.reengagement_last_notified_on !== today
     ) {
-      const threeDaysAgo = addDays(today, -2);
-      const { data: recentLogs } = await admin
-        .from("workout_logs")
-        .select("id")
-        .eq("user_id", target.user_id)
-        .gte("performed_on", threeDaysAgo)
-        .limit(1);
+      if (!quiet) {
+        const threeDaysAgo = addDays(today, -2);
+        const { data: recentLogs } = await admin
+          .from("workout_logs")
+          .select("id")
+          .eq("user_id", target.user_id)
+          .gte("performed_on", threeDaysAgo)
+          .limit(1);
 
-      if (!recentLogs || recentLogs.length === 0) {
-        bodyLines.push(
-          "3日以上トレーニング記録がありません。無理のない範囲で再開しましょう！"
-        );
+        if (!recentLogs || recentLogs.length === 0) {
+          bodyLines.push(
+            "3日以上トレーニング記録がありません。無理のない範囲で再開しましょう！"
+          );
+        }
       }
       notifiedUpdate.reengagement_last_notified_on = today;
     }
 
-    // 週次レポート（日曜固定）
+    // 週次レポート（日曜固定）。quiet中でも「判定済み」は記録し、後追い送信を防ぐ
     if (
       target.weekly_report_enabled &&
-      !quiet &&
       todayDow === WEEKLY_REPORT_DAY_OF_WEEK &&
       timeToMinutes(target.weekly_report_time) <= nowMinutes &&
       target.weekly_report_last_notified_on !== today
     ) {
-      try {
-        const { data: profile } = await admin
-          .from("profiles")
-          .select("birth_year, goal, gender")
-          .eq("id", target.user_id)
-          .single();
+      if (!quiet) {
+        try {
+          const { data: profile } = await admin
+            .from("profiles")
+            .select("birth_year, goal, gender")
+            .eq("id", target.user_id)
+            .single();
 
-        if (profile) {
-          const weekAgo = addDays(today, -6);
-          const { data: weekLogs } = await admin
-            .from("workout_logs")
-            .select("performed_on, sets_done")
-            .eq("user_id", target.user_id)
-            .gte("performed_on", weekAgo);
+          if (profile) {
+            const weekAgo = addDays(today, -6);
+            const { data: weekLogs } = await admin
+              .from("workout_logs")
+              .select("performed_on, sets_done")
+              .eq("user_id", target.user_id)
+              .gte("performed_on", weekAgo);
 
-          const distinctDays = new Set(
-            (weekLogs ?? []).map((l) => l.performed_on)
-          ).size;
-          const totalSets = (weekLogs ?? []).reduce(
-            (sum, l) => sum + (l.sets_done ?? 0),
-            0
-          );
+            const distinctDays = new Set(
+              (weekLogs ?? []).map((l) => l.performed_on)
+            ).size;
+            const totalSets = (weekLogs ?? []).reduce(
+              (sum, l) => sum + (l.sets_done ?? 0),
+              0
+            );
 
-          const report = await generateWeeklyReport({
-            birthYear: profile.birth_year,
-            goal: profile.goal,
-            gender: profile.gender,
-            summaryLines: [
-              `実施日数: ${distinctDays}日`,
-              `合計セット数: ${totalSets}セット`,
-            ],
-          });
-          bodyLines.push(`【今週の振り返り】\n${report}`);
+            const report = await generateWeeklyReport({
+              birthYear: profile.birth_year,
+              goal: profile.goal,
+              gender: profile.gender,
+              summaryLines: [
+                `実施日数: ${distinctDays}日`,
+                `合計セット数: ${totalSets}セット`,
+              ],
+            });
+            bodyLines.push(`【今週の振り返り】\n${report}`);
+          }
+        } catch (error) {
+          console.error("Weekly report generation failed", error);
         }
-      } catch (error) {
-        console.error("Weekly report generation failed", error);
       }
       notifiedUpdate.weekly_report_last_notified_on = today;
     }
