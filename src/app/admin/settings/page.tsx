@@ -35,7 +35,7 @@ export default async function AdminSettingsPage({
           await admin
             .from("site_announcements")
             .select(
-              "id, title, body, level, blocked_pages, is_active, published_at"
+              "id, title, body, level, blocked_pages, is_active, published_at, scheduled_at"
             )
             .order("published_at", { ascending: false })
         ).data ?? []
@@ -78,6 +78,7 @@ export default async function AdminSettingsPage({
             blockedPages: a.blocked_pages,
             isActive: a.is_active,
             publishedAt: a.published_at,
+            scheduledAt: a.scheduled_at,
           }))}
         />
       )}

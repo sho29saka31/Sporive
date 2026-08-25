@@ -20,7 +20,24 @@ export type AnnouncementFormValues = {
   body: string;
   level: "info" | "notice" | "warning";
   blockedPages: string[];
+  /** 予約日時（ISO文字列、UTC）。未予約はnull */
+  scheduledAt: string | null;
 };
+
+/** ISO文字列（UTC）を <input type="datetime-local"> 用のJST文字列に変換する */
+function toJstLocalInputValue(iso: string): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Tokyo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(new Date(iso));
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
+  return `${get("year")}-${get("month")}-${get("day")}T${get("hour")}:${get("minute")}`;
+}
 
 /** お知らせの新規作成・編集フォーム（要件定義書 §10-3） */
 export default function AnnouncementForm({
@@ -109,6 +126,29 @@ export default function AnnouncementForm({
             </label>
           ))}
         </div>
+      </div>
+
+      <div>
+        <label
+          htmlFor="scheduled_at"
+          className="text-xs font-medium text-navy-500"
+        >
+          予約日時（任意）
+        </label>
+        <p className="mt-0.5 text-[10px] text-navy-300">
+          指定すると、その日時になるまで利用者には表示されません。未指定の場合は保存時に即時公開されます。
+        </p>
+        <input
+          id="scheduled_at"
+          name="scheduled_at"
+          type="datetime-local"
+          defaultValue={
+            editing?.scheduledAt
+              ? toJstLocalInputValue(editing.scheduledAt)
+              : undefined
+          }
+          className="mt-1 w-full rounded-lg border border-navy-200 bg-white px-3 py-2 text-sm focus:border-navy-500 focus:outline-none"
+        />
       </div>
 
       {isWarning && (

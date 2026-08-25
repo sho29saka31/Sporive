@@ -16,6 +16,7 @@ export type AdminAnnouncementRow = {
   blockedPages: string[];
   isActive: boolean;
   publishedAt: string;
+  scheduledAt: string | null;
 };
 
 const LEVEL_LABELS: Record<AdminAnnouncementRow["level"], string> = {
@@ -142,6 +143,7 @@ export default function AnnouncementsPanel({
                       body: a.body,
                       level: a.level,
                       blockedPages: a.blockedPages,
+                      scheduledAt: a.scheduledAt,
                     }}
                     onDone={() => setEditingId(null)}
                   />
@@ -172,7 +174,13 @@ export default function AnnouncementsPanel({
                   )}
                   <div className="mt-3 flex items-center justify-between">
                     <p className="text-[10px] text-navy-300">
-                      発信日時：{formatPublishedAt(a.publishedAt)}
+                      {a.scheduledAt && a.scheduledAt > new Date().toISOString() ? (
+                        <span className="font-medium text-accent-teal">
+                          予約中：{formatPublishedAt(a.scheduledAt)}に公開予定
+                        </span>
+                      ) : (
+                        <>発信日時：{formatPublishedAt(a.publishedAt)}</>
+                      )}
                     </p>
                     <div className="flex items-center gap-3">
                       <button

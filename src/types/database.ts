@@ -311,6 +311,7 @@ export interface Database {
           created_by: string | null;
           created_at: string;
           published_at: string;
+          scheduled_at: string | null;
         };
         Insert: {
           id?: string;
@@ -321,6 +322,7 @@ export interface Database {
           is_active?: boolean;
           created_by?: string | null;
           published_at?: string;
+          scheduled_at?: string | null;
         };
         Update: Partial<{
           title: string;
@@ -329,6 +331,7 @@ export interface Database {
           blocked_pages: string[];
           is_active: boolean;
           published_at: string;
+          scheduled_at: string | null;
         }>;
         Relationships: [];
       };

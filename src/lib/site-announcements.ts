@@ -39,7 +39,16 @@ export type UnreadAnnouncement = {
 };
 
 /**
- * 本人が未読の、有効なお知らせを新しい順に取得する。
+ * まだ予約公開時刻に達していない（scheduled_atが未来の）行を除外する。
+ * 利用者側に見せる一覧はすべてこのフィルタを通す必要がある
+ * （管理画面の一覧だけは予約中のものも見せたいので通さない）。
+ */
+function isPublished(row: { scheduled_at: string | null }): boolean {
+  return !row.scheduled_at || row.scheduled_at <= new Date().toISOString();
+}
+
+/**
+ * 本人が未読の、公開済み（予約時刻に達した）お知らせを新しい順に取得する。
  * ヘッダーのベルバッジ・全ページ上部のお知らせバーの両方で使う。
  */
 export async function getUnreadAnnouncements(
@@ -49,9 +58,9 @@ export async function getUnreadAnnouncements(
   const [{ data: announcements }, { data: reads }] = await Promise.all([
     client
       .from("site_announcements")
-      .select("id, title, level")
+      .select("id, title, level, scheduled_at")
       .eq("is_active", true)
-      .order("created_at", { ascending: false }),
+      .order("published_at", { ascending: false }),
     client
       .from("announcement_reads")
       .select("announcement_id")
@@ -59,12 +68,15 @@ export async function getUnreadAnnouncements(
   ]);
 
   const readIds = new Set((reads ?? []).map((r) => r.announcement_id));
-  return (announcements ?? []).filter((a) => !readIds.has(a.id));
+  return (announcements ?? [])
+    .filter(isPublished)
+    .filter((a) => !readIds.has(a.id));
 }
 
 /**
- * 指定パスへのアクセスをブロックしている、有効な警告レベルのお知らせを取得する。
- * 複数該当する場合は最新のもの（published_atが最も新しいもの）を返す。
+ * 指定パスへのアクセスをブロックしている、有効かつ公開済みの警告レベルの
+ * お知らせを取得する。複数該当する場合は最新のもの（published_atが最も
+ * 新しいもの）を返す。
  */
 export async function getBlockingAnnouncement(
   client: SupabaseClient<Database>,
@@ -72,12 +84,12 @@ export async function getBlockingAnnouncement(
 ): Promise<{ id: string; title: string } | null> {
   const { data } = await client
     .from("site_announcements")
-    .select("id, title, blocked_pages")
+    .select("id, title, blocked_pages, scheduled_at")
     .eq("is_active", true)
     .eq("level", "warning")
     .order("published_at", { ascending: false });
 
-  for (const row of data ?? []) {
+  for (const row of (data ?? []).filter(isPublished)) {
     if (matchesAnnouncementPages(requestPath, row.blocked_pages)) {
       return { id: row.id, title: row.title };
     }

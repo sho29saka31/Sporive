@@ -45,6 +45,27 @@ function isAnnouncementLevel(value: string): value is AnnouncementLevel {
   return (ANNOUNCEMENT_LEVELS as readonly string[]).includes(value);
 }
 
+const SCHEDULED_AT_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
+
+/**
+ * <input type="datetime-local"> の値（"YYYY-MM-DDTHH:mm"、JST想定）を
+ * ISO文字列（UTC）に変換する。未入力ならnull（即時公開）を返す。
+ */
+function parseScheduledAt(
+  formData: FormData
+): { error: string } | { scheduledAt: string | null } {
+  const raw = String(formData.get("scheduled_at") ?? "").trim();
+  if (!raw) return { scheduledAt: null };
+  if (!SCHEDULED_AT_PATTERN.test(raw)) {
+    return { error: "予約日時を正しく入力してください。" };
+  }
+  const date = new Date(`${raw}:00+09:00`);
+  if (Number.isNaN(date.getTime())) {
+    return { error: "予約日時を正しく入力してください。" };
+  }
+  return { scheduledAt: date.toISOString() };
+}
+
 /** お知らせ一覧・お知らせバー・ヘッダーバッジなど、影響するページをまとめて再検証する */
 function revalidateAnnouncementSurfaces() {
   revalidatePath("/admin/settings");
@@ -54,7 +75,10 @@ function revalidateAnnouncementSurfaces() {
   revalidatePath("/", "layout");
 }
 
-/** 入力内容を検証し、タイトル・本文・レベル・対象ページを取り出す（作成・編集共通） */
+/**
+ * 入力内容を検証し、タイトル・本文・レベル・対象ページ・予約日時を取り出す
+ * （作成・編集共通）
+ */
 function parseAnnouncementForm(
   formData: FormData
 ):
@@ -64,6 +88,7 @@ function parseAnnouncementForm(
       body: string;
       level: AnnouncementLevel;
       blockedPages: string[];
+      scheduledAt: string | null;
     } {
   const title = String(formData.get("title") ?? "").trim();
   const body = String(formData.get("body") ?? "").trim();
@@ -79,6 +104,9 @@ function parseAnnouncementForm(
     return { error: "レベルを選択してください。" };
   }
 
+  const scheduled = parseScheduledAt(formData);
+  if ("error" in scheduled) return scheduled;
+
   // 開けなくするページを選択できるのは警告レベルのみ
   const selectedPages =
     level === "warning"
@@ -90,10 +118,20 @@ function parseAnnouncementForm(
           )
       : [];
 
-  return { title, body, level, blockedPages: selectedPages };
+  return {
+    title,
+    body,
+    level,
+    blockedPages: selectedPages,
+    scheduledAt: scheduled.scheduledAt,
+  };
 }
 
-/** お知らせを新規作成する（発信日時＝作成時刻） */
+/**
+ * お知らせを新規作成する。
+ * 予約日時が未指定なら発信日時＝作成時刻（即時公開）、指定した場合は
+ * 発信日時＝予約日時とする（利用者側には予約日時が来るまで表示しない）。
+ */
 export async function createAnnouncement(
   _prevState: SettingsActionState,
   formData: FormData
@@ -109,6 +147,8 @@ export async function createAnnouncement(
     body: parsed.body,
     level: parsed.level,
     blocked_pages: parsed.blockedPages,
+    scheduled_at: parsed.scheduledAt,
+    published_at: parsed.scheduledAt ?? new Date().toISOString(),
     created_by: userId,
   });
 
@@ -117,12 +157,17 @@ export async function createAnnouncement(
   }
 
   revalidateAnnouncementSurfaces();
-  return { success: "お知らせを作成しました。" };
+  return {
+    success: parsed.scheduledAt
+      ? "お知らせを予約しました。"
+      : "お知らせを作成しました。",
+  };
 }
 
 /**
- * お知らせを編集する（発信日時＝編集時刻に更新し、全利用者の既読状態をリセットする。
- * 内容が変わって再度周知する意図のため、読み直してもらう）。
+ * お知らせを編集する（発信日時＝予約日時、または編集時刻（即時公開の場合）に更新し、
+ * 全利用者の既読状態をリセットする。内容が変わって再度周知する意図のため、
+ * 読み直してもらう）。
  */
 export async function updateAnnouncement(
   id: string,
@@ -142,7 +187,8 @@ export async function updateAnnouncement(
       body: parsed.body,
       level: parsed.level,
       blocked_pages: parsed.blockedPages,
-      published_at: new Date().toISOString(),
+      scheduled_at: parsed.scheduledAt,
+      published_at: parsed.scheduledAt ?? new Date().toISOString(),
     })
     .eq("id", id);
 
@@ -172,7 +218,11 @@ export async function toggleAnnouncementActive(
     .from("site_announcements")
     .update(
       isActive
-        ? { is_active: true, published_at: new Date().toISOString() }
+        ? {
+            is_active: true,
+            published_at: new Date().toISOString(),
+            scheduled_at: null,
+          }
         : { is_active: false }
     )
     .eq("id", id);
