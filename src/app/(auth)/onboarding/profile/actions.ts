@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { summarizeGoal } from "@/lib/gemini";
+import { getFeatureFlags } from "@/lib/feature-flags";
 import type { GenderType } from "@/types/database";
 
 const CURRENT_YEAR = new Date().getFullYear();
@@ -41,13 +42,26 @@ export async function createProfile(formData: FormData) {
     redirect("/login");
   }
 
-  // Gemini APIで要望を簡潔な文章に整形する。API障害時も登録自体は止めず、
-  // 入力された文章をそのまま保存してフォールバックする。
+  const flags = await getFeatureFlags(supabase, [
+    "new_signup",
+    "ai_master",
+    "ai_goal_summarize",
+  ]);
+  if (!flags.new_signup) {
+    throw new Error(
+      "現在新規登録の受付を停止しています。時間をおいて再度お試しください。"
+    );
+  }
+
+  // Gemini APIで要望を簡潔な文章に整形する。API障害時・機能フラグ停止時も
+  // 登録自体は止めず、入力された文章をそのまま保存してフォールバックする。
   let goal = goalInput;
-  try {
-    goal = await summarizeGoal(goalInput);
-  } catch (error) {
-    console.error("Gemini goal summarization failed", error);
+  if (flags.ai_master && flags.ai_goal_summarize) {
+    try {
+      goal = await summarizeGoal(goalInput);
+    } catch (error) {
+      console.error("Gemini goal summarization failed", error);
+    }
   }
 
   const { error } = await supabase.from("profiles").insert({

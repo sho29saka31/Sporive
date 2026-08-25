@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { generateRecoveryAdvice } from "@/lib/gemini";
+import { getFeatureFlags } from "@/lib/feature-flags";
 
 /** 未消化の負債に対するAIリカバリー提案（Phase 7） */
 export async function POST() {
@@ -11,6 +12,18 @@ export async function POST() {
 
   if (!user) {
     return NextResponse.json({ error: "認証が必要です。" }, { status: 401 });
+  }
+
+  const flags = await getFeatureFlags(supabase, [
+    "ai_master",
+    "ai_recovery_advice",
+    "debt_management",
+  ]);
+  if (!flags.ai_master || !flags.ai_recovery_advice || !flags.debt_management) {
+    return NextResponse.json(
+      { error: "現在リカバリー提案機能は一時停止中です。時間をおいて再度お試しください。" },
+      { status: 503 }
+    );
   }
 
   const { data: profile } = await supabase

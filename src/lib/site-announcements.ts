@@ -1,0 +1,55 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/types/database";
+
+/**
+ * お知らせ（要件定義書 §10-3）で選択可能なページの一覧。
+ * value は site_announcements.affected_pages / blocked_pages に保存する文字列。
+ * "*" はワイルドカード（すべてのページ）。
+ */
+export const ANNOUNCEMENT_PAGES = [
+  { value: "/home", label: "ホーム" },
+  { value: "/schedule", label: "スケジュール" },
+  { value: "/progress", label: "進捗" },
+  { value: "/debts", label: "負債管理" },
+  { value: "/settings/notifications", label: "お知らせ" },
+  { value: "/settings/account", label: "アカウント設定" },
+  { value: "*", label: "すべて" },
+] as const;
+
+export function announcementPageLabel(value: string): string {
+  return ANNOUNCEMENT_PAGES.find((p) => p.value === value)?.label ?? value;
+}
+
+/** 指定したパスが、登録済みページ一覧（"*"含む）のいずれかに該当するか */
+export function matchesAnnouncementPages(
+  requestPath: string,
+  registeredPaths: string[]
+): boolean {
+  if (registeredPaths.includes("*")) return true;
+  return registeredPaths.some(
+    (p) => requestPath === p || requestPath.startsWith(`${p}/`)
+  );
+}
+
+/**
+ * 指定パスへのアクセスをブロックしている、有効な警告レベルのお知らせを取得する。
+ * 複数該当する場合は最新のもの（created_atが最も新しいもの）を返す。
+ */
+export async function getBlockingAnnouncement(
+  client: SupabaseClient<Database>,
+  requestPath: string
+): Promise<{ id: string; title: string } | null> {
+  const { data } = await client
+    .from("site_announcements")
+    .select("id, title, blocked_pages")
+    .eq("is_active", true)
+    .eq("level", "warning")
+    .order("created_at", { ascending: false });
+
+  for (const row of data ?? []) {
+    if (matchesAnnouncementPages(requestPath, row.blocked_pages)) {
+      return { id: row.id, title: row.title };
+    }
+  }
+  return null;
+}

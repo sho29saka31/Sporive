@@ -28,7 +28,7 @@ export default async function AdminLayout({
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("is_admin, display_name")
+    .select("is_admin, is_super_admin, display_name")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -64,6 +64,11 @@ export default async function AdminLayout({
           </div>
           <div className="flex items-center gap-4 text-xs text-navy-500">
             <span>{profile.display_name}</span>
+            {profile.is_super_admin && (
+              <Link href="/admin/settings" className="underline">
+                高度な設定
+              </Link>
+            )}
             <Link href="/home" className="underline">
               利用者画面へ
             </Link>

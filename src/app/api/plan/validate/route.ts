@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { validatePlanIntensity } from "@/lib/intensity";
 import { addDays, getCurrentWeekStartDate } from "@/lib/week";
 import type { PlanItemDraft } from "@/lib/gemini";
+import { getFeatureFlag } from "@/lib/feature-flags";
 
 /**
  * 運動強度の妥当性検証API（Phase 8）。
@@ -17,6 +18,10 @@ export async function POST(request: Request) {
 
   if (!user) {
     return NextResponse.json({ error: "認証が必要です。" }, { status: 401 });
+  }
+
+  if (!(await getFeatureFlag(supabase, "intensity_check"))) {
+    return NextResponse.json({ warnings: [] });
   }
 
   const { data: profile } = await supabase

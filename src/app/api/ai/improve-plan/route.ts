@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { generateImprovementSuggestion, type WeeklyPlanDraft } from "@/lib/gemini";
+import { getFeatureFlags } from "@/lib/feature-flags";
 
 /** 登録直前の計画（AI提案 or 手動作成）に対してAIが改善案を提示する */
 export async function POST(request: Request) {
@@ -11,6 +12,17 @@ export async function POST(request: Request) {
 
   if (!user) {
     return NextResponse.json({ error: "認証が必要です。" }, { status: 401 });
+  }
+
+  const flags = await getFeatureFlags(supabase, [
+    "ai_master",
+    "ai_improvement_suggestion",
+  ]);
+  if (!flags.ai_master || !flags.ai_improvement_suggestion) {
+    return NextResponse.json(
+      { error: "現在AI改善提案機能は一時停止中です。時間をおいて再度お試しください。" },
+      { status: 503 }
+    );
   }
 
   const { data: profile } = await supabase

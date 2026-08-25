@@ -3,6 +3,8 @@ import { NextResponse, type NextRequest } from "next/server";
 import type { Database } from "@/types/database";
 import { getJstMinutesOfDay } from "@/lib/week";
 import { isMaintenanceLockdownTime } from "@/lib/maintenance";
+import { isEmergencyMaintenanceActive } from "@/lib/feature-flags";
+import { getBlockingAnnouncement } from "@/lib/site-announcements";
 
 const PUBLIC_PATHS = ["/login", "/signup", "/reset-password"];
 // 未ログインでも常に表示する静的ページ（トップの機能紹介・規約類）。
@@ -93,6 +95,21 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
+  // 緊急メンテナンスモード（要件定義書 §8-3, §10-3）：super-adminが機能フラグで
+  // 任意のタイミングで即座に全サイトを止められる。定期メンテナンスと同じ除外対象
+  if (
+    requestPath !== "/" &&
+    !requestPath.startsWith("/admin") &&
+    !requestPath.startsWith("/api/") &&
+    (await isEmergencyMaintenanceActive(supabase))
+  ) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/";
+    url.search = "";
+    url.searchParams.set("maintenance", "1");
+    return NextResponse.redirect(url);
+  }
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -154,6 +171,18 @@ export async function updateSession(request: NextRequest) {
         return applyMobilePreviewParam(request, NextResponse.redirect(url));
       }
       supabaseResponse.cookies.set(ONBOARDED_COOKIE, user.id, { path: "/" });
+    }
+
+    // 警告レベルのお知らせによるページブロック（要件定義書 §10-3）。
+    // URLはそのままに/blockedの内容を返す（redirectだとブロック対象ページ同士で
+    // ループしうるため、rewriteでmiddlewareの再実行を避ける）
+    const blocking = await getBlockingAnnouncement(supabase, pathname);
+    if (blocking) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/blocked";
+      url.search = "";
+      url.searchParams.set("title", blocking.title);
+      return applyMobilePreviewParam(request, NextResponse.rewrite(url));
     }
   }
 

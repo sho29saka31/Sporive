@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import GoogleAuthButton from "@/components/auth/GoogleAuthButton";
+import { createClient } from "@/lib/supabase/server";
+import { getFeatureFlag } from "@/lib/feature-flags";
 
 const TITLE = "新規登録";
 const DESCRIPTION =
@@ -32,7 +34,27 @@ export const metadata: Metadata = {
  * Google OAuth のみで開始し、同意画面でカレンダーへのアクセス許可も求める。
  * OAuth後のパスワード設定は /signup/set-password（middlewareが自動誘導）。
  */
-export default function SignupPage() {
+export default async function SignupPage() {
+  const supabase = await createClient();
+  const signupEnabled = await getFeatureFlag(supabase, "new_signup");
+
+  if (!signupEnabled) {
+    return (
+      <div className="flex flex-col gap-4">
+        <h2 className="text-lg font-bold text-navy-800">新規登録</h2>
+        <p className="rounded-lg bg-navy-50 p-4 text-sm leading-relaxed text-navy-600">
+          現在、新規登録の受付を一時的に停止しています。時間をおいて再度お試しください。
+        </p>
+        <p className="text-center text-sm text-navy-400">
+          すでにアカウントをお持ちの方は{" "}
+          <Link href="/login" className="font-medium text-navy-600 underline">
+            ログイン
+          </Link>
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <div>
