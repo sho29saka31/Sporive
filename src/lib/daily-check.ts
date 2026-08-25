@@ -17,7 +17,8 @@ import {
  * 同じ日に複数回呼ばれても二重登録しないよう冪等に作る。
  */
 export async function processDailyCheck(
-  admin: SupabaseClient<Database>
+  admin: SupabaseClient<Database>,
+  options: { debtManagementEnabled: boolean }
 ): Promise<{ debtsCreated: number; streaksUpdated: number }> {
   const yesterday = getYesterdayDate();
   const dow = getDayOfWeekOf(yesterday);
@@ -81,7 +82,10 @@ export async function processDailyCheck(
         allAchieved = false;
         // セット/回数ベースで補填できる負債のみ記録する
         // （時間のみの種目で記録がない場合は補填量を表現できないため対象外）
-        if (setsRemaining > 0 || repsRemaining > 0) {
+        if (
+          options.debtManagementEnabled &&
+          (setsRemaining > 0 || repsRemaining > 0)
+        ) {
           if (!alreadyProcessed) {
             const { error } = await admin.from("debts").insert({
               user_id: plan.user_id,

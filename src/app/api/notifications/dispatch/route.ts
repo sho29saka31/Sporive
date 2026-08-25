@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { sendPush } from "@/lib/push";
 import { processDailyCheck } from "@/lib/daily-check";
 import { generateWeeklyReport } from "@/lib/gemini";
+import { getFeatureFlags } from "@/lib/feature-flags";
 import {
   addDays,
   getCurrentWeekStartDate,
@@ -80,6 +81,12 @@ export async function POST(request: Request) {
   const today = getTodayDate();
   const todayDow = getTodayDayOfWeek();
 
+  // 機能フラグ（要件定義書 §10-3）：通知機能全体・負債管理機能の一括停止に対応
+  const flags = await getFeatureFlags(admin, [
+    "notifications",
+    "debt_management",
+  ]);
+
   // 日次判定（前日の負債記録・ストリーク更新）。処理自体が冪等なので
   // 時間帯内の複数回実行でも問題ない
   let dailyCheck: { debtsCreated: number; streaksUpdated: number } | null =
@@ -89,10 +96,18 @@ export async function POST(request: Request) {
     nowMinutes < DAILY_CHECK_END_MIN
   ) {
     try {
-      dailyCheck = await processDailyCheck(admin);
+      dailyCheck = await processDailyCheck(admin, {
+        debtManagementEnabled: flags.debt_management,
+      });
     } catch (error) {
       console.error("Daily check failed", error);
     }
+  }
+
+  // 通知機能全体が停止中の場合は、判定済みフラグの更新も含めて何もしない
+  // （再開後、次回cronで通常通り通知判定が行われる）
+  if (!flags.notifications) {
+    return NextResponse.json({ ok: true, sent: 0, dailyCheck });
   }
 
   const { data: settings, error: settingsError } = await admin
@@ -159,12 +174,13 @@ export async function POST(request: Request) {
       notifiedUpdate.daily_last_notified_on = today;
     }
 
-    // 負債リマインダー（常時有効）。quiet中でも「判定済み」は記録し、後追い送信を防ぐ
+    // 負債リマインダー（常時有効）。quiet中・負債管理機能停止中でも
+    // 「判定済み」は記録し、後追い送信を防ぐ
     if (
       timeToMinutes(target.debt_reminder_time) <= nowMinutes &&
       target.debt_last_notified_on !== today
     ) {
-      if (!quiet) {
+      if (!quiet && flags.debt_management) {
         const { data: debts } = await admin
           .from("debts")
           .select("id")
