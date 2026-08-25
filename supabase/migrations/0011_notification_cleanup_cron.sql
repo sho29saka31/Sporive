@@ -11,7 +11,7 @@ set search_path = public
 as $$
 begin
   delete from notification_logs
-  where created_at < now() - interval '30 days';
+  where sent_at < now() - interval '30 days';
 
   -- push_subscriptionsには有効期限を示すカラムがなく、Web Push仕様上も
   -- クライアント側の失効を事前に知る方法がないため、実際に送信を試みて
