@@ -229,10 +229,13 @@ export default async function LandingPage() {
       <section className="bg-navy-50">
         <div className="mx-auto max-w-5xl px-6 py-16">
           <h2 className="text-center text-2xl font-bold">使い方は3ステップ</h2>
-          <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-3">
+          <ol className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-3">
             {STEPS.map((step) => (
-              <div key={step.step} className="text-center">
-                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-navy-700 text-lg font-bold text-white">
+              <li key={step.step} className="text-center">
+                <div
+                  aria-hidden="true"
+                  className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-navy-700 text-lg font-bold text-white"
+                >
                   {step.step}
                 </div>
                 <h3 className="mt-4 text-base font-bold text-navy-800">
@@ -241,9 +244,9 @@ export default async function LandingPage() {
                 <p className="mt-2 text-sm leading-relaxed text-navy-500">
                   {step.description}
                 </p>
-              </div>
+              </li>
             ))}
-          </div>
+          </ol>
         </div>
       </section>
 
