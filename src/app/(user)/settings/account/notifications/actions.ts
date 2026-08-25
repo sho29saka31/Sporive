@@ -49,6 +49,15 @@ export async function saveNotificationSettings(
   if (quietHoursEnd && !isValidTime(quietHoursEnd)) {
     return { error: "非通知時間帯（終了）を正しく入力してください。" };
   }
+  if (
+    quietHoursStart &&
+    quietHoursEnd &&
+    quietHoursStart === quietHoursEnd
+  ) {
+    return {
+      error: "非通知時間帯は開始と終了に同じ時刻を指定できません。",
+    };
+  }
 
   const supabase = await createClient();
   const {

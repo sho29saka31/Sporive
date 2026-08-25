@@ -182,8 +182,6 @@ export interface Database {
       notification_settings: {
         Row: {
           user_id: string;
-          daily_reminder_enabled: boolean;
-          debt_reminder_enabled: boolean;
           daily_reminder_time: string;
           debt_reminder_time: string;
           reengagement_enabled: boolean;
@@ -200,8 +198,6 @@ export interface Database {
         };
         Insert: {
           user_id: string;
-          daily_reminder_enabled?: boolean;
-          debt_reminder_enabled?: boolean;
           daily_reminder_time?: string;
           debt_reminder_time?: string;
           reengagement_enabled?: boolean;
@@ -217,8 +213,6 @@ export interface Database {
           weekly_report_last_notified_on?: string | null;
         };
         Update: Partial<{
-          daily_reminder_enabled: boolean;
-          debt_reminder_enabled: boolean;
           daily_reminder_time: string;
           debt_reminder_time: string;
           reengagement_enabled: boolean;
