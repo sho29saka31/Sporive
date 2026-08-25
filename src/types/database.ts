@@ -306,29 +306,32 @@ export interface Database {
           title: string;
           body: string;
           level: "info" | "notice" | "warning";
-          affected_pages: string[];
           blocked_pages: string[];
           is_active: boolean;
           created_by: string | null;
           created_at: string;
+          published_at: string;
+          scheduled_at: string | null;
         };
         Insert: {
           id?: string;
           title: string;
           body: string;
           level: "info" | "notice" | "warning";
-          affected_pages?: string[];
           blocked_pages?: string[];
           is_active?: boolean;
           created_by?: string | null;
+          published_at?: string;
+          scheduled_at?: string | null;
         };
         Update: Partial<{
           title: string;
           body: string;
           level: "info" | "notice" | "warning";
-          affected_pages: string[];
           blocked_pages: string[];
           is_active: boolean;
+          published_at: string;
+          scheduled_at: string | null;
         }>;
         Relationships: [];
       };
@@ -363,6 +366,7 @@ export interface Database {
           enabled: boolean;
           description: string;
           updated_by: string | null;
+          updated_at: string;
         }>;
         Relationships: [];
       };

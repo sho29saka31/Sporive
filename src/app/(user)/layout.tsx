@@ -2,6 +2,7 @@ import Header from "@/components/Header";
 import FooterTabs from "@/components/FooterTabs";
 import DeviceGuard from "@/components/DeviceGuard";
 import MaintenanceNoticeBar from "@/components/MaintenanceNoticeBar";
+import AnnouncementBar from "@/components/AnnouncementBar";
 
 /**
  * 利用者画面の共通レイアウト。
@@ -19,6 +20,7 @@ export default function UserLayout({
         <Header />
         <main className="px-4 pt-header pb-footer">
           <MaintenanceNoticeBar />
+          <AnnouncementBar />
           {children}
         </main>
         <FooterTabs />

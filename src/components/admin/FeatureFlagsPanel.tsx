@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { toggleFeatureFlag } from "@/app/admin/settings/actions";
 
 export type FeatureFlagRow = {
@@ -46,10 +46,16 @@ function Toggle({
   indent: boolean;
 }) {
   const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
 
   function handleChange(checked: boolean) {
+    setError(null);
     startTransition(async () => {
-      await toggleFeatureFlag(flag.key, checked);
+      try {
+        await toggleFeatureFlag(flag.key, checked);
+      } catch {
+        setError("更新に失敗しました。時間をおいて再度お試しください。");
+      }
     });
   }
 
@@ -71,6 +77,7 @@ function Toggle({
           )}
         </p>
         <p className="mt-0.5 text-xs text-navy-400">{flag.description}</p>
+        {error && <p className="mt-0.5 text-xs text-accent-coral">{error}</p>}
       </div>
       <label className="relative inline-flex shrink-0 cursor-pointer items-center">
         <input

@@ -1,4 +1,7 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/types/database";
 import { getJstMinutesOfDay } from "@/lib/week";
+import { isEmergencyMaintenanceActive } from "@/lib/feature-flags";
 
 /**
  * 定期メンテナンスモード（要件定義書 §8-3）。
@@ -20,7 +23,7 @@ export function isMaintenanceLockdownTime(nowMinutes: number): boolean {
   return nowMinutes >= LOCKDOWN_START_MIN && nowMinutes < LOCKDOWN_END_MIN;
 }
 
-/** 現在時刻（JST）でのメンテナンス状態をまとめて返す */
+/** 現在時刻（JST）での定期メンテナンス状態をまとめて返す（予告バー用。時刻ベースのみ） */
 export function getMaintenanceState(): {
   isNotice: boolean;
   isLockdown: boolean;
@@ -30,4 +33,18 @@ export function getMaintenanceState(): {
     isNotice: isMaintenanceNoticeTime(nowMinutes),
     isLockdown: isMaintenanceLockdownTime(nowMinutes),
   };
+}
+
+/**
+ * 実際にロックダウン中かどうか（定期メンテナンスの時間帯、または
+ * super-adminが機能フラグで有効にした緊急メンテナンスモードのいずれか）。
+ * トップページの表示分岐は、middlewareのロックダウン判定（emergency_maintenance
+ * フラグを含む）と一致させる必要があるため、時刻のみで判定するgetMaintenanceState()
+ * とは別に、DB照会を伴うこちらを使う。
+ */
+export async function isLockdownActive(
+  supabase: SupabaseClient<Database>
+): Promise<boolean> {
+  if (isMaintenanceLockdownTime(getJstMinutesOfDay())) return true;
+  return isEmergencyMaintenanceActive(supabase);
 }
