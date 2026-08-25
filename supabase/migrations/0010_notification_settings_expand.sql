@@ -18,6 +18,22 @@ update notification_settings
 
 alter table notification_settings drop column notify_time;
 
+-- 通知種別ごとに時刻が異なるため、共通の last_notified_on（1日1回のみ判定）
+-- では種別間で送信判定が競合してしまう（例: 08:00の当日予定通知を判定した
+-- 時点で「その日は判定済み」となり、17:00の再エンゲージメント通知が
+-- スキップされる）。種別ごとのカラムに分割する。
+alter table notification_settings
+  add column daily_last_notified_on date,
+  add column debt_last_notified_on date,
+  add column reengagement_last_notified_on date,
+  add column weekly_report_last_notified_on date;
+
+update notification_settings
+  set daily_last_notified_on = last_notified_on,
+      debt_last_notified_on = last_notified_on;
+
+alter table notification_settings drop column last_notified_on;
+
 comment on column notification_settings.reengagement_enabled is
   '再エンゲージメント通知（3日以上トレーニング記録がない利用者への通知）のON/OFF。時刻は17:00固定でシステム側の定数として扱うため、時刻カラムは持たない';
 comment on column notification_settings.weekly_report_time is

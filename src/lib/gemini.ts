@@ -315,3 +315,59 @@ export async function summarizeGoal(rawText: string): Promise<string> {
   }
   return (JSON.parse(text) as { summary: string }).summary;
 }
+
+/**
+ * 週次レポート通知（要件定義書 §8-1）向けに、1週間分の実績を振り返る
+ * 短い日本語コメントを生成する。
+ */
+export async function generateWeeklyReport(params: {
+  birthYear: number;
+  goal: string;
+  gender?: GenderType | null;
+  summaryLines: string[]; // 「月曜: スクワット 3セット×10回」「達成率: 71%」等
+}): Promise<string> {
+  const ai = getClient();
+  const profileContext = buildProfileContext({
+    ...params,
+    weeklyFrequency: 3,
+  });
+
+  const response = await ai.models.generateContent({
+    model: getModel(),
+    contents: [
+      {
+        role: "user",
+        parts: [
+          {
+            text:
+              "あなたはパーソナルトレーナーです。利用者の直近1週間のトレーニング実績を踏まえて、" +
+              "振り返りとして日本語で3〜5文の簡潔なコメントを作成してください。" +
+              "良かった点を認めつつ、来週に向けた前向きなアドバイスを含めてください。\n\n" +
+              profileContext +
+              "\n\n直近1週間の実績:\n" +
+              params.summaryLines.join("\n"),
+          },
+        ],
+      },
+    ],
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          report: {
+            type: Type.STRING,
+            description: "週次振り返りコメント（日本語、3〜5文）",
+          },
+        },
+        required: ["report"],
+      },
+    },
+  });
+
+  const text = response.text;
+  if (!text) {
+    throw new Error("Gemini APIから応答が得られませんでした。");
+  }
+  return (JSON.parse(text) as { report: string }).report;
+}

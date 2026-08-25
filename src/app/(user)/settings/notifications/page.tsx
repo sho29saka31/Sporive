@@ -1,8 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import AnnouncementList, {
+  type AnnouncementItem,
+} from "@/components/settings/AnnouncementList";
 
-export const metadata: Metadata = { title: "通知履歴" };
+export const metadata: Metadata = { title: "お知らせ" };
 
 function formatSentAt(sentAt: string): string {
   return new Date(sentAt).toLocaleString("ja-JP", {
@@ -14,23 +17,64 @@ function formatSentAt(sentAt: string): string {
   });
 }
 
-/** 通知履歴：これまでに送信された通知の内容を一覧表示する（requirements.md §7） */
-export default async function NotificationHistoryPage() {
+/**
+ * お知らせ画面：送信済みプッシュ通知の履歴と、管理者が発行したお知らせを
+ * タブで切り替えて表示する（要件定義書 §8-4、旧称：通知履歴）。
+ */
+export default async function NotificationHistoryPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string }>;
+}) {
+  const { tab } = await searchParams;
+  const activeTab = tab === "announcements" ? "announcements" : "history";
+
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  const { data: logs } = await supabase
-    .from("notification_logs")
-    .select("id, title, body, sent_at")
-    .eq("user_id", user!.id)
-    .order("sent_at", { ascending: false })
-    .limit(30);
+
+  const logs =
+    activeTab === "history"
+      ? (
+          await supabase
+            .from("notification_logs")
+            .select("id, title, body, sent_at")
+            .eq("user_id", user!.id)
+            .order("sent_at", { ascending: false })
+            .limit(30)
+        ).data
+      : null;
+
+  let announcements: AnnouncementItem[] = [];
+  if (activeTab === "announcements") {
+    const [{ data: siteAnnouncements }, { data: reads }] = await Promise.all([
+      supabase
+        .from("site_announcements")
+        .select("id, title, body, level, affected_pages")
+        .eq("is_active", true)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("announcement_reads")
+        .select("announcement_id")
+        .eq("user_id", user!.id),
+    ]);
+
+    const readIds = new Set((reads ?? []).map((r) => r.announcement_id));
+    announcements = (siteAnnouncements ?? []).map((a) => ({
+      id: a.id,
+      title: a.title,
+      body: a.body,
+      level: a.level,
+      affectedPages: a.affected_pages,
+      isRead: readIds.has(a.id),
+    }));
+  }
 
   return (
     <div className="py-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold">通知履歴</h1>
+        <h1 className="text-xl font-bold">お知らせ</h1>
         <Link
           href="/settings/account/notifications"
           prefetch={false}
@@ -40,26 +84,57 @@ export default async function NotificationHistoryPage() {
         </Link>
       </div>
 
-      {logs && logs.length > 0 ? (
-        <div className="mt-4 flex flex-col gap-3">
-          {logs.map((log) => (
-            <div key={log.id} className="rounded-xl bg-white p-4 shadow-sm">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-bold text-navy-800">{log.title}</p>
-                <p className="text-[10px] text-navy-300">
-                  {formatSentAt(log.sent_at)}
+      <div className="mt-4 flex overflow-hidden rounded-lg border border-navy-200">
+        <Link
+          href="?tab=history"
+          prefetch={false}
+          className={`flex-1 py-2 text-center text-xs font-medium ${
+            activeTab === "history"
+              ? "bg-navy-700 text-white"
+              : "bg-white text-navy-500"
+          }`}
+        >
+          通知履歴
+        </Link>
+        <Link
+          href="?tab=announcements"
+          prefetch={false}
+          className={`flex-1 py-2 text-center text-xs font-medium ${
+            activeTab === "announcements"
+              ? "bg-navy-700 text-white"
+              : "bg-white text-navy-500"
+          }`}
+        >
+          お知らせ
+        </Link>
+      </div>
+
+      {activeTab === "history" ? (
+        logs && logs.length > 0 ? (
+          <div className="mt-4 flex flex-col gap-3">
+            {logs.map((log) => (
+              <div key={log.id} className="rounded-xl bg-white p-4 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-bold text-navy-800">
+                    {log.title}
+                  </p>
+                  <p className="text-[10px] text-navy-300">
+                    {formatSentAt(log.sent_at)}
+                  </p>
+                </div>
+                <p className="mt-1 whitespace-pre-line text-xs leading-relaxed text-navy-500">
+                  {log.body}
                 </p>
               </div>
-              <p className="mt-1 whitespace-pre-line text-xs leading-relaxed text-navy-500">
-                {log.body}
-              </p>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <p className="mt-6 text-center text-sm leading-relaxed text-navy-400">
+            まだ通知は送信されていません。
+          </p>
+        )
       ) : (
-        <p className="mt-6 text-center text-sm leading-relaxed text-navy-400">
-          まだ通知は送信されていません。
-        </p>
+        <AnnouncementList announcements={announcements} />
       )}
     </div>
   );

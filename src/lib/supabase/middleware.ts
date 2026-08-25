@@ -1,6 +1,8 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import type { Database } from "@/types/database";
+import { getJstMinutesOfDay } from "@/lib/week";
+import { isMaintenanceLockdownTime } from "@/lib/maintenance";
 
 const PUBLIC_PATHS = ["/login", "/signup", "/reset-password"];
 // 未ログインでも常に表示する静的ページ（トップの機能紹介・規約類）。
@@ -50,6 +52,21 @@ export async function updateSession(request: NextRequest) {
   if (requestParams.has("code") && !requestPath.startsWith("/auth/")) {
     const url = request.nextUrl.clone();
     url.pathname = "/auth/callback";
+    return NextResponse.redirect(url);
+  }
+
+  // 定期メンテナンスタイム（§8-3）：トップページ・管理者画面・APIルート以外への
+  // アクセスは、認証状態にかかわらずトップページへ戻す
+  if (
+    isMaintenanceLockdownTime(getJstMinutesOfDay()) &&
+    requestPath !== "/" &&
+    !requestPath.startsWith("/admin") &&
+    !requestPath.startsWith("/api/")
+  ) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/";
+    url.search = "";
+    url.searchParams.set("maintenance", "1");
     return NextResponse.redirect(url);
   }
 
