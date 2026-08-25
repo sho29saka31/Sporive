@@ -51,9 +51,9 @@ export default async function NotificationHistoryPage({
     const [{ data: siteAnnouncements }, { data: reads }] = await Promise.all([
       supabase
         .from("site_announcements")
-        .select("id, title, body, level, affected_pages")
+        .select("id, title, body, level")
         .eq("is_active", true)
-        .order("created_at", { ascending: false }),
+        .order("published_at", { ascending: false }),
       supabase
         .from("announcement_reads")
         .select("announcement_id")
@@ -66,7 +66,6 @@ export default async function NotificationHistoryPage({
       title: a.title,
       body: a.body,
       level: a.level,
-      affectedPages: a.affected_pages,
       isRead: readIds.has(a.id),
     }));
   }

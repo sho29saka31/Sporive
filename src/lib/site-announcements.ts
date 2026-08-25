@@ -3,7 +3,8 @@ import type { Database } from "@/types/database";
 
 /**
  * お知らせ（要件定義書 §10-3）で選択可能なページの一覧。
- * value は site_announcements.affected_pages / blocked_pages に保存する文字列。
+ * 警告レベルのblocked_pagesにのみ使う（お知らせ・注意はページ選択なし）。
+ * value は site_announcements.blocked_pages に保存する文字列。
  * "*" はワイルドカード（すべてのページ）。
  */
 export const ANNOUNCEMENT_PAGES = [
@@ -63,7 +64,7 @@ export async function getUnreadAnnouncements(
 
 /**
  * 指定パスへのアクセスをブロックしている、有効な警告レベルのお知らせを取得する。
- * 複数該当する場合は最新のもの（created_atが最も新しいもの）を返す。
+ * 複数該当する場合は最新のもの（published_atが最も新しいもの）を返す。
  */
 export async function getBlockingAnnouncement(
   client: SupabaseClient<Database>,
@@ -74,7 +75,7 @@ export async function getBlockingAnnouncement(
     .select("id, title, blocked_pages")
     .eq("is_active", true)
     .eq("level", "warning")
-    .order("created_at", { ascending: false });
+    .order("published_at", { ascending: false });
 
   for (const row of data ?? []) {
     if (matchesAnnouncementPages(requestPath, row.blocked_pages)) {

@@ -306,29 +306,29 @@ export interface Database {
           title: string;
           body: string;
           level: "info" | "notice" | "warning";
-          affected_pages: string[];
           blocked_pages: string[];
           is_active: boolean;
           created_by: string | null;
           created_at: string;
+          published_at: string;
         };
         Insert: {
           id?: string;
           title: string;
           body: string;
           level: "info" | "notice" | "warning";
-          affected_pages?: string[];
           blocked_pages?: string[];
           is_active?: boolean;
           created_by?: string | null;
+          published_at?: string;
         };
         Update: Partial<{
           title: string;
           body: string;
           level: "info" | "notice" | "warning";
-          affected_pages: string[];
           blocked_pages: string[];
           is_active: boolean;
+          published_at: string;
         }>;
         Relationships: [];
       };

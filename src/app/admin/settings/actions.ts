@@ -45,6 +45,166 @@ function isAnnouncementLevel(value: string): value is AnnouncementLevel {
   return (ANNOUNCEMENT_LEVELS as readonly string[]).includes(value);
 }
 
+/** お知らせ一覧・お知らせバー・ヘッダーバッジなど、影響するページをまとめて再検証する */
+function revalidateAnnouncementSurfaces() {
+  revalidatePath("/admin/settings");
+  revalidatePath("/settings/notifications");
+  // ヘッダーのベルバッジ・全ページ上部のお知らせバーは(user)レイアウトに
+  // 常駐しているため、レイアウト単位で再検証する
+  revalidatePath("/", "layout");
+}
+
+/** 入力内容を検証し、タイトル・本文・レベル・対象ページを取り出す（作成・編集共通） */
+function parseAnnouncementForm(
+  formData: FormData
+):
+  | { error: string }
+  | {
+      title: string;
+      body: string;
+      level: AnnouncementLevel;
+      blockedPages: string[];
+    } {
+  const title = String(formData.get("title") ?? "").trim();
+  const body = String(formData.get("body") ?? "").trim();
+  const level = String(formData.get("level") ?? "");
+
+  if (!title || title.length > TITLE_MAX_LENGTH) {
+    return { error: `タイトルは1〜${TITLE_MAX_LENGTH}文字で入力してください。` };
+  }
+  if (!body || body.length > BODY_MAX_LENGTH) {
+    return { error: `本文は1〜${BODY_MAX_LENGTH}文字で入力してください。` };
+  }
+  if (!isAnnouncementLevel(level)) {
+    return { error: "レベルを選択してください。" };
+  }
+
+  // 開けなくするページを選択できるのは警告レベルのみ
+  const selectedPages =
+    level === "warning"
+      ? formData
+          .getAll("pages")
+          .map((v) => String(v))
+          .filter((v) =>
+            (ANNOUNCEMENT_PAGE_VALUES as readonly string[]).includes(v)
+          )
+      : [];
+
+  return { title, body, level, blockedPages: selectedPages };
+}
+
+/** お知らせを新規作成する（発信日時＝作成時刻） */
+export async function createAnnouncement(
+  _prevState: SettingsActionState,
+  formData: FormData
+): Promise<SettingsActionState> {
+  const userId = await requireSuperAdmin();
+
+  const parsed = parseAnnouncementForm(formData);
+  if ("error" in parsed) return parsed;
+
+  const admin = createAdminClient();
+  const { error } = await admin.from("site_announcements").insert({
+    title: parsed.title,
+    body: parsed.body,
+    level: parsed.level,
+    blocked_pages: parsed.blockedPages,
+    created_by: userId,
+  });
+
+  if (error) {
+    return { error: "お知らせの作成に失敗しました。" };
+  }
+
+  revalidateAnnouncementSurfaces();
+  return { success: "お知らせを作成しました。" };
+}
+
+/**
+ * お知らせを編集する（発信日時＝編集時刻に更新し、全利用者の既読状態をリセットする。
+ * 内容が変わって再度周知する意図のため、読み直してもらう）。
+ */
+export async function updateAnnouncement(
+  id: string,
+  _prevState: SettingsActionState,
+  formData: FormData
+): Promise<SettingsActionState> {
+  await requireSuperAdmin();
+
+  const parsed = parseAnnouncementForm(formData);
+  if ("error" in parsed) return parsed;
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("site_announcements")
+    .update({
+      title: parsed.title,
+      body: parsed.body,
+      level: parsed.level,
+      blocked_pages: parsed.blockedPages,
+      published_at: new Date().toISOString(),
+    })
+    .eq("id", id);
+
+  if (error) {
+    return { error: "お知らせの更新に失敗しました。" };
+  }
+
+  await admin.from("announcement_reads").delete().eq("announcement_id", id);
+
+  revalidateAnnouncementSurfaces();
+  return { success: "お知らせを更新しました。" };
+}
+
+/**
+ * お知らせの有効/無効を切り替える。
+ * 無効→有効にする場合は発信日時を更新し、全利用者の既読状態をリセットする
+ * （再度有効化＝再周知の意図のため）。
+ */
+export async function toggleAnnouncementActive(
+  id: string,
+  isActive: boolean
+): Promise<void> {
+  await requireSuperAdmin();
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("site_announcements")
+    .update(
+      isActive
+        ? { is_active: true, published_at: new Date().toISOString() }
+        : { is_active: false }
+    )
+    .eq("id", id);
+
+  if (error) {
+    throw new Error("お知らせの更新に失敗しました。");
+  }
+
+  if (isActive) {
+    await admin.from("announcement_reads").delete().eq("announcement_id", id);
+  }
+
+  revalidateAnnouncementSurfaces();
+}
+
+/** お知らせを削除する（既読状態もON DELETE CASCADEで連動して削除される） */
+export async function deleteAnnouncement(id: string): Promise<void> {
+  await requireSuperAdmin();
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("site_announcements")
+    .delete()
+    .eq("id", id);
+
+  if (error) {
+    throw new Error("お知らせの削除に失敗しました。");
+  }
+
+  revalidateAnnouncementSurfaces();
+}
+
 /** 機能フラグのON/OFFを切り替える */
 export async function toggleFeatureFlag(
   key: string,
@@ -70,72 +230,4 @@ export async function toggleFeatureFlag(
   }
 
   revalidatePath("/admin/settings");
-}
-
-/** お知らせを新規作成する */
-export async function createAnnouncement(
-  _prevState: SettingsActionState,
-  formData: FormData
-): Promise<SettingsActionState> {
-  const userId = await requireSuperAdmin();
-
-  const title = String(formData.get("title") ?? "").trim();
-  const body = String(formData.get("body") ?? "").trim();
-  const level = String(formData.get("level") ?? "");
-
-  if (!title || title.length > TITLE_MAX_LENGTH) {
-    return { error: `タイトルは1〜${TITLE_MAX_LENGTH}文字で入力してください。` };
-  }
-  if (!body || body.length > BODY_MAX_LENGTH) {
-    return { error: `本文は1〜${BODY_MAX_LENGTH}文字で入力してください。` };
-  }
-  if (!isAnnouncementLevel(level)) {
-    return { error: "レベルを選択してください。" };
-  }
-
-  // 警告レベルはblocked_pages、お知らせ・注意レベルはaffected_pagesのみを保存する
-  // （用途が異なるため混在させない）
-  const selectedPages = formData
-    .getAll("pages")
-    .map((v) => String(v))
-    .filter((v) => (ANNOUNCEMENT_PAGE_VALUES as readonly string[]).includes(v));
-
-  const admin = createAdminClient();
-  const { error } = await admin.from("site_announcements").insert({
-    title,
-    body,
-    level,
-    affected_pages: level === "warning" ? [] : selectedPages,
-    blocked_pages: level === "warning" ? selectedPages : [],
-    created_by: userId,
-  });
-
-  if (error) {
-    return { error: "お知らせの作成に失敗しました。" };
-  }
-
-  revalidatePath("/admin/settings");
-  revalidatePath("/settings/notifications");
-  return { success: "お知らせを作成しました。" };
-}
-
-/** お知らせの有効/無効を切り替える */
-export async function toggleAnnouncementActive(
-  id: string,
-  isActive: boolean
-): Promise<void> {
-  await requireSuperAdmin();
-
-  const admin = createAdminClient();
-  const { error } = await admin
-    .from("site_announcements")
-    .update({ is_active: isActive })
-    .eq("id", id);
-
-  if (error) {
-    throw new Error("お知らせの更新に失敗しました。");
-  }
-
-  revalidatePath("/admin/settings");
-  revalidatePath("/settings/notifications");
 }
