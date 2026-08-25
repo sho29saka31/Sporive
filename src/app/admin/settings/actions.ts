@@ -58,7 +58,11 @@ export async function toggleFeatureFlag(
   const admin = createAdminClient();
   const { error } = await admin
     .from("feature_flags")
-    .update({ enabled, updated_by: userId })
+    .update({
+      enabled,
+      updated_by: userId,
+      updated_at: new Date().toISOString(),
+    })
     .eq("key", key as FeatureFlagKey);
 
   if (error) {

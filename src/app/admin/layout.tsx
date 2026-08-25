@@ -10,7 +10,10 @@ export const metadata: Metadata = { title: "Sporive 管理" };
 
 /**
  * 管理者画面のレイアウト（Phase 9、requirements.md §9-3）。
- * - profiles.is_admin が true の利用者のみアクセス可能（それ以外は/homeへ）
+ * - profiles.is_admin が true の利用者のみアクセス可能（それ以外は/homeへ）。
+ *   is_super_admin は is_admin の上位権限（requirements.md §10-2「上記に加え」）の
+ *   ため、is_super_admin のみtrueで is_admin がfalseという設定ミスがあっても
+ *   アクセスできるようにis_super_adminでも許可する
  * - PC/タブレット専用（スマホでは案内を表示）
  */
 export default async function AdminLayout({
@@ -32,7 +35,7 @@ export default async function AdminLayout({
     .eq("id", user.id)
     .maybeSingle();
 
-  if (!profile?.is_admin) {
+  if (!profile?.is_admin && !profile?.is_super_admin) {
     redirect("/home");
   }
 

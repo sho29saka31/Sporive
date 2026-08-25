@@ -363,6 +363,7 @@ export interface Database {
           enabled: boolean;
           description: string;
           updated_by: string | null;
+          updated_at: string;
         }>;
         Relationships: [];
       };
