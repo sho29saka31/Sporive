@@ -291,17 +291,17 @@ Next.js プロジェクトの土台と、全画面共通の骨格を作る。
   - お知らせタブ：タイトル・本文・レベル（お知らせ/注意/警告）・影響範囲ページ／開けなくするページの入力フォーム。レベルごとに専用スタイルで表示するコンポーネント
 - 利用者側：お知らせバー（該当ページで警告時にブロック）、お知らせ履歴タブでの一覧・既読管理
 
-### 🔒 Phase 12：認証セキュリティ強化（計画）
+### 🔒 Phase 12：認証セキュリティ強化（進行中）
 
 要件定義書 §4-1 に対応。
 
-- Supabase Dashboard設定：JWT有効期限30分、リフレッシュトークンローテーション、Auth Rate Limits、メールテンプレート日本語化（コード変更なし、手順書を作成しユーザーが実施）
-- Cloudflare Turnstile導入（要外部アカウント登録）
-- Resend導入・カスタムSMTP設定（要外部アカウント登録）
-- MFA（TOTP）：アカウント設定画面に有効化UIを追加
-- ログイン中の端末一覧・全ログアウト：Supabase側API調査結果次第で仕様確定・実装
+- [x] MFA（TOTP）：アカウント設定画面に有効化UIを追加。middlewareでAAL2未達の場合は`/mfa-challenge`へ誘導（実装済み）
+- [x] ログイン中の端末一覧・全ログアウト：Supabase Authに一般利用者向けのセッション一覧公開APIがないため端末一覧は見送り。全ログアウトは既存機能（Phase 4）で対応済み
+- [ ] Supabase Dashboard設定：JWT有効期限30分、リフレッシュトークンローテーション、Auth Rate Limits、メールテンプレート日本語化（コード変更なし、`docs/setup-phase12.md`の手順でユーザーが実施）
+- [ ] Cloudflare Turnstile導入（要外部アカウント登録、`docs/setup-phase12.md`参照）
+- [ ] Resend導入・カスタムSMTP設定（要外部アカウント登録、`docs/setup-phase12.md`参照）
 
-**ユーザー作業**：Cloudflare Turnstile・Resendのアカウント登録とAPIキー取得、Supabase Dashboardでの各種Auth設定変更
+**ユーザー作業**：`docs/setup-phase12.md`を参照。Cloudflare Turnstile・Resendのアカウント登録とAPIキー取得、Supabase Dashboardでの各種Auth設定変更
 
 ---
 
