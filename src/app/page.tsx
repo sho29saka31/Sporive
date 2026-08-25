@@ -4,6 +4,8 @@ import Image from "next/image";
 import { headers, cookies } from "next/headers";
 import QRCode from "qrcode";
 import { isSmartphone } from "@/lib/device";
+import { getMaintenanceState } from "@/lib/maintenance";
+import MaintenanceNoticeBar from "@/components/MaintenanceNoticeBar";
 
 const SITE_URL = "https://sporive.vercel.app/";
 
@@ -110,6 +112,7 @@ export default async function LandingPage() {
   const forceMobilePreview =
     (await cookies()).get("force-mobile-preview")?.value === "1";
   const canUseButtons = isSmartphone(userAgent) || forceMobilePreview;
+  const { isLockdown } = getMaintenanceState();
 
   const qrDataUrl = canUseButtons
     ? null
@@ -125,11 +128,13 @@ export default async function LandingPage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(STRUCTURED_DATA) }}
       />
+      <MaintenanceNoticeBar />
+
       {/* ヘッダー */}
       <header className="border-b border-navy-100">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
           <Image src="/logo-wordmark.png" alt="Sporive" width={112} height={47} priority />
-          {canUseButtons && (
+          {canUseButtons && !isLockdown && (
             <Link
               href="/login"
               className="rounded-lg bg-navy-700 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-navy-600"
@@ -152,7 +157,11 @@ export default async function LandingPage() {
             Sporive（スポライブ）は、目標・年齢・体力に合わせてAIが週間トレーニング計画を作成するフィットネスPWAです。
             記録・通知・カレンダー連携で、無理なく続けられるトレーニング習慣をサポートします。
           </p>
-          {canUseButtons ? (
+          {isLockdown ? (
+            <div className="mt-8 rounded-xl bg-white/10 px-6 py-4 text-sm leading-relaxed text-white">
+              ただいまサイトメンテナンス中です。しばらくしてから再度お試しください。
+            </div>
+          ) : canUseButtons ? (
             <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <Link
                 href="/signup"
@@ -188,7 +197,7 @@ export default async function LandingPage() {
           <p className="mt-4 text-xs text-navy-200">
             スマートフォンでの利用のみ可能です。
           </p>
-          {!canUseButtons && (
+          {!canUseButtons && !isLockdown && (
             <p className="mt-1 text-[10px] text-navy-300">
               QRコードは株式会社デンソーウェーブの登録商標です。
             </p>
@@ -239,7 +248,7 @@ export default async function LandingPage() {
       </section>
 
       {/* CTA */}
-      {canUseButtons && (
+      {canUseButtons && !isLockdown && (
         <section className="mx-auto max-w-5xl px-6 py-16 text-center">
           <h2 className="text-2xl font-bold">今日からトレーニングを習慣に</h2>
           <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-navy-500">
@@ -274,7 +283,7 @@ export default async function LandingPage() {
             <Link href="/privacy" className="underline hover:text-navy-600">
               プライバシーポリシー
             </Link>
-            {canUseButtons && (
+            {canUseButtons && !isLockdown && (
               <Link href="/login" className="underline hover:text-navy-600">
                 ログイン
               </Link>

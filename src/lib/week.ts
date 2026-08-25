@@ -27,6 +27,18 @@ export function getTodayDate(): string {
   }).format(new Date());
 }
 
+/** 現在のJST時刻を「その日の経過分数」（0〜1439）で返す */
+export function getJstMinutesOfDay(): number {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: JST_TIME_ZONE,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(new Date());
+  const [h, m] = parts.split(":").map(Number);
+  return h * 60 + m;
+}
+
 /** 今日の曜日（JST基準）を 0=日曜〜6=土曜 で返す */
 export function getTodayDayOfWeek(): number {
   const weekday = new Intl.DateTimeFormat("en-US", {

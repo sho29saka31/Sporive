@@ -1,6 +1,7 @@
 import Header from "@/components/Header";
 import FooterTabs from "@/components/FooterTabs";
 import DeviceGuard from "@/components/DeviceGuard";
+import MaintenanceNoticeBar from "@/components/MaintenanceNoticeBar";
 
 /**
  * 利用者画面の共通レイアウト。
@@ -16,7 +17,10 @@ export default function UserLayout({
     <DeviceGuard>
       <div className="mx-auto min-h-dvh max-w-md">
         <Header />
-        <main className="px-4 pt-header pb-footer">{children}</main>
+        <main className="px-4 pt-header pb-footer">
+          <MaintenanceNoticeBar />
+          {children}
+        </main>
         <FooterTabs />
       </div>
     </DeviceGuard>

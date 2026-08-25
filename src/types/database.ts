@@ -184,24 +184,54 @@ export interface Database {
           user_id: string;
           daily_reminder_enabled: boolean;
           debt_reminder_enabled: boolean;
-          notify_time: string;
+          daily_reminder_time: string;
+          debt_reminder_time: string;
+          reengagement_enabled: boolean;
+          weekly_report_enabled: boolean;
+          weekly_report_time: string;
+          quiet_hours_start: string | null;
+          quiet_hours_end: string | null;
+          quiet_days: number[];
           timezone: string;
-          last_notified_on: string | null;
+          daily_last_notified_on: string | null;
+          debt_last_notified_on: string | null;
+          reengagement_last_notified_on: string | null;
+          weekly_report_last_notified_on: string | null;
         };
         Insert: {
           user_id: string;
           daily_reminder_enabled?: boolean;
           debt_reminder_enabled?: boolean;
-          notify_time?: string;
+          daily_reminder_time?: string;
+          debt_reminder_time?: string;
+          reengagement_enabled?: boolean;
+          weekly_report_enabled?: boolean;
+          weekly_report_time?: string;
+          quiet_hours_start?: string | null;
+          quiet_hours_end?: string | null;
+          quiet_days?: number[];
           timezone?: string;
-          last_notified_on?: string | null;
+          daily_last_notified_on?: string | null;
+          debt_last_notified_on?: string | null;
+          reengagement_last_notified_on?: string | null;
+          weekly_report_last_notified_on?: string | null;
         };
         Update: Partial<{
           daily_reminder_enabled: boolean;
           debt_reminder_enabled: boolean;
-          notify_time: string;
+          daily_reminder_time: string;
+          debt_reminder_time: string;
+          reengagement_enabled: boolean;
+          weekly_report_enabled: boolean;
+          weekly_report_time: string;
+          quiet_hours_start: string | null;
+          quiet_hours_end: string | null;
+          quiet_days: number[];
           timezone: string;
-          last_notified_on: string | null;
+          daily_last_notified_on: string | null;
+          debt_last_notified_on: string | null;
+          reengagement_last_notified_on: string | null;
+          weekly_report_last_notified_on: string | null;
         }>;
         Relationships: [];
       };
@@ -270,6 +300,72 @@ export interface Database {
           current_streak: number;
           longest_streak: number;
           last_achieved_on: string | null;
+        }>;
+        Relationships: [];
+      };
+      site_announcements: {
+        Row: {
+          id: string;
+          title: string;
+          body: string;
+          level: "info" | "notice" | "warning";
+          affected_pages: string[];
+          blocked_pages: string[];
+          is_active: boolean;
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          title: string;
+          body: string;
+          level: "info" | "notice" | "warning";
+          affected_pages?: string[];
+          blocked_pages?: string[];
+          is_active?: boolean;
+          created_by?: string | null;
+        };
+        Update: Partial<{
+          title: string;
+          body: string;
+          level: "info" | "notice" | "warning";
+          affected_pages: string[];
+          blocked_pages: string[];
+          is_active: boolean;
+        }>;
+        Relationships: [];
+      };
+      announcement_reads: {
+        Row: {
+          user_id: string;
+          announcement_id: string;
+          read_at: string;
+        };
+        Insert: {
+          user_id: string;
+          announcement_id: string;
+        };
+        Update: Record<string, never>;
+        Relationships: [];
+      };
+      feature_flags: {
+        Row: {
+          key: string;
+          enabled: boolean;
+          description: string;
+          updated_by: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          key: string;
+          enabled?: boolean;
+          description: string;
+          updated_by?: string | null;
+        };
+        Update: Partial<{
+          enabled: boolean;
+          description: string;
+          updated_by: string | null;
         }>;
         Relationships: [];
       };

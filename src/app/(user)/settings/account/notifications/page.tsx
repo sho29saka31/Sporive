@@ -14,11 +14,11 @@ export default async function AccountNotificationSettingsPage() {
   } = await supabase.auth.getUser();
   const { data: settings } = await supabase
     .from("notification_settings")
-    .select("daily_reminder_enabled, debt_reminder_enabled, notify_time")
+    .select(
+      "daily_reminder_time, debt_reminder_time, reengagement_enabled, weekly_report_enabled, weekly_report_time, quiet_hours_start, quiet_hours_end, quiet_days"
+    )
     .eq("user_id", user!.id)
     .maybeSingle();
-
-  const notifyTime = (settings?.notify_time ?? "08:00:00").slice(0, 5);
 
   return (
     <div className="py-6">
@@ -35,16 +35,21 @@ export default async function AccountNotificationSettingsPage() {
         <h2 className="text-sm font-bold text-navy-800">通知内容</h2>
         <div className="mt-3">
           <NotificationSettingsForm
-            dailyReminderEnabled={settings?.daily_reminder_enabled ?? true}
-            debtReminderEnabled={settings?.debt_reminder_enabled ?? false}
-            notifyTime={notifyTime}
+            dailyReminderTime={(settings?.daily_reminder_time ?? "08:00:00").slice(0, 5)}
+            debtReminderTime={(settings?.debt_reminder_time ?? "20:00:00").slice(0, 5)}
+            reengagementEnabled={settings?.reengagement_enabled ?? true}
+            weeklyReportEnabled={settings?.weekly_report_enabled ?? false}
+            weeklyReportTime={(settings?.weekly_report_time ?? "09:00:00").slice(0, 5)}
+            quietHoursStart={settings?.quiet_hours_start?.slice(0, 5) ?? null}
+            quietHoursEnd={settings?.quiet_hours_end?.slice(0, 5) ?? null}
+            quietDays={settings?.quiet_days ?? []}
           />
         </div>
       </div>
 
       <p className="mt-4 px-1 text-[10px] leading-relaxed text-navy-300">
-        通知を受け取るには「この端末で通知を受け取る」を有効にした上で、受け取りたい通知をONにしてください。送信した通知の内容は
-        通知履歴（ヘッダーのベルアイコン）から確認できます。
+        通知を受け取るには「この端末で通知を受け取る」を有効にしてください。送信した通知の内容は
+        お知らせ（ヘッダーのベルアイコン）から確認できます。
       </p>
     </div>
   );
