@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { toggleAnnouncementActive } from "@/app/admin/settings/actions";
 import { announcementPageLabel } from "@/lib/site-announcements";
 import AnnouncementForm from "@/components/admin/AnnouncementForm";
@@ -30,24 +30,33 @@ const LEVEL_STYLES: Record<AdminAnnouncementRow["level"], string> = {
 
 function ActiveToggle({ row }: { row: AdminAnnouncementRow }) {
   const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
 
   function handleChange(checked: boolean) {
+    setError(null);
     startTransition(async () => {
-      await toggleAnnouncementActive(row.id, checked);
+      try {
+        await toggleAnnouncementActive(row.id, checked);
+      } catch {
+        setError("更新に失敗しました。");
+      }
     });
   }
 
   return (
-    <label className="flex items-center gap-2 text-xs text-navy-500">
-      <input
-        type="checkbox"
-        checked={row.isActive}
-        disabled={isPending}
-        onChange={(e) => handleChange(e.target.checked)}
-        className="h-4 w-4 accent-navy-700"
-      />
-      有効
-    </label>
+    <div className="flex flex-col items-end gap-0.5">
+      <label className="flex items-center gap-2 text-xs text-navy-500">
+        <input
+          type="checkbox"
+          checked={row.isActive}
+          disabled={isPending}
+          onChange={(e) => handleChange(e.target.checked)}
+          className="h-4 w-4 accent-navy-700"
+        />
+        有効
+      </label>
+      {error && <p className="text-[10px] text-accent-coral">{error}</p>}
+    </div>
   );
 }
 
