@@ -1,3 +1,4 @@
+import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendPush } from "@/lib/push";
@@ -69,10 +70,22 @@ function isQuietTime(
  *    非通知時間帯・非通知曜日に該当する場合は、いずれの種別も送信をスキップする
  *    （判定済みとして記録し、後追い送信はしない）。
  */
+/** タイミング攻撃対策の定数時間比較（長さが異なる場合は即falseを返す） */
+function safeEqual(a: string, b: string): boolean {
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  if (bufA.length !== bufB.length) return false;
+  return timingSafeEqual(bufA, bufB);
+}
+
 export async function POST(request: Request) {
   const authHeader = request.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+  if (
+    !cronSecret ||
+    !authHeader ||
+    !safeEqual(authHeader, `Bearer ${cronSecret}`)
+  ) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
@@ -228,6 +241,7 @@ export async function POST(request: Request) {
       timeToMinutes(target.weekly_report_time) <= nowMinutes &&
       target.weekly_report_last_notified_on !== today
     ) {
+      let reportFailed = false;
       if (!quiet) {
         try {
           const { data: profile } = await admin
@@ -265,9 +279,14 @@ export async function POST(request: Request) {
           }
         } catch (error) {
           console.error("Weekly report generation failed", error);
+          reportFailed = true;
         }
       }
-      notifiedUpdate.weekly_report_last_notified_on = today;
+      // 生成失敗時は「通知済み」を記録せず、同日中の次回cron実行で
+      // リトライできるようにする（非通知時間帯によるスキップは既存どおり記録する）
+      if (!reportFailed) {
+        notifiedUpdate.weekly_report_last_notified_on = today;
+      }
     }
 
     if (Object.keys(notifiedUpdate).length > 0) {

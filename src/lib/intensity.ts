@@ -25,6 +25,35 @@ function findBand(age: number): AgeBandThreshold {
   );
 }
 
+/**
+ * プロフィールには生年（birth_year）のみを保持し誕生日（月日）を持たないため、
+ * 「currentYear - birthYear」で求めた年齢は、今年まだ誕生日を迎えていない
+ * 利用者にとっては実年齢より最大1歳高くなりうる。年齢帯の境界をまたぐと
+ * より緩い上限が誤って適用される恐れがあるため、算出値とその1歳下の年齢
+ * それぞれで年齢帯を求め、各項目の上限値がより厳しい（安全側の）帯を採用する。
+ */
+function findConservativeBand(computedAge: number): AgeBandThreshold {
+  const higher = findBand(computedAge);
+  const lower = findBand(Math.max(0, computedAge - 1));
+  if (higher === lower) return higher;
+  return {
+    minAge: Math.min(higher.minAge, lower.minAge),
+    maxAge: Math.max(higher.maxAge, lower.maxAge),
+    label: higher.label,
+    maxWeightKg: Math.min(higher.maxWeightKg, lower.maxWeightKg),
+    maxSets: Math.min(higher.maxSets, lower.maxSets),
+    maxReps: Math.min(higher.maxReps, lower.maxReps),
+    maxDailyDurationMin: Math.min(
+      higher.maxDailyDurationMin,
+      lower.maxDailyDurationMin
+    ),
+    maxWeeklyIncreaseRate: Math.min(
+      higher.maxWeeklyIncreaseRate,
+      lower.maxWeeklyIncreaseRate
+    ),
+  };
+}
+
 /** 計画全体の負荷の目安（セット×回数の総量。重量は種目差が大きいため別途チェック） */
 function totalVolume(items: PlanItemDraft[]): number {
   return items.reduce(
@@ -40,7 +69,7 @@ export function validatePlanIntensity(params: {
   previousItems?: PlanItemDraft[] | null;
 }): IntensityWarning[] {
   const age = new Date().getFullYear() - params.birthYear;
-  const band = findBand(age);
+  const band = findConservativeBand(age);
   const warnings: IntensityWarning[] = [];
 
   // 1) 種目ごとの上限チェック（年齢層別）

@@ -13,14 +13,18 @@ export default function MfaChallengeForm() {
 
   useEffect(() => {
     async function loadFactor() {
-      const supabase = createClient();
-      const { data, error } = await supabase.auth.mfa.listFactors();
-      const totp = data?.totp.find((f) => f.status === "verified");
-      if (error || !totp) {
+      try {
+        const supabase = createClient();
+        const { data, error } = await supabase.auth.mfa.listFactors();
+        const totp = data?.totp.find((f) => f.status === "verified");
+        if (error || !totp) {
+          setLoadError(true);
+          return;
+        }
+        setFactorId(totp.id);
+      } catch {
         setLoadError(true);
-        return;
       }
-      setFactorId(totp.id);
     }
     void loadFactor();
   }, []);

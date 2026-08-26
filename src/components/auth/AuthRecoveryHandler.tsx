@@ -70,7 +70,7 @@ export default function AuthRecoveryHandler({
       if (type === "recovery") {
         destination = "/signup/set-password?reason=reset";
       } else if (type === "email_change") {
-        destination = "/settings/account?email_changed=1";
+        destination = "/settings/account/security?email_changed=1";
       }
       window.location.href = destination;
     }

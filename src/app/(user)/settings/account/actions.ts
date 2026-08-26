@@ -32,14 +32,14 @@ export async function signOutEverywhere() {
  * Supabaseはユーザー削除時に発行済みのアクセストークンを即座には失効させないため
  * （JWTは有効期限まで検証をパスしてしまう）、削除前に全セッションを失効させておく。
  */
-export async function deleteAccount() {
+export async function deleteAccount(): Promise<{ error?: string }> {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
   if (!user) {
-    redirect("/login");
+    return { error: "認証が必要です。再度ログインしてください。" };
   }
 
   const userId = user.id;
@@ -50,10 +50,12 @@ export async function deleteAccount() {
   const { error } = await admin.auth.admin.deleteUser(userId);
 
   if (error) {
-    throw new Error("アカウントの削除に失敗しました。時間をおいて再度お試しください。");
+    return {
+      error: "アカウントの削除に失敗しました。時間をおいて再度お試しください。",
+    };
   }
 
-  redirect("/login");
+  return {};
 }
 
 export type ActionState = {
@@ -163,7 +165,15 @@ export async function updateEmail(
   );
 
   if (error) {
-    return { error: error.message };
+    if (error.code === "email_exists") {
+      return { error: "このメールアドレスは既に使用されています。" };
+    }
+    if (error.code === "email_address_invalid") {
+      return { error: "有効なメールアドレスを入力してください。" };
+    }
+    return {
+      error: "メールアドレスの変更に失敗しました。時間をおいて再度お試しください。",
+    };
   }
 
   return {
@@ -227,10 +237,16 @@ export async function changePassword(
           "このアカウントには既にパスワードが設定されています。現在のパスワードを入力して変更してください。",
       };
     }
+    if (error.code === "same_password") {
+      return {
+        needsCurrentPassword: Boolean(currentPassword),
+        error: "新しいパスワードは現在のパスワードと異なるものにしてください。",
+      };
+    }
     if (
       currentPassword &&
-      (error.code === "invalid_credentials" ||
-        error.message?.toLowerCase().includes("password"))
+      (error.code === "current_password_invalid" ||
+        error.code === "invalid_credentials")
     ) {
       return {
         needsCurrentPassword: true,

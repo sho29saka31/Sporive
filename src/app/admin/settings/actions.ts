@@ -63,6 +63,9 @@ function parseScheduledAt(
   if (Number.isNaN(date.getTime())) {
     return { error: "予約日時を正しく入力してください。" };
   }
+  if (date.getTime() <= Date.now()) {
+    return { error: "予約日時は現在より後の日時を指定してください。" };
+  }
   return { scheduledAt: date.toISOString() };
 }
 
@@ -180,20 +183,26 @@ export async function updateAnnouncement(
   if ("error" in parsed) return parsed;
 
   const admin = createAdminClient();
-  const { error } = await admin
+  const { error, count } = await admin
     .from("site_announcements")
-    .update({
-      title: parsed.title,
-      body: parsed.body,
-      level: parsed.level,
-      blocked_pages: parsed.blockedPages,
-      scheduled_at: parsed.scheduledAt,
-      published_at: parsed.scheduledAt ?? new Date().toISOString(),
-    })
+    .update(
+      {
+        title: parsed.title,
+        body: parsed.body,
+        level: parsed.level,
+        blocked_pages: parsed.blockedPages,
+        scheduled_at: parsed.scheduledAt,
+        published_at: parsed.scheduledAt ?? new Date().toISOString(),
+      },
+      { count: "exact" }
+    )
     .eq("id", id);
 
   if (error) {
     return { error: "お知らせの更新に失敗しました。" };
+  }
+  if (!count) {
+    return { error: "対象のお知らせが見つかりません。" };
   }
 
   await admin.from("announcement_reads").delete().eq("announcement_id", id);
@@ -214,7 +223,7 @@ export async function toggleAnnouncementActive(
   await requireSuperAdmin();
 
   const admin = createAdminClient();
-  const { error } = await admin
+  const { error, count } = await admin
     .from("site_announcements")
     .update(
       isActive
@@ -223,12 +232,16 @@ export async function toggleAnnouncementActive(
             published_at: new Date().toISOString(),
             scheduled_at: null,
           }
-        : { is_active: false }
+        : { is_active: false },
+      { count: "exact" }
     )
     .eq("id", id);
 
   if (error) {
     throw new Error("お知らせの更新に失敗しました。");
+  }
+  if (!count) {
+    throw new Error("対象のお知らせが見つかりません。");
   }
 
   if (isActive) {
@@ -243,13 +256,16 @@ export async function deleteAnnouncement(id: string): Promise<void> {
   await requireSuperAdmin();
 
   const admin = createAdminClient();
-  const { error } = await admin
+  const { error, count } = await admin
     .from("site_announcements")
-    .delete()
+    .delete({ count: "exact" })
     .eq("id", id);
 
   if (error) {
     throw new Error("お知らせの削除に失敗しました。");
+  }
+  if (!count) {
+    throw new Error("対象のお知らせが見つかりません。");
   }
 
   revalidateAnnouncementSurfaces();

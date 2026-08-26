@@ -36,7 +36,7 @@ export async function processDailyCheck(
   for (const plan of plans ?? []) {
     const { data: items } = await admin
       .from("plan_items")
-      .select("id, exercise_name, sets, reps")
+      .select("id, exercise_name, sets, reps, duration_min")
       .eq("plan_id", plan.id)
       .eq("day_of_week", dow);
 
@@ -45,7 +45,7 @@ export async function processDailyCheck(
 
     const { data: logs } = await admin
       .from("workout_logs")
-      .select("plan_item_id, sets_done, reps_done")
+      .select("plan_item_id, sets_done, reps_done, duration_min")
       .eq("user_id", plan.user_id)
       .eq("performed_on", yesterday)
       .in(
@@ -76,7 +76,15 @@ export async function processDailyCheck(
       const repsRemaining = item.reps
         ? Math.max(0, item.reps - (log?.reps_done ?? 0))
         : 0;
-      const missed = !log || setsRemaining > 0 || repsRemaining > 0;
+      // セット・回数の指定がない種目（例：ウォーキング30分など時間のみの種目）は、
+      // ログの有無だけでは達成判定できないため、実施時間が計画時間に
+      // 達しているかで判定する（補填対象の負債は記録しない、既存仕様どおり）
+      const durationShortfall =
+        !item.sets && !item.reps && item.duration_min
+          ? (log?.duration_min ?? 0) < item.duration_min
+          : false;
+      const missed =
+        !log || setsRemaining > 0 || repsRemaining > 0 || durationShortfall;
 
       if (missed) {
         allAchieved = false;

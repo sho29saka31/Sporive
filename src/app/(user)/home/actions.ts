@@ -52,7 +52,8 @@ export async function logWorkout(input: WorkoutLogInput) {
     const { error } = await supabase
       .from("workout_logs")
       .update(values)
-      .eq("id", existing.id);
+      .eq("id", existing.id)
+      .eq("user_id", user.id);
     if (error) throw new Error("記録の更新に失敗しました。");
   } else {
     const { error } = await supabase.from("workout_logs").insert({

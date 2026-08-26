@@ -7,6 +7,7 @@ import { getCurrentWeekStartDate } from "@/lib/week";
 import { syncPlanToCalendar, type CalendarDayPlan } from "@/lib/calendar";
 import { getFeatureFlag } from "@/lib/feature-flags";
 import type { PlanItemDraft, WeeklyPlanDraft } from "@/lib/gemini";
+import { validateWorkoutValue } from "@/lib/workout-limits";
 
 /** 種目1件をカレンダーの説明用テキストにする（例：スクワット（3セット×10回×45kg 20分）） */
 function toExerciseLine(item: PlanItemDraft): string {
@@ -39,6 +40,17 @@ export async function saveTrainingPlan(
     throw new Error("認証が必要です。");
   }
 
+  for (const item of plan.items) {
+    const invalid =
+      validateWorkoutValue("sets", item.sets) ??
+      validateWorkoutValue("reps", item.reps) ??
+      validateWorkoutValue("weightKg", item.weightKg) ??
+      validateWorkoutValue("durationMin", item.durationMin);
+    if (invalid) {
+      throw new Error(invalid);
+    }
+  }
+
   const weekStartDate = getCurrentWeekStartDate();
 
   const { data: existing } = await supabase
@@ -48,10 +60,9 @@ export async function saveTrainingPlan(
     .eq("week_start_date", weekStartDate)
     .maybeSingle();
 
-  if (existing) {
-    await supabase.from("training_plans").delete().eq("id", existing.id);
-  }
-
+  // 新しい計画・項目の保存が両方成功してから既存の計画を削除する。
+  // 先に削除してしまうと、その後のinsertが失敗した場合にその週の計画が
+  // 完全に失われてしまうため（一意制約はないため一時的な重複は許容できる）
   const { data: newPlan, error: planError } = await supabase
     .from("training_plans")
     .insert({
@@ -86,8 +97,14 @@ export async function saveTrainingPlan(
       .insert(items);
 
     if (itemsError) {
+      // 新規作成した計画（空の状態）を残さないよう後片付けしてからエラーにする
+      await supabase.from("training_plans").delete().eq("id", newPlan.id);
       throw new Error("計画項目の保存に失敗しました。");
     }
+  }
+
+  if (existing) {
+    await supabase.from("training_plans").delete().eq("id", existing.id);
   }
 
   await supabase.from("ai_proposal_logs").insert({

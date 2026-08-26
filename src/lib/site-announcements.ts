@@ -12,10 +12,17 @@ export const ANNOUNCEMENT_PAGES = [
   { value: "/schedule", label: "スケジュール" },
   { value: "/progress", label: "進捗" },
   { value: "/debts", label: "負債管理" },
-  { value: "/settings/notifications", label: "お知らせ" },
   { value: "/settings/account", label: "アカウント設定" },
   { value: "*", label: "すべて" },
 ] as const;
+
+/**
+ * ブロック対象にしてはいけないページ（お知らせ自体の内容を確認する画面、
+ * MFA認証コード入力画面）。"*"（すべて）が選択された場合でも、これらの
+ * ページは常にアクセス可能でなければならない。お知らせ内容を確認する
+ * 手段自体がブロックされると、利用者が原因を確認できず抜け出せなくなるため。
+ */
+const NEVER_BLOCKED_PAGES = ["/settings/notifications", "/mfa-challenge"];
 
 export function announcementPageLabel(value: string): string {
   return ANNOUNCEMENT_PAGES.find((p) => p.value === value)?.label ?? value;
@@ -44,7 +51,10 @@ export type UnreadAnnouncement = {
  * （管理画面の一覧だけは予約中のものも見せたいので通さない）。
  */
 function isPublished(row: { scheduled_at: string | null }): boolean {
-  return !row.scheduled_at || row.scheduled_at <= new Date().toISOString();
+  // SupabaseがtimestamptzをPostgREST経由で返す書式（例："+00:00"）と
+  // Date.prototype.toISOString()の書式（"Z"）が異なるため、文字列比較ではなく
+  // Dateへ変換してから比較する
+  return !row.scheduled_at || new Date(row.scheduled_at).getTime() <= Date.now();
 }
 
 /**
@@ -82,6 +92,10 @@ export async function getBlockingAnnouncement(
   client: SupabaseClient<Database>,
   requestPath: string
 ): Promise<{ id: string; title: string } | null> {
+  if (NEVER_BLOCKED_PAGES.some((p) => requestPath === p || requestPath.startsWith(`${p}/`))) {
+    return null;
+  }
+
   const { data } = await client
     .from("site_announcements")
     .select("id, title, blocked_pages, scheduled_at")

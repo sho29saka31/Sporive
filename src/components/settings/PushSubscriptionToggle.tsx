@@ -50,6 +50,7 @@ export default function PushSubscriptionToggle() {
   async function subscribe() {
     setStatus("processing");
     setError(null);
+    let createdSubscription: PushSubscription | null = null;
     try {
       const permission = await Notification.requestPermission();
       if (permission !== "granted") {
@@ -67,6 +68,7 @@ export default function PushSubscriptionToggle() {
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(vapidKey).buffer as ArrayBuffer,
       });
+      createdSubscription = subscription;
       const res = await fetch("/api/notifications/subscribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -75,6 +77,16 @@ export default function PushSubscriptionToggle() {
       if (!res.ok) throw new Error("subscribe failed");
       setStatus("subscribed");
     } catch {
+      // サーバー登録に失敗した場合、ブラウザ側だけ購読が残ると次回チェック時に
+      // 「通知は有効です」と誤表示されてしまうため、作成済みの購読があれば
+      // ロールバックしておく
+      if (createdSubscription) {
+        try {
+          await createdSubscription.unsubscribe();
+        } catch {
+          // ロールバック自体の失敗は無視する（表示上はunsubscribed扱いにする）
+        }
+      }
       setError("通知の登録に失敗しました。時間をおいて再度お試しください。");
       setStatus("unsubscribed");
     }
@@ -87,11 +99,12 @@ export default function PushSubscriptionToggle() {
       const registration = await navigator.serviceWorker.ready;
       const subscription = await registration.pushManager.getSubscription();
       if (subscription) {
-        await fetch("/api/notifications/subscribe", {
+        const res = await fetch("/api/notifications/subscribe", {
           method: "DELETE",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ endpoint: subscription.endpoint }),
         });
+        if (!res.ok) throw new Error("unsubscribe failed");
         await subscription.unsubscribe();
       }
       setStatus("unsubscribed");
