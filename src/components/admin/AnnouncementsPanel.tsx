@@ -174,7 +174,7 @@ export default function AnnouncementsPanel({
                   )}
                   <div className="mt-3 flex items-center justify-between">
                     <p className="text-[10px] text-navy-300">
-                      {a.scheduledAt && a.scheduledAt > new Date().toISOString() ? (
+                      {a.scheduledAt && new Date(a.scheduledAt).getTime() > new Date().getTime() ? (
                         <span className="font-medium text-accent-teal">
                           予約中：{formatPublishedAt(a.scheduledAt)}に公開予定
                         </span>

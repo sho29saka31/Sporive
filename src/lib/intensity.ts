@@ -39,7 +39,10 @@ function findConservativeBand(computedAge: number): AgeBandThreshold {
   return {
     minAge: Math.min(higher.minAge, lower.minAge),
     maxAge: Math.max(higher.maxAge, lower.maxAge),
-    label: higher.label,
+    // 各項目の上限は帯によって混在しうるため、表示ラベルも
+    // 「どちらの帯の基準か分からず数値と食い違って見える」ことがないよう、
+    // 境界にまたがっていることが分かる表記にする
+    label: `${lower.label}／${higher.label}の境界（安全側の基準を適用）`,
     maxWeightKg: Math.min(higher.maxWeightKg, lower.maxWeightKg),
     maxSets: Math.min(higher.maxSets, lower.maxSets),
     maxReps: Math.min(higher.maxReps, lower.maxReps),

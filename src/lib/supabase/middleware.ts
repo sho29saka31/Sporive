@@ -59,11 +59,15 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // 定期メンテナンスタイム（§8-3）：トップページ・管理者画面・APIルート以外への
-  // アクセスは、認証状態にかかわらずトップページへ戻す
+  // 定期メンテナンスタイム（§8-3）：トップページ・管理者画面・APIルート・
+  // MFA認証コード入力画面以外へのアクセスは、認証状態にかかわらずトップページへ戻す。
+  // /mfa-challengeを除外しないと、MFAを有効にした管理者がメンテナンス中に
+  // /adminへアクセスした際、AAL判定で/mfa-challengeへ回された直後にここで
+  // 弾かれてしまい、認証コード入力画面へ一度も到達できなくなる
   if (
     isMaintenanceLockdownTime(getJstMinutesOfDay()) &&
     requestPath !== "/" &&
+    requestPath !== MFA_CHALLENGE_PATH &&
     !requestPath.startsWith("/admin") &&
     !requestPath.startsWith("/api/")
   ) {
@@ -100,13 +104,16 @@ export async function updateSession(request: NextRequest) {
   // 緊急メンテナンスモード（要件定義書 §8-3, §10-3）：super-adminが機能フラグで
   // 任意のタイミングで即座に全サイトを止められる。定期メンテナンスとは異なり
   // 時間経過での自動解除がないため、/login と /auth/（Google OAuthのコールバック
-  // 等、セッション確立前のエンドポイント）だけは除外する。ここを塞ぐと
-  // セッション切れ・パスワード未設定（Googleログインのみ）のsuper-adminが
-  // 誰もログインできなくなり、解除する手段がなくなってサイトが
-  // 恒久的にロックされてしまうため
+  // 等、セッション確立前のエンドポイント）、/mfa-challengeだけは除外する。
+  // /mfa-challengeを除外しないと、MFAを有効にしたsuper-adminがログインし直そうと
+  // した際にAAL判定で/mfa-challengeへ回された直後にここで弾かれてしまい、
+  // 認証コードを入力する手段が失われる。ここを塞ぐと、セッション切れ・
+  // パスワード未設定（Googleログインのみ）のsuper-adminが誰もログインできなくなり、
+  // 解除する手段がなくなってサイトが恒久的にロックされてしまうため
   if (
     requestPath !== "/" &&
     requestPath !== "/login" &&
+    requestPath !== MFA_CHALLENGE_PATH &&
     !requestPath.startsWith("/auth/") &&
     !requestPath.startsWith("/admin") &&
     !requestPath.startsWith("/api/") &&
