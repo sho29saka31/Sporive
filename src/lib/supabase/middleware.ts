@@ -131,6 +131,7 @@ export async function updateSession(request: NextRequest) {
   const isOnboardingPath = pathname.startsWith("/onboarding");
   const isAdminPath = pathname.startsWith("/admin");
   const isApiPath = pathname.startsWith("/api/");
+  const isMfaChallengePath = pathname === MFA_CHALLENGE_PATH;
 
   if (isAuthCallback || isApiPath || STATIC_PATHS.includes(pathname)) {
     return applyMobilePreviewParam(request, supabaseResponse);
@@ -150,9 +151,16 @@ export async function updateSession(request: NextRequest) {
   const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
   const mfaPending =
     !!aal && aal.nextLevel === "aal2" && aal.currentLevel !== aal.nextLevel;
-  if (mfaPending && pathname !== MFA_CHALLENGE_PATH) {
+  if (mfaPending && !isMfaChallengePath) {
     const url = request.nextUrl.clone();
     url.pathname = MFA_CHALLENGE_PATH;
+    return applyMobilePreviewParam(request, NextResponse.redirect(url));
+  }
+  // AAL2達成済み（またはMFA未設定）で認証コード入力画面に来た場合はホームへ。
+  // 直接ブックマーク・戻るボタン等でアクセスされたケースを想定
+  if (!mfaPending && isMfaChallengePath) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/home";
     return applyMobilePreviewParam(request, NextResponse.redirect(url));
   }
 
@@ -175,7 +183,7 @@ export async function updateSession(request: NextRequest) {
     return applyMobilePreviewParam(request, NextResponse.redirect(url));
   }
 
-  if (hasPassword && !isOnboardingPath && !isAdminPath) {
+  if (hasPassword && !isOnboardingPath && !isAdminPath && !isMfaChallengePath) {
     // プロフィール登録済みの確認は毎リクエストのDB往復になるため、
     // 一度確認できたらセッションCookieに記録して以降はスキップする（読み込み速度対策）。
     // 値にuser.idを入れることで、同じブラウザでの別アカウント切り替えにも対応する。
