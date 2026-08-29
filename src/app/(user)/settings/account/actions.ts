@@ -29,7 +29,16 @@ export async function signOutEverywhere() {
     data: { user },
   } = await supabase.auth.getUser();
   if (user) {
-    await supabase.from("push_subscriptions").delete().eq("user_id", user.id);
+    const { error } = await supabase
+      .from("push_subscriptions")
+      .delete()
+      .eq("user_id", user.id);
+    // セッション失効自体は自衛手段としてより優先度が高いため、この削除が
+    // 失敗してもサインアウト自体は続行する。ただし失敗を握りつぶさず、
+    // 紛失端末への通知が止まっていない可能性があることをログに残す
+    if (error) {
+      console.error("Failed to delete push subscriptions on sign-out-everywhere", error);
+    }
   }
   await supabase.auth.signOut({ scope: "global" });
   redirect("/login");

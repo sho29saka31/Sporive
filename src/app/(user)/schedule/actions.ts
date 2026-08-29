@@ -44,6 +44,12 @@ export async function saveTrainingPlan(
     throw new Error("認証が必要です。");
   }
 
+  // AI改善案がまれに空配列を返した場合に、確認なく既存の週間計画を
+  // 空で上書きしてしまわないようにする
+  if (plan.items.length === 0) {
+    throw new Error("計画に運動が1件もありません。");
+  }
+
   for (const item of plan.items) {
     // AI改善案（suggestion）はクライアント側の入力フォームの検証を経由しないため、
     // 種目名の空文字チェックはここでも必須で行う

@@ -24,11 +24,44 @@
 -- (day_of_week, exercise_name) で新しい項目と突き合わせてIDを再利用する
 -- ことで（2）を解決する。
 
+-- 一意インデックス作成前に、過去の不具合で既に生じている可能性のある
+-- 重複active計画を解消しておく（そうしないと、このマイグレーション自身が
+-- 「同じ週に複数の重複値がある」ことを理由に作成失敗する）。
+-- 各(user_id, week_start_date)グループで最新のcreated_atの1件だけをactiveに残し、
+-- それ以外はarchivedにする（deleteはplan_items等の関連データを失うため避ける）
+update training_plans t set status = 'archived'
+from (
+  select id, row_number() over (
+    partition by user_id, week_start_date
+    order by created_at desc, id desc
+  ) as rn
+  from training_plans
+  where status = 'active'
+) dup
+where t.id = dup.id and dup.rn > 1;
+
 -- 同じ利用者・同じ週にstatus='active'の計画が2件以上同時に存在しないことを
 -- DBレベルで保証する（関数内の一時的な重複防止だけでなく、想定外の
 -- 経路からの直接insertに対する最終防衛線としても機能する）
 create unique index if not exists training_plans_active_user_week_uidx
   on training_plans (user_id, week_start_date) where status = 'active';
+
+-- upsert_training_plan関数はauthenticatedロールから直接RPC実行可能なため、
+-- アプリ側（validateWorkoutValue、src/lib/workout-limits.ts）のバリデーションを
+-- 経由しない直接呼び出しに対する防御多層化として、DBレベルにも数値範囲の
+-- CHECK制約を追加する。既存データに範囲外の値が万一残っていた場合に
+-- 制約追加自体が失敗しないよう、先にnullへ丸めておく（値の水増しはできないため、
+-- 不正確な推測値で埋めるより「未入力」扱いにする方が安全）
+update plan_items set sets = null where sets is not null and sets not between 1 and 30;
+update plan_items set reps = null where reps is not null and reps not between 1 and 200;
+update plan_items set weight_kg = null where weight_kg is not null and weight_kg not between 0 and 500;
+update plan_items set duration_min = null where duration_min is not null and duration_min not between 1 and 480;
+
+alter table plan_items
+  add constraint plan_items_sets_range check (sets is null or sets between 1 and 30),
+  add constraint plan_items_reps_range check (reps is null or reps between 1 and 200),
+  add constraint plan_items_weight_kg_range check (weight_kg is null or weight_kg between 0 and 500),
+  add constraint plan_items_duration_min_range check (duration_min is null or duration_min between 1 and 480);
 
 create or replace function upsert_training_plan(
   p_week_start_date date,
@@ -78,13 +111,16 @@ begin
     v_matched_id := null;
     if v_old_plan_id is not null then
       -- 曜日・種目名が一致する未マッチの旧項目があればIDを再利用し、
-      -- その項目に紐づく既存のworkout_logs/debtsとの関連を維持する
+      -- その項目に紐づく既存のworkout_logs/debtsとの関連を維持する。
+      -- 同じ曜日に同名の種目が複数ある場合にどれとマッチするかが
+      -- 非決定的にならないよう、並び順（sort_order, id）で決定的に選ぶ
       select id into v_matched_id
       from plan_items
       where plan_id = v_old_plan_id
         and day_of_week = (v_item->>'day_of_week')::int
         and exercise_name = (v_item->>'exercise_name')
         and not (id = any(v_matched_ids))
+      order by sort_order, id
       limit 1;
     end if;
 

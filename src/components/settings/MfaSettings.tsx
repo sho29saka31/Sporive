@@ -37,6 +37,17 @@ export default function MfaSettings({
     setLoading(true);
     try {
       const supabase = createClient();
+      // 前回の登録をキャンセルボタンを押さずに離脱した場合、検証未完了の
+      // TOTP因子がサーバー側に残ったままになる。放置すると際限なく蓄積し、
+      // 将来のenroll()が失敗する原因になりうるため、新規登録前に一掃する
+      const { data: existing } = await supabase.auth.mfa.listFactors();
+      const unverified = (existing?.totp ?? []).filter(
+        (f) => f.status !== "verified"
+      );
+      for (const f of unverified) {
+        await supabase.auth.mfa.unenroll({ factorId: f.id }).catch(() => {});
+      }
+
       const { data, error } = await supabase.auth.mfa.enroll({
         factorType: "totp",
       });

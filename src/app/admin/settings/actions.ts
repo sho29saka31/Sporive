@@ -70,9 +70,14 @@ function parseScheduledAt(
   if (Number.isNaN(date.getTime())) {
     return { error: "予約日時を正しく入力してください。" };
   }
+  // <input type="datetime-local">は分単位までしか扱えないため、DB側の値に
+  // 秒未満の端数が付いている場合でも「変更なし」と判定できるよう、分単位に
+  // 丸めてから比較する（フォーム側は常に秒0で送信するため通常は完全一致するが、
+  // 将来別の書き込み経路が追加される等で端数が付いた場合の編集ロックを防ぐ）
   const unchanged =
     existingScheduledAt != null &&
-    date.getTime() === new Date(existingScheduledAt).getTime();
+    Math.floor(date.getTime() / 60000) ===
+      Math.floor(new Date(existingScheduledAt).getTime() / 60000);
   if (!unchanged && date.getTime() <= Date.now()) {
     return { error: "予約日時は現在より後の日時を指定してください。" };
   }

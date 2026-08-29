@@ -75,13 +75,20 @@ export async function saveNotificationSettings(
   // 変更していない種別まで一律でリセットすると、その種別が当日既に送信済みでも
   // 未送信扱いに戻り、直後のcron実行で同日中に再送されてしまう
   // （週次レポートの場合はGeminiの不要な再呼び出しにもつながる）
-  const { data: currentSettings } = await supabase
+  const { data: currentSettings, error: currentSettingsError } = await supabase
     .from("notification_settings")
     .select(
       "daily_reminder_time, debt_reminder_time, reengagement_enabled, weekly_report_enabled, weekly_report_time"
     )
     .eq("user_id", user.id)
     .maybeSingle();
+
+  // 既存設定の取得に失敗した場合、「行が存在しない（初回保存）」と区別できず、
+  // 変更していない種別まで誤って一律リセットしてしまう（今回防ごうとしている
+  // 不具合そのものを再現する）ため、保存自体を失敗として扱う
+  if (currentSettingsError) {
+    return { error: "通知設定の保存に失敗しました。" };
+  }
 
   const resetOnChange: Partial<{
     daily_last_notified_on: null;

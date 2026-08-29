@@ -99,13 +99,19 @@ export async function processDailyCheck(
           (setsRemaining > 0 || repsRemaining > 0)
         ) {
           if (!alreadyProcessedItemIds.has(item.id)) {
-            const { error } = await admin.from("debts").insert({
-              user_id: plan.user_id,
-              plan_item_id: item.id,
-              missed_on: yesterday,
-              sets_remaining: setsRemaining,
-              reps_remaining: repsRemaining,
-            });
+            // アプリ側の事前チェック（alreadyProcessedItemIds）だけでなく、
+            // (user_id, plan_item_id, missed_on)のDB一意制約（0027マイグレーション）に
+            // 対するupsertにすることで、cronの同時実行による重複記録もDBレベルで防ぐ
+            const { error } = await admin.from("debts").upsert(
+              {
+                user_id: plan.user_id,
+                plan_item_id: item.id,
+                missed_on: yesterday,
+                sets_remaining: setsRemaining,
+                reps_remaining: repsRemaining,
+              },
+              { onConflict: "user_id,plan_item_id,missed_on", ignoreDuplicates: true }
+            );
             if (!error) debtsCreated++;
           }
         }

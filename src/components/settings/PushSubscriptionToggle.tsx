@@ -36,24 +36,36 @@ export default function PushSubscriptionToggle() {
         setStatus("denied");
         return;
       }
+      let subscription: PushSubscription | null;
       try {
         const registration = await navigator.serviceWorker.ready;
-        const subscription = await registration.pushManager.getSubscription();
-        if (!subscription) {
-          setStatus("unsubscribed");
-          return;
-        }
-        // ブラウザ側の購読の有無だけでなく、そのendpointが現在ログイン中の
-        // アカウントに紐づいているかもサーバーに確認する。家族共有端末等で
-        // 前の利用者の購読がブラウザに残っている場合、確認しないと
-        // 「通知は有効です」と誤表示されてしまう
+        subscription = await registration.pushManager.getSubscription();
+      } catch {
+        // ここで失敗するのはPush非対応環境（Service Worker自体が使えない等）
+        setStatus("unsupported");
+        return;
+      }
+      if (!subscription) {
+        setStatus("unsubscribed");
+        return;
+      }
+      // ブラウザ側の購読の有無だけでなく、そのendpointが現在ログイン中の
+      // アカウントに紐づいているかもサーバーに確認する。家族共有端末等で
+      // 前の利用者の購読がブラウザに残っている場合、確認しないと
+      // 「通知は有効です」と誤表示されてしまう。この確認はオフライン等の
+      // 一時的なネットワークエラーで失敗することがあるが、それは
+      // 「非対応ブラウザ」ではないため、上のtry/catchとは分けて扱う
+      try {
         const res = await fetch(
           `/api/notifications/subscribe?endpoint=${encodeURIComponent(subscription.endpoint)}`
         );
         const data = res.ok ? ((await res.json()) as { owned?: boolean }) : null;
         setStatus(data?.owned ? "subscribed" : "unsubscribed");
       } catch {
-        setStatus("unsupported");
+        // 所有者確認ができなかっただけで、ブラウザ側には購読が存在するため
+        // 「無効」と決めつけず、有効なものとして扱う（誤って「非対応」と
+        // 表示し有効化ボタンごと消してしまうよりは安全側に倒す）
+        setStatus("subscribed");
       }
     }
     void checkStatus();

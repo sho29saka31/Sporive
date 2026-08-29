@@ -334,6 +334,14 @@ export async function POST(request: Request) {
       if (result === "sent") {
         sentCount++;
         deliveredToUser = true;
+        // 送信成功した購読は「現役」であることが確認できたとみなし、updated_atを
+        // 更新する。クライアントが再購読しない限り更新されない状態のままだと、
+        // 実際には送信し続けられている購読でも登録から365日経過した時点で
+        // クリーンアップ（0024マイグレーション）に誤って削除されてしまうため
+        await admin
+          .from("push_subscriptions")
+          .update({ updated_at: new Date().toISOString() })
+          .eq("endpoint", sub.endpoint);
       } else if (result === "expired") {
         await admin
           .from("push_subscriptions")
