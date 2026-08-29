@@ -17,17 +17,32 @@ export default async function DebtsPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { data: debtRows } = await supabase
-    .from("debts")
-    .select(
-      "id, plan_item_id, missed_on, sets_remaining, reps_remaining, resolved_at"
-    )
-    .eq("user_id", user!.id)
-    .order("missed_on", { ascending: false })
-    .limit(100);
+  const DEBT_COLUMNS =
+    "id, plan_item_id, missed_on, sets_remaining, reps_remaining, resolved_at";
+  // 未消化の負債は蓄積されても取りこぼしがないよう上限なしで全件取得し、
+  // 解消済みは直近の履歴表示用途のため件数を絞って別クエリにする
+  // （1つのクエリをlimitしてから未消化/解消済みに振り分けると、解消済みが
+  // 多い利用者では古い未消化の負債がlimit枠から押し出されてしまうため）
+  const [{ data: unresolvedRows }, { data: resolvedRows }] =
+    await Promise.all([
+      supabase
+        .from("debts")
+        .select(DEBT_COLUMNS)
+        .eq("user_id", user!.id)
+        .is("resolved_at", null)
+        .order("missed_on", { ascending: false }),
+      supabase
+        .from("debts")
+        .select(DEBT_COLUMNS)
+        .eq("user_id", user!.id)
+        .not("resolved_at", "is", null)
+        .order("missed_on", { ascending: false })
+        .limit(20),
+    ]);
+  const debtRows = [...(unresolvedRows ?? []), ...(resolvedRows ?? [])];
 
   const itemIds = Array.from(
-    new Set((debtRows ?? []).map((d) => d.plan_item_id).filter(Boolean))
+    new Set(debtRows.map((d) => d.plan_item_id).filter(Boolean))
   ) as string[];
   const { data: items } =
     itemIds.length > 0
@@ -50,8 +65,8 @@ export default async function DebtsPage() {
     repsRemaining: d.reps_remaining,
   });
 
-  const unresolved = (debtRows ?? []).filter((d) => !d.resolved_at);
-  const resolved = (debtRows ?? []).filter((d) => d.resolved_at).slice(0, 20);
+  const unresolved = unresolvedRows ?? [];
+  const resolved = resolvedRows ?? [];
 
   return (
     <div className="py-6">

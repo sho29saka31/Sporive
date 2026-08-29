@@ -56,7 +56,10 @@ export default function MfaChallengeForm() {
 
       // クライアントルーターのキャッシュ起因の遷移不具合を避けるため、
       // 認証状態が変わった直後はフルページ遷移でmiddlewareを再評価させる。
-      window.location.href = "/home";
+      // ?next=/admin/... が付いていれば元々アクセスしようとしていたページへ、
+      // なければホームへ（実際の遷移先の妥当性はmiddleware側でも再検証される）
+      const next = new URLSearchParams(window.location.search).get("next");
+      window.location.href = next && next.startsWith("/admin") ? next : "/home";
     } catch {
       setError("認証に失敗しました。時間をおいて再度お試しください。");
       setLoading(false);

@@ -16,7 +16,14 @@ import { getAdminStats, resolveDateRange } from "@/lib/admin-stats";
 
 function csvEscape(value: unknown): string {
   if (value === null || value === undefined) return "";
-  const s = String(value);
+  let s = String(value);
+  // フォーミュラインジェクション対策：セルの先頭が =/+/-/@ だと、Excel等の
+  // スプレッドシートソフトで開いた際に数式として解釈されうる（display_name・
+  // exercise_name・note等、利用者の自由入力がそのままCSVに出力されるため）。
+  // 数式と解釈されないよう先頭にシングルクォートを付与して無害化する
+  if (/^[=+\-@]/.test(s)) {
+    s = `'${s}`;
+  }
   if (/[",\n\r]/.test(s)) {
     return `"${s.replace(/"/g, '""')}"`;
   }

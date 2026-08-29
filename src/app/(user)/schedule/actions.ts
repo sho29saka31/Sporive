@@ -41,6 +41,11 @@ export async function saveTrainingPlan(
   }
 
   for (const item of plan.items) {
+    // AI改善案（suggestion）はクライアント側の入力フォームの検証を経由しないため、
+    // 種目名の空文字チェックはここでも必須で行う
+    if (!item.exerciseName.trim()) {
+      throw new Error("種目名が空の項目があります。");
+    }
     const invalid =
       validateWorkoutValue("sets", item.sets) ??
       validateWorkoutValue("reps", item.reps) ??

@@ -9,6 +9,17 @@ import { getBlockingAnnouncement } from "@/lib/site-announcements";
 const PUBLIC_PATHS = ["/login", "/signup", "/reset-password"];
 /** MFA（TOTP）を有効にしている利用者が、ログイン後に認証コード入力を求められる画面 */
 const MFA_CHALLENGE_PATH = "/mfa-challenge";
+/**
+ * パスワード未設定（Googleログインのみ）の利用者が、ログイン後に必ず
+ * 通過させられるパスワード設定画面。/mfa-challenge と同様、ログインフローを
+ * 完走するために必須の画面のため、メンテナンス系の除外リストに含める必要がある
+ */
+const SET_PASSWORD_PATH = "/signup/set-password";
+/**
+ * メンテナンス中でもログインフローを完走できなければならない画面群
+ * （定期・緊急メンテナンス両方の除外リストで共通して使う）
+ */
+const LOGIN_FLOW_PATHS = ["/login", MFA_CHALLENGE_PATH, SET_PASSWORD_PATH];
 // 未ログインでも常に表示する静的ページ（トップの機能紹介・規約類）。
 // ログイン済みでもリダイレクトせずそのまま表示する（Google審査用の公開ページ）。
 const STATIC_PATHS = ["/", "/privacy", "/terms"];
@@ -60,14 +71,18 @@ export async function updateSession(request: NextRequest) {
   }
 
   // 定期メンテナンスタイム（§8-3）：トップページ・管理者画面・APIルート・
-  // MFA認証コード入力画面以外へのアクセスは、認証状態にかかわらずトップページへ戻す。
-  // /mfa-challengeを除外しないと、MFAを有効にした管理者がメンテナンス中に
-  // /adminへアクセスした際、AAL判定で/mfa-challengeへ回された直後にここで
-  // 弾かれてしまい、認証コード入力画面へ一度も到達できなくなる
+  // ログインフロー（/login・/auth/・/mfa-challenge・/signup/set-password）
+  // 以外へのアクセスは、認証状態にかかわらずトップページへ戻す。
+  // ログインフローを除外しないと、セッション切れ・パスワード未設定
+  // （Googleログインのみ）の管理者が/adminへ入り直そうとした際、
+  // ログイン完走に必要な画面のどこかでここに弾かれてしまい、
+  // 要件定義書§8-3の「管理者画面はメンテナンスタイム中も通常通り動作する」を
+  // 満たせなくなる
   if (
     isMaintenanceLockdownTime(getJstMinutesOfDay()) &&
     requestPath !== "/" &&
-    requestPath !== MFA_CHALLENGE_PATH &&
+    !LOGIN_FLOW_PATHS.includes(requestPath) &&
+    !requestPath.startsWith("/auth/") &&
     !requestPath.startsWith("/admin") &&
     !requestPath.startsWith("/api/")
   ) {
@@ -103,17 +118,14 @@ export async function updateSession(request: NextRequest) {
 
   // 緊急メンテナンスモード（要件定義書 §8-3, §10-3）：super-adminが機能フラグで
   // 任意のタイミングで即座に全サイトを止められる。定期メンテナンスとは異なり
-  // 時間経過での自動解除がないため、/login と /auth/（Google OAuthのコールバック
-  // 等、セッション確立前のエンドポイント）、/mfa-challengeだけは除外する。
-  // /mfa-challengeを除外しないと、MFAを有効にしたsuper-adminがログインし直そうと
-  // した際にAAL判定で/mfa-challengeへ回された直後にここで弾かれてしまい、
-  // 認証コードを入力する手段が失われる。ここを塞ぐと、セッション切れ・
-  // パスワード未設定（Googleログインのみ）のsuper-adminが誰もログインできなくなり、
-  // 解除する手段がなくなってサイトが恒久的にロックされてしまうため
+  // 時間経過での自動解除がないため、ログインフロー（/login・/auth/・
+  // /mfa-challenge・/signup/set-password）だけは除外する。これらを除外しないと、
+  // セッション切れ・パスワード未設定（Googleログインのみ）・MFA有効な
+  // super-adminが誰もログインできなくなり、解除する手段がなくなってサイトが
+  // 恒久的にロックされてしまうため
   if (
     requestPath !== "/" &&
-    requestPath !== "/login" &&
-    requestPath !== MFA_CHALLENGE_PATH &&
+    !LOGIN_FLOW_PATHS.includes(requestPath) &&
     !requestPath.startsWith("/auth/") &&
     !requestPath.startsWith("/admin") &&
     !requestPath.startsWith("/api/") &&
@@ -160,14 +172,24 @@ export async function updateSession(request: NextRequest) {
     !!aal && aal.nextLevel === "aal2" && aal.currentLevel !== aal.nextLevel;
   if (mfaPending && !isMfaChallengePath) {
     const url = request.nextUrl.clone();
+    // 認証コード入力後に元々アクセスしようとしていたページへ戻せるよう、
+    // 管理者画面など/home以外を保持する（定期メンテナンス中に/adminへ
+    // アクセスした管理者が、MFA完了後に/homeへ飛ばされてメンテナンス判定に
+    // 引っかかり再度弾かれてしまう問題への対処）
+    const next = isAdminPath ? pathname : null;
     url.pathname = MFA_CHALLENGE_PATH;
+    url.search = "";
+    if (next) url.searchParams.set("next", next);
     return applyMobilePreviewParam(request, NextResponse.redirect(url));
   }
-  // AAL2達成済み（またはMFA未設定）で認証コード入力画面に来た場合はホームへ。
-  // 直接ブックマーク・戻るボタン等でアクセスされたケースを想定
+  // AAL2達成済み（またはMFA未設定）で認証コード入力画面に来た場合は、
+  // nextパラメータがあればそこへ、なければホームへ。
+  // 直接ブックマーク・戻るボタン等でアクセスされたケースも想定
   if (!mfaPending && isMfaChallengePath) {
+    const next = request.nextUrl.searchParams.get("next");
     const url = request.nextUrl.clone();
-    url.pathname = "/home";
+    url.pathname = next && next.startsWith("/admin") ? next : "/home";
+    url.search = "";
     return applyMobilePreviewParam(request, NextResponse.redirect(url));
   }
 
@@ -182,9 +204,14 @@ export async function updateSession(request: NextRequest) {
   }
 
   // Supabaseの identities は OAuth 以外の登録方法では更新されないため、
-  // updateUser({ password }) 実行時に user_metadata へ明示的に立てるフラグで判定する
+  // updateUser({ password }) 実行時に user_metadata へ明示的に立てるフラグで判定する。
+  // 通常のアプリフローではMFA設定はパスワード設定済みのアカウントでしか行えないため
+  // 両条件が同時に成立することはないが、Supabase側で直接MFA因子が追加された等の
+  // 想定外のケースで両方の条件が真になった場合、/mfa-challenge と /signup/set-password
+  // の間で無限リダイレクトになってしまう。MFA認証（本人確認）を優先させるため、
+  // /mfa-challengeにいる間はこの判定をスキップする
   const hasPassword = user.user_metadata?.password_set === true;
-  if (!hasPassword && pathname !== "/signup/set-password") {
+  if (!hasPassword && pathname !== "/signup/set-password" && !isMfaChallengePath) {
     const url = request.nextUrl.clone();
     url.pathname = "/signup/set-password";
     return applyMobilePreviewParam(request, NextResponse.redirect(url));
