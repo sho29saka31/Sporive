@@ -106,7 +106,13 @@ export default function MfaSettings({
   async function handleCancelEnroll() {
     if (enrolling) {
       const supabase = createClient();
-      await supabase.auth.mfa.unenroll({ factorId: enrolling.factorId });
+      // unenroll()はAuthError以外の例外（ネットワーク瞬断等）を再throwすることが
+      // あり、ここで捕捉しないとキャンセル操作自体がフリーズしてしまう
+      // （どのみち次回startEnroll時に未検証因子は一掃されるため、ここでの
+      // 失敗は無視してよい）
+      await supabase.auth.mfa
+        .unenroll({ factorId: enrolling.factorId })
+        .catch(() => {});
     }
     setEnrolling(null);
     setCode("");

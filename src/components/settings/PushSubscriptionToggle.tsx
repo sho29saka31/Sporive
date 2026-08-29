@@ -133,10 +133,18 @@ export default function PushSubscriptionToggle() {
         // サーバー側で自分の購読として削除できた場合のみ、ブラウザ側も解除する。
         // 家族共有端末で他の利用者の購読がブラウザに残っていた場合（サーバー側は
         // 0件のため何も削除されない）、無関係な他人の購読をブラウザ側から
-        // 巻き添えで解除してしまわないようにする
-        if (data.deleted) {
-          await subscription.unsubscribe();
+        // 巻き添えで解除してしまわないようにする。
+        // サーバー側で削除できなかった場合、実際には無効化できていないため
+        // 「無効です」と偽って表示しない（他人の通知が届き続けているのに
+        // 気づけなくなるため）
+        if (!data.deleted) {
+          setError(
+            "この端末の通知購読は別のアカウントのものです。解除できませんでした。"
+          );
+          setStatus("subscribed");
+          return;
         }
+        await subscription.unsubscribe();
       }
       setStatus("unsubscribed");
     } catch {

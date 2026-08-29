@@ -325,29 +325,41 @@ export async function POST(request: Request) {
     const body = bodyLines.join("\n\n");
     let deliveredToUser = false;
 
-    for (const sub of subscriptions ?? []) {
-      const result = await sendPush(sub, {
-        title: "Sporive",
-        body,
-        url: "/home",
-      });
+    // 1利用者が複数端末で購読している場合の送信を並列化し、maxDuration（20秒）
+    // 内により多くの利用者を処理できるようにする（各購読は互いに独立しており、
+    // 直列で待つ理由がない）
+    const sendResults = await Promise.all(
+      (subscriptions ?? []).map(async (sub) => ({
+        sub,
+        result: await sendPush(sub, { title: "Sporive", body, url: "/home" }),
+      }))
+    );
+
+    const sentEndpoints: string[] = [];
+    const expiredEndpoints: string[] = [];
+    for (const { sub, result } of sendResults) {
       if (result === "sent") {
         sentCount++;
         deliveredToUser = true;
-        // 送信成功した購読は「現役」であることが確認できたとみなし、updated_atを
-        // 更新する。クライアントが再購読しない限り更新されない状態のままだと、
-        // 実際には送信し続けられている購読でも登録から365日経過した時点で
-        // クリーンアップ（0024マイグレーション）に誤って削除されてしまうため
-        await admin
-          .from("push_subscriptions")
-          .update({ updated_at: new Date().toISOString() })
-          .eq("endpoint", sub.endpoint);
+        sentEndpoints.push(sub.endpoint);
       } else if (result === "expired") {
-        await admin
-          .from("push_subscriptions")
-          .delete()
-          .eq("endpoint", sub.endpoint);
+        expiredEndpoints.push(sub.endpoint);
       }
+    }
+
+    // 送信成功した購読は「現役」であることが確認できたとみなし、updated_atを
+    // まとめて更新する（購読ごとに個別クエリを発行せず1回にまとめることで
+    // ラウンドトリップ数を減らす）。クライアントが再購読しない限り更新されない
+    // 状態のままだと、実際には送信し続けられている購読でも登録から365日経過した
+    // 時点でクリーンアップ（0024マイグレーション）に誤って削除されてしまうため
+    if (sentEndpoints.length > 0) {
+      await admin
+        .from("push_subscriptions")
+        .update({ updated_at: new Date().toISOString() })
+        .in("endpoint", sentEndpoints);
+    }
+    if (expiredEndpoints.length > 0) {
+      await admin.from("push_subscriptions").delete().in("endpoint", expiredEndpoints);
     }
 
     // 履歴表示（/settings/notifications）用に、実際に届いた通知の内容を記録する

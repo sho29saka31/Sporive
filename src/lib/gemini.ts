@@ -33,6 +33,31 @@ export interface WeeklyPlanDraft {
   items: PlanItemDraft[];
 }
 
+/**
+ * Geminiの構造化出力は、スキーマ上requiredに含めていない項目（category・sets・
+ * reps・weightKg・durationMin）についてnullを返せず、値がない場合はキー自体を
+ * 省略する（実際、有酸素運動等では重量を省略するようプロンプトで明示的に
+ * 許可・推奨している）。JSON.parseするとこれらは`undefined`になり、
+ * PlanItemDraft型が前提とする「未設定はnull」と食い違う。
+ * validateWorkoutValue（src/lib/workout-limits.ts）はnullのみを「未入力」として
+ * 許可しundefinedは「不正な値」として拒否するため、正規化しないまま渡すと、
+ * 正当なAI提案・改善案が「◯◯の入力値が不正です。」で登録できなくなる。
+ */
+function normalizeWeeklyPlanDraft(draft: WeeklyPlanDraft): WeeklyPlanDraft {
+  return {
+    summary: draft.summary,
+    items: draft.items.map((item) => ({
+      dayOfWeek: item.dayOfWeek,
+      exerciseName: item.exerciseName,
+      category: item.category ?? null,
+      sets: item.sets ?? null,
+      reps: item.reps ?? null,
+      weightKg: item.weightKg ?? null,
+      durationMin: item.durationMin ?? null,
+    })),
+  };
+}
+
 const planItemSchema = {
   type: Type.OBJECT,
   properties: {
@@ -167,7 +192,7 @@ export async function generateWeeklyPlan(params: {
   if (!text) {
     throw new Error("Gemini APIから応答が得られませんでした。");
   }
-  return JSON.parse(text) as WeeklyPlanDraft;
+  return normalizeWeeklyPlanDraft(JSON.parse(text) as WeeklyPlanDraft);
 }
 
 /** 未消化の負債に対するリカバリー提案（Phase 7）。短い日本語アドバイスを返す */
@@ -265,7 +290,7 @@ export async function generateImprovementSuggestion(params: {
   if (!text) {
     throw new Error("Gemini APIから応答が得られませんでした。");
   }
-  return JSON.parse(text) as WeeklyPlanDraft;
+  return normalizeWeeklyPlanDraft(JSON.parse(text) as WeeklyPlanDraft);
 }
 
 /**
