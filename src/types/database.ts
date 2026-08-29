@@ -167,6 +167,7 @@ export interface Database {
           p256dh: string;
           auth: string;
           created_at: string;
+          updated_at: string;
         };
         Insert: {
           id?: string;
@@ -174,11 +175,13 @@ export interface Database {
           endpoint: string;
           p256dh: string;
           auth: string;
+          updated_at?: string;
         };
         Update: Partial<{
           endpoint: string;
           p256dh: string;
           auth: string;
+          updated_at: string;
         }>;
         Relationships: [];
       };
@@ -393,6 +396,17 @@ export interface Database {
       };
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      upsert_training_plan: {
+        Args: {
+          p_week_start_date: string;
+          p_status: string;
+          p_source: string;
+          p_summary: string | null;
+          p_items: unknown;
+        };
+        Returns: { plan_id: string | null; conflict: boolean }[];
+      };
+    };
   };
 }

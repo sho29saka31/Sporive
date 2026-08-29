@@ -17,9 +17,20 @@ export async function signOut() {
   redirect("/login");
 }
 
-/** このアカウントの全セッションを失効させる（他デバイスも含む） */
+/**
+ * このアカウントの全セッションを失効させる（他デバイスも含む）。
+ * スマホ紛失・不正ログインへの自衛手段のため、失効と同時に全端末のPush購読も
+ * 削除する（そうしないと、セッションを切ってもプッシュ通知だけは紛失端末に
+ * 届き続けてしまう）
+ */
 export async function signOutEverywhere() {
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (user) {
+    await supabase.from("push_subscriptions").delete().eq("user_id", user.id);
+  }
   await supabase.auth.signOut({ scope: "global" });
   redirect("/login");
 }
@@ -29,8 +40,10 @@ export async function signOutEverywhere() {
  * profiles等の関連テーブルはON DELETE CASCADEで連動して削除される。
  * service_roleキーが必要な管理者操作のため、必ずServer Actionからのみ呼び出すこと。
  *
- * Supabaseはユーザー削除時に発行済みのアクセストークンを即座には失効させないため
- * （JWTは有効期限まで検証をパスしてしまう）、削除前に全セッションを失効させておく。
+ * 削除を先に行い、成功した場合のみセッションを失効させる。
+ * 逆順（先にsignOut）だと、削除がDBエラー等で失敗した際にアカウントは
+ * 残ったままセッションだけ失われ、この画面自体からログインし直さないと
+ * リトライできない状態になってしまうため
  */
 export async function deleteAccount(): Promise<{ error?: string }> {
   const supabase = await createClient();
@@ -44,8 +57,6 @@ export async function deleteAccount(): Promise<{ error?: string }> {
 
   const userId = user.id;
 
-  await supabase.auth.signOut({ scope: "global" });
-
   const admin = createAdminClient();
   const { error } = await admin.auth.admin.deleteUser(userId);
 
@@ -54,6 +65,10 @@ export async function deleteAccount(): Promise<{ error?: string }> {
       error: "アカウントの削除に失敗しました。時間をおいて再度お試しください。",
     };
   }
+
+  // アカウントは既に削除済みのため、ここでの失敗は無視してよい
+  // （発行済みJWTは有効期限切れで自然に失効し、削除済みユーザーとしてどのみち機能しない）
+  await supabase.auth.signOut({ scope: "global" }).catch(() => {});
 
   return {};
 }

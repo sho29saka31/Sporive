@@ -17,8 +17,14 @@ import {
 // 先にVercel関数がkillされないよう、Hobbyプランの上限（60秒）内で余裕を持たせる
 export const maxDuration = 20;
 
-/** 日次判定（負債記録・ストリーク更新）を実行するJST時間帯（03:00〜08:59） */
-const DAILY_CHECK_START_MIN = 3 * 60;
+/**
+ * 日次判定（負債記録・ストリーク更新）を実行するJST時間帯（03:30〜08:59）。
+ * 定期メンテナンスのロックダウン窓（2:30〜3:30、src/lib/maintenance.ts）は
+ * Supabase側の定期クリーンアップジョブに書き込みを専念させる目的のため、
+ * 全アクティブ利用者分の書き込みを伴うこのバッチと時間帯が重ならないよう
+ * ロックダウン終了後に開始する
+ */
+const DAILY_CHECK_START_MIN = 3 * 60 + 30;
 const DAILY_CHECK_END_MIN = 9 * 60;
 
 /** 再エンゲージメント通知の送信時刻（固定、要件定義書 §8-1） */
@@ -104,10 +110,13 @@ export async function POST(request: Request) {
   const today = getTodayDate();
   const todayDow = getTodayDayOfWeek();
 
-  // 機能フラグ（要件定義書 §10-3）：通知機能全体・負債管理機能の一括停止に対応
+  // 機能フラグ（要件定義書 §10-3）：通知機能全体・負債管理機能の一括停止に対応。
+  // ai_masterは週次レポート生成（Gemini呼び出し）に使う。他のAI機能同様、
+  // Gemini API障害・混雑時にsuper-adminが一括停止できる対象に含める
   const flags = await getFeatureFlags(admin, [
     "notifications",
     "debt_management",
+    "ai_master",
   ]);
 
   // 日次判定（前日の負債記録・ストリーク更新）。処理自体が冪等なので
@@ -252,7 +261,7 @@ export async function POST(request: Request) {
       target.weekly_report_last_notified_on !== today
     ) {
       let reportFailed = false;
-      if (!quiet) {
+      if (!quiet && flags.ai_master) {
         try {
           const { data: profile } = await admin
             .from("profiles")

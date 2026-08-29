@@ -67,23 +67,60 @@ export async function saveNotificationSettings(
     redirect("/login");
   }
 
-  // 各種別のlast_notified_onをリセットすることで、設定変更後は（同日中でも）
-  // 新しい時刻を過ぎた最初のcron実行で通知が送られる
+  const dailyReminderTimeValue = `${dailyReminderTime}:00`;
+  const debtReminderTimeValue = `${debtReminderTime}:00`;
+  const weeklyReportTimeValue = `${weeklyReportTime}:00`;
+
+  // 実際に時刻・ON/OFFが変わった種別だけlast_notified_onをリセットする。
+  // 変更していない種別まで一律でリセットすると、その種別が当日既に送信済みでも
+  // 未送信扱いに戻り、直後のcron実行で同日中に再送されてしまう
+  // （週次レポートの場合はGeminiの不要な再呼び出しにもつながる）
+  const { data: currentSettings } = await supabase
+    .from("notification_settings")
+    .select(
+      "daily_reminder_time, debt_reminder_time, reengagement_enabled, weekly_report_enabled, weekly_report_time"
+    )
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  const resetOnChange: Partial<{
+    daily_last_notified_on: null;
+    debt_last_notified_on: null;
+    reengagement_last_notified_on: null;
+    weekly_report_last_notified_on: null;
+  }> = {};
+  if (!currentSettings || currentSettings.daily_reminder_time !== dailyReminderTimeValue) {
+    resetOnChange.daily_last_notified_on = null;
+  }
+  if (!currentSettings || currentSettings.debt_reminder_time !== debtReminderTimeValue) {
+    resetOnChange.debt_last_notified_on = null;
+  }
+  if (
+    !currentSettings ||
+    currentSettings.reengagement_enabled !== reengagementEnabled
+  ) {
+    resetOnChange.reengagement_last_notified_on = null;
+  }
+  if (
+    !currentSettings ||
+    currentSettings.weekly_report_enabled !== weeklyReportEnabled ||
+    currentSettings.weekly_report_time !== weeklyReportTimeValue
+  ) {
+    resetOnChange.weekly_report_last_notified_on = null;
+  }
+
   const { error } = await supabase.from("notification_settings").upsert({
     user_id: user.id,
-    daily_reminder_time: `${dailyReminderTime}:00`,
-    debt_reminder_time: `${debtReminderTime}:00`,
+    daily_reminder_time: dailyReminderTimeValue,
+    debt_reminder_time: debtReminderTimeValue,
     reengagement_enabled: reengagementEnabled,
     weekly_report_enabled: weeklyReportEnabled,
-    weekly_report_time: `${weeklyReportTime}:00`,
+    weekly_report_time: weeklyReportTimeValue,
     quiet_hours_start: quietHoursStart ? `${quietHoursStart}:00` : null,
     quiet_hours_end: quietHoursEnd ? `${quietHoursEnd}:00` : null,
     quiet_days: quietDays,
     timezone: "Asia/Tokyo",
-    daily_last_notified_on: null,
-    debt_last_notified_on: null,
-    reengagement_last_notified_on: null,
-    weekly_report_last_notified_on: null,
+    ...resetOnChange,
   });
 
   if (error) {

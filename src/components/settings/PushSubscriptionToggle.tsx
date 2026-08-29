@@ -39,7 +39,19 @@ export default function PushSubscriptionToggle() {
       try {
         const registration = await navigator.serviceWorker.ready;
         const subscription = await registration.pushManager.getSubscription();
-        setStatus(subscription ? "subscribed" : "unsubscribed");
+        if (!subscription) {
+          setStatus("unsubscribed");
+          return;
+        }
+        // ブラウザ側の購読の有無だけでなく、そのendpointが現在ログイン中の
+        // アカウントに紐づいているかもサーバーに確認する。家族共有端末等で
+        // 前の利用者の購読がブラウザに残っている場合、確認しないと
+        // 「通知は有効です」と誤表示されてしまう
+        const res = await fetch(
+          `/api/notifications/subscribe?endpoint=${encodeURIComponent(subscription.endpoint)}`
+        );
+        const data = res.ok ? ((await res.json()) as { owned?: boolean }) : null;
+        setStatus(data?.owned ? "subscribed" : "unsubscribed");
       } catch {
         setStatus("unsupported");
       }
@@ -105,7 +117,14 @@ export default function PushSubscriptionToggle() {
           body: JSON.stringify({ endpoint: subscription.endpoint }),
         });
         if (!res.ok) throw new Error("unsubscribe failed");
-        await subscription.unsubscribe();
+        const data = (await res.json()) as { deleted?: boolean };
+        // サーバー側で自分の購読として削除できた場合のみ、ブラウザ側も解除する。
+        // 家族共有端末で他の利用者の購読がブラウザに残っていた場合（サーバー側は
+        // 0件のため何も削除されない）、無関係な他人の購読をブラウザ側から
+        // 巻き添えで解除してしまわないようにする
+        if (data.deleted) {
+          await subscription.unsubscribe();
+        }
       }
       setStatus("unsubscribed");
     } catch {

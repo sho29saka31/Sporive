@@ -50,9 +50,16 @@ const SCHEDULED_AT_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
 /**
  * <input type="datetime-local"> の値（"YYYY-MM-DDTHH:mm"、JST想定）を
  * ISO文字列（UTC）に変換する。未入力ならnull（即時公開）を返す。
+ *
+ * @param existingScheduledAt 編集対象の既存の予約日時（ISO文字列）。
+ *   フォームの値がこれと変わっていない場合は「現在より後」の検証を
+ *   スキップする。予約公開が既に過ぎて公開済みになったお知らせを、
+ *   予約日時欄に触れずに（本文の誤字修正等で）編集しようとすると、
+ *   このガードがないと保存できなくなってしまうため
  */
 function parseScheduledAt(
-  formData: FormData
+  formData: FormData,
+  existingScheduledAt?: string | null
 ): { error: string } | { scheduledAt: string | null } {
   const raw = String(formData.get("scheduled_at") ?? "").trim();
   if (!raw) return { scheduledAt: null };
@@ -63,7 +70,10 @@ function parseScheduledAt(
   if (Number.isNaN(date.getTime())) {
     return { error: "予約日時を正しく入力してください。" };
   }
-  if (date.getTime() <= Date.now()) {
+  const unchanged =
+    existingScheduledAt != null &&
+    date.getTime() === new Date(existingScheduledAt).getTime();
+  if (!unchanged && date.getTime() <= Date.now()) {
     return { error: "予約日時は現在より後の日時を指定してください。" };
   }
   return { scheduledAt: date.toISOString() };
@@ -83,7 +93,8 @@ function revalidateAnnouncementSurfaces() {
  * （作成・編集共通）
  */
 function parseAnnouncementForm(
-  formData: FormData
+  formData: FormData,
+  existingScheduledAt?: string | null
 ):
   | { error: string }
   | {
@@ -107,7 +118,7 @@ function parseAnnouncementForm(
     return { error: "レベルを選択してください。" };
   }
 
-  const scheduled = parseScheduledAt(formData);
+  const scheduled = parseScheduledAt(formData, existingScheduledAt);
   if ("error" in scheduled) return scheduled;
 
   // 開けなくするページを選択できるのは警告レベルのみ
@@ -179,10 +190,16 @@ export async function updateAnnouncement(
 ): Promise<SettingsActionState> {
   await requireSuperAdmin();
 
-  const parsed = parseAnnouncementForm(formData);
+  const admin = createAdminClient();
+  const { data: existing } = await admin
+    .from("site_announcements")
+    .select("scheduled_at")
+    .eq("id", id)
+    .maybeSingle();
+
+  const parsed = parseAnnouncementForm(formData, existing?.scheduled_at ?? null);
   if ("error" in parsed) return parsed;
 
-  const admin = createAdminClient();
   const { error, count } = await admin
     .from("site_announcements")
     .update(
@@ -223,14 +240,30 @@ export async function toggleAnnouncementActive(
   await requireSuperAdmin();
 
   const admin = createAdminClient();
+
+  // 予約公開日時がまだ未来の項目を再有効化する場合は、予約日時を維持する。
+  // 無条件でscheduled_atをnullにすると、一覧上は「有効」チェックがONに見える
+  // 予約中のお知らせを一度OFF→ONにしただけで、意図せず即時公開されてしまうため
+  let scheduledAtToKeep: string | null = null;
+  if (isActive) {
+    const { data: existing } = await admin
+      .from("site_announcements")
+      .select("scheduled_at")
+      .eq("id", id)
+      .maybeSingle();
+    if (existing?.scheduled_at && new Date(existing.scheduled_at).getTime() > Date.now()) {
+      scheduledAtToKeep = existing.scheduled_at;
+    }
+  }
+
   const { error, count } = await admin
     .from("site_announcements")
     .update(
       isActive
         ? {
             is_active: true,
-            published_at: new Date().toISOString(),
-            scheduled_at: null,
+            published_at: scheduledAtToKeep ?? new Date().toISOString(),
+            scheduled_at: scheduledAtToKeep,
           }
         : { is_active: false },
       { count: "exact" }

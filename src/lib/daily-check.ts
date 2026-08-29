@@ -57,14 +57,18 @@ export async function processDailyCheck(
       (logs ?? []).map((log) => [log.plan_item_id, log])
     );
 
-    // すでに昨日分の負債を登録済みならスキップ（冪等性）
+    // すでに昨日分の負債を登録済みの種目をスキップする（冪等性）。
+    // ユーザー単位ではなくplan_item_id単位で判定することで、同じcronウィンドウ内で
+    // 一部の種目のinsertだけが一時的なDBエラー等で失敗しても、その種目だけ
+    // 次回実行でリトライでき、成功済みの他の種目の負債と正しく共存できる
     const { data: existingDebts } = await admin
       .from("debts")
-      .select("id")
+      .select("plan_item_id")
       .eq("user_id", plan.user_id)
-      .eq("missed_on", yesterday)
-      .limit(1);
-    const alreadyProcessed = (existingDebts?.length ?? 0) > 0;
+      .eq("missed_on", yesterday);
+    const alreadyProcessedItemIds = new Set(
+      (existingDebts ?? []).map((d) => d.plan_item_id)
+    );
 
     let allAchieved = true;
 
@@ -94,7 +98,7 @@ export async function processDailyCheck(
           options.debtManagementEnabled &&
           (setsRemaining > 0 || repsRemaining > 0)
         ) {
-          if (!alreadyProcessed) {
+          if (!alreadyProcessedItemIds.has(item.id)) {
             const { error } = await admin.from("debts").insert({
               user_id: plan.user_id,
               plan_item_id: item.id,

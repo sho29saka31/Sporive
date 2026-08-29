@@ -23,7 +23,11 @@ function toExerciseLine(item: PlanItemDraft): string {
 
 /**
  * 確認済みの週間計画を保存する。
- * 同じ週にすでに計画がある場合は削除して作り直す（plan_itemsはON DELETE CASCADE）。
+ * 同じ週にすでに計画がある場合は置き換える。保存処理全体は
+ * upsert_training_plan（DB関数）に委譲し、単一トランザクションで行う
+ * （旧計画の削除・新計画の作成・項目の入れ替えを別々のクエリで行うと、
+ * 連打や複数タブでの同時保存時に計画が重複したり、編集のたびに全項目が
+ * 新規IDで作り直されて当日の記録・負債との紐付けが失われたりするため）。
  */
 export async function saveTrainingPlan(
   plan: WeeklyPlanDraft,
@@ -58,58 +62,32 @@ export async function saveTrainingPlan(
 
   const weekStartDate = getCurrentWeekStartDate();
 
-  const { data: existing } = await supabase
-    .from("training_plans")
-    .select("id")
-    .eq("user_id", user.id)
-    .eq("week_start_date", weekStartDate)
-    .maybeSingle();
-
-  // 新しい計画・項目の保存が両方成功してから既存の計画を削除する。
-  // 先に削除してしまうと、その後のinsertが失敗した場合にその週の計画が
-  // 完全に失われてしまうため（一意制約はないため一時的な重複は許容できる）
-  const { data: newPlan, error: planError } = await supabase
-    .from("training_plans")
-    .insert({
-      user_id: user.id,
-      week_start_date: weekStartDate,
-      status: "active",
-      source,
-      summary: plan.summary || null,
+  const { data: result, error: rpcError } = await supabase
+    .rpc("upsert_training_plan", {
+      p_week_start_date: weekStartDate,
+      p_status: "active",
+      p_source: source,
+      p_summary: plan.summary || null,
+      p_items: plan.items.map((item, index) => ({
+        day_of_week: item.dayOfWeek,
+        exercise_name: item.exerciseName,
+        category: item.category,
+        sets: item.sets,
+        reps: item.reps,
+        weight_kg: item.weightKg,
+        duration_min: item.durationMin,
+        sort_order: index,
+      })),
     })
-    .select("id")
     .single();
 
-  if (planError || !newPlan) {
+  if (rpcError) {
     throw new Error("計画の保存に失敗しました。");
   }
-
-  if (plan.items.length > 0) {
-    const items = plan.items.map((item, index) => ({
-      plan_id: newPlan.id,
-      day_of_week: item.dayOfWeek,
-      exercise_name: item.exerciseName,
-      category: item.category,
-      sets: item.sets,
-      reps: item.reps,
-      weight_kg: item.weightKg,
-      duration_min: item.durationMin,
-      sort_order: index,
-    }));
-
-    const { error: itemsError } = await supabase
-      .from("plan_items")
-      .insert(items);
-
-    if (itemsError) {
-      // 新規作成した計画（空の状態）を残さないよう後片付けしてからエラーにする
-      await supabase.from("training_plans").delete().eq("id", newPlan.id);
-      throw new Error("計画項目の保存に失敗しました。");
-    }
-  }
-
-  if (existing) {
-    await supabase.from("training_plans").delete().eq("id", existing.id);
+  if (result?.conflict) {
+    throw new Error(
+      "他の操作と競合しました。画面を更新してもう一度お試しください。"
+    );
   }
 
   await supabase.from("ai_proposal_logs").insert({

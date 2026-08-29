@@ -58,11 +58,14 @@ export default function MfaChallengeForm() {
       // 認証状態が変わった直後はフルページ遷移でmiddlewareを再評価させる。
       // ?next=/admin/... または /signup/set-password（パスワード再設定）が
       // 付いていれば元々アクセスしようとしていたページへ、なければホームへ
-      // （実際の遷移先の妥当性はmiddleware側でも再検証される）
-      const next = new URLSearchParams(window.location.search).get("next");
+      // （実際の遷移先の妥当性はmiddleware側でも再検証される）。
+      // /signup/set-passwordは?reason=resetの有無で表示文言・遷移先が変わるため
+      // クエリ文字列も含めて保持する（middleware.tsと同じロジック）
+      const nextRaw = new URLSearchParams(window.location.search).get("next");
+      const [nextPath, nextQuery] = nextRaw?.split("?") ?? [null, undefined];
       window.location.href =
-        next && (next.startsWith("/admin") || next === "/signup/set-password")
-          ? next
+        nextPath && (nextPath.startsWith("/admin") || nextPath === "/signup/set-password")
+          ? nextPath + (nextQuery ? `?${nextQuery}` : "")
           : "/home";
     } catch {
       setError("認証に失敗しました。時間をおいて再度お試しください。");

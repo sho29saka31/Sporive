@@ -17,9 +17,17 @@ const MFA_CHALLENGE_PATH = "/mfa-challenge";
 const SET_PASSWORD_PATH = "/signup/set-password";
 /**
  * メンテナンス中でもログインフローを完走できなければならない画面群
- * （定期・緊急メンテナンス両方の除外リストで共通して使う）
+ * （定期・緊急メンテナンス両方の除外リストで共通して使う）。
+ * /reset-password（パスワード再設定メールの送信フォーム）は、セッション切れ・
+ * パスワード未設定の管理者・super-adminが自力でログインし直すための
+ * 唯一の入口になりうるため、他のログインフロー画面と同様に除外する
  */
-const LOGIN_FLOW_PATHS = ["/login", MFA_CHALLENGE_PATH, SET_PASSWORD_PATH];
+const LOGIN_FLOW_PATHS = [
+  "/login",
+  "/reset-password",
+  MFA_CHALLENGE_PATH,
+  SET_PASSWORD_PATH,
+];
 // 未ログインでも常に表示する静的ページ（トップの機能紹介・規約類）。
 // ログイン済みでもリダイレクトせずそのまま表示する（Google審査用の公開ページ）。
 const STATIC_PATHS = ["/", "/privacy", "/terms"];
@@ -177,8 +185,13 @@ export async function updateSession(request: NextRequest) {
     // 管理者画面・パスワード再設定画面など/home以外を保持する
     // （定期メンテナンス中に/adminへアクセスした管理者や、パスワードを
     // 忘れてリセットリンクを踏んだMFA有効ユーザーが、MFA完了後に/homeへ
-    // 飛ばされて元のフローに戻れなくなる問題への対処）
-    const next = isAdminPath || isSetPasswordPath ? pathname : null;
+    // 飛ばされて元のフローに戻れなくなる問題への対処）。
+    // /signup/set-passwordは?reason=resetの有無で表示文言・完了後の遷移先が
+    // 変わるため、パス名だけでなくクエリ文字列も保持する
+    const next =
+      isAdminPath || isSetPasswordPath
+        ? pathname + request.nextUrl.search
+        : null;
     url.pathname = MFA_CHALLENGE_PATH;
     url.search = "";
     if (next) url.searchParams.set("next", next);
@@ -188,13 +201,16 @@ export async function updateSession(request: NextRequest) {
   // nextパラメータがあればそこへ、なければホームへ。
   // 直接ブックマーク・戻るボタン等でアクセスされたケースも想定
   if (!mfaPending && isMfaChallengePath) {
-    const next = request.nextUrl.searchParams.get("next");
+    const nextRaw = request.nextUrl.searchParams.get("next");
+    const [nextPath, nextQuery] = nextRaw?.split("?") ?? [null, undefined];
     const url = request.nextUrl.clone();
-    url.pathname =
-      next && (next.startsWith("/admin") || next === SET_PASSWORD_PATH)
-        ? next
-        : "/home";
-    url.search = "";
+    if (nextPath && (nextPath.startsWith("/admin") || nextPath === SET_PASSWORD_PATH)) {
+      url.pathname = nextPath;
+      url.search = nextQuery ? `?${nextQuery}` : "";
+    } else {
+      url.pathname = "/home";
+      url.search = "";
+    }
     return applyMobilePreviewParam(request, NextResponse.redirect(url));
   }
 
@@ -216,7 +232,7 @@ export async function updateSession(request: NextRequest) {
   // の間で無限リダイレクトになってしまう。MFA認証（本人確認）を優先させるため、
   // /mfa-challengeにいる間はこの判定をスキップする
   const hasPassword = user.user_metadata?.password_set === true;
-  if (!hasPassword && pathname !== "/signup/set-password" && !isMfaChallengePath) {
+  if (!hasPassword && !isSetPasswordPath && !isMfaChallengePath) {
     const url = request.nextUrl.clone();
     url.pathname = "/signup/set-password";
     return applyMobilePreviewParam(request, NextResponse.redirect(url));
