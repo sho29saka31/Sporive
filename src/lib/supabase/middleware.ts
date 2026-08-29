@@ -151,6 +151,7 @@ export async function updateSession(request: NextRequest) {
   const isAdminPath = pathname.startsWith("/admin");
   const isApiPath = pathname.startsWith("/api/");
   const isMfaChallengePath = pathname === MFA_CHALLENGE_PATH;
+  const isSetPasswordPath = pathname === SET_PASSWORD_PATH;
 
   if (isAuthCallback || isApiPath || STATIC_PATHS.includes(pathname)) {
     return applyMobilePreviewParam(request, supabaseResponse);
@@ -173,10 +174,11 @@ export async function updateSession(request: NextRequest) {
   if (mfaPending && !isMfaChallengePath) {
     const url = request.nextUrl.clone();
     // 認証コード入力後に元々アクセスしようとしていたページへ戻せるよう、
-    // 管理者画面など/home以外を保持する（定期メンテナンス中に/adminへ
-    // アクセスした管理者が、MFA完了後に/homeへ飛ばされてメンテナンス判定に
-    // 引っかかり再度弾かれてしまう問題への対処）
-    const next = isAdminPath ? pathname : null;
+    // 管理者画面・パスワード再設定画面など/home以外を保持する
+    // （定期メンテナンス中に/adminへアクセスした管理者や、パスワードを
+    // 忘れてリセットリンクを踏んだMFA有効ユーザーが、MFA完了後に/homeへ
+    // 飛ばされて元のフローに戻れなくなる問題への対処）
+    const next = isAdminPath || isSetPasswordPath ? pathname : null;
     url.pathname = MFA_CHALLENGE_PATH;
     url.search = "";
     if (next) url.searchParams.set("next", next);
@@ -188,7 +190,10 @@ export async function updateSession(request: NextRequest) {
   if (!mfaPending && isMfaChallengePath) {
     const next = request.nextUrl.searchParams.get("next");
     const url = request.nextUrl.clone();
-    url.pathname = next && next.startsWith("/admin") ? next : "/home";
+    url.pathname =
+      next && (next.startsWith("/admin") || next === SET_PASSWORD_PATH)
+        ? next
+        : "/home";
     url.search = "";
     return applyMobilePreviewParam(request, NextResponse.redirect(url));
   }
@@ -217,7 +222,18 @@ export async function updateSession(request: NextRequest) {
     return applyMobilePreviewParam(request, NextResponse.redirect(url));
   }
 
-  if (hasPassword && !isOnboardingPath && !isAdminPath && !isMfaChallengePath) {
+  // /signup/set-password は新規ユーザーのパスワード初回設定だけでなく、
+  // 既存ユーザーがパスワードを忘れた際の再設定（?reason=reset）にも使われる
+  // （その場合はhasPasswordが既にtrueのため214行目のガードでは弾かれない）。
+  // お知らせブロック等でこの画面を塞ぐと、再設定中の利用者が新しいパスワードを
+  // 設定できなくなるため、/mfa-challengeと同様に除外する
+  if (
+    hasPassword &&
+    !isOnboardingPath &&
+    !isAdminPath &&
+    !isMfaChallengePath &&
+    !isSetPasswordPath
+  ) {
     // プロフィール登録済みの確認は毎リクエストのDB往復になるため、
     // 一度確認できたらセッションCookieに記録して以降はスキップする（読み込み速度対策）。
     // 値にuser.idを入れることで、同じブラウザでの別アカウント切り替えにも対応する。

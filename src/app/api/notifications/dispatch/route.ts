@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { sendPush } from "@/lib/push";
 import { processDailyCheck } from "@/lib/daily-check";
 import { generateWeeklyReport } from "@/lib/gemini";
-import { getFeatureFlags } from "@/lib/feature-flags";
+import { getFeatureFlags, isEmergencyMaintenanceActive } from "@/lib/feature-flags";
 import {
   addDays,
   getCurrentWeekStartDate,
@@ -90,6 +90,16 @@ export async function POST(request: Request) {
   }
 
   const admin = createAdminClient();
+
+  // 緊急メンテナンスモード（要件定義書 §8-3, §10-3）中は、日次判定（負債記録・
+  // ストリーク更新）・通知送信のいずれも行わない。super-adminが全サイトを
+  // 止めている間もこのバッチだけ動き続けると、利用者に見せない画面の裏側で
+  // 負債やストリークの状態が変わってしまい、メンテナンス解除後の状態と
+  // 利用者の認識がずれるため
+  if (await isEmergencyMaintenanceActive(admin)) {
+    return NextResponse.json({ ok: true, sent: 0, dailyCheck: null, skipped: "emergency_maintenance" });
+  }
+
   const nowMinutes = getJstMinutesOfDay();
   const today = getTodayDate();
   const todayDow = getTodayDayOfWeek();

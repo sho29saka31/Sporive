@@ -17,12 +17,22 @@ export const ANNOUNCEMENT_PAGES = [
 ] as const;
 
 /**
- * ブロック対象にしてはいけないページ（お知らせ自体の内容を確認する画面、
- * MFA認証コード入力画面）。"*"（すべて）が選択された場合でも、これらの
- * ページは常にアクセス可能でなければならない。お知らせ内容を確認する
- * 手段自体がブロックされると、利用者が原因を確認できず抜け出せなくなるため。
+ * ブロック対象にしてはいけないページ。"*"（すべて）が選択された場合でも、
+ * これらのページは常にアクセス可能でなければならない。
+ * - /settings/notifications：お知らせ自体の内容を確認する画面。ここが
+ *   ブロックされると、利用者が原因を確認できず抜け出せなくなる
+ * - /mfa-challenge：MFA認証コード入力画面。ログインを完走するために必須
+ * - /settings/account/security：メール・パスワード変更、MFA設定に加えて
+ *   「全デバイスからログアウト」を含む。スマホ紛失・不正ログインに気づいた
+ *   利用者の唯一の自衛手段のため、「アカウント設定」（/settings/account）が
+ *   警告レベルのお知らせでブロック対象に選ばれた場合でも、この画面だけは
+ *   常にアクセス可能にする
  */
-const NEVER_BLOCKED_PAGES = ["/settings/notifications", "/mfa-challenge"];
+const NEVER_BLOCKED_PAGES = [
+  "/settings/notifications",
+  "/mfa-challenge",
+  "/settings/account/security",
+];
 
 export function announcementPageLabel(value: string): string {
   return ANNOUNCEMENT_PAGES.find((p) => p.value === value)?.label ?? value;
