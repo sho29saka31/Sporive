@@ -1,5 +1,6 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import type { GenderType } from "@/types/database";
+import { getCurrentJstYear } from "@/lib/week";
 
 function getModel(): string {
   const model = process.env.GEMINI_MODEL;
@@ -43,6 +44,21 @@ export interface WeeklyPlanDraft {
  * 許可しundefinedは「不正な値」として拒否するため、正規化しないまま渡すと、
  * 正当なAI提案・改善案が「◯◯の入力値が不正です。」で登録できなくなる。
  */
+/**
+ * Geminiの構造化出力は`required`指定していても、出力が途中で打ち切られる等の
+ * 理由で必須フィールドが欠落したJSONを返すことが実運用上ありうる。
+ * `.field`をそのまま返すと`undefined`が紛れ込み、呼び出し元で気づかれないまま
+ * 空文字表示・エラー未表示のまま機能不全になるため、文字列であることを検証する。
+ */
+function extractRequiredStringField(text: string, field: string): string {
+  const parsed = JSON.parse(text) as Record<string, unknown>;
+  const value = parsed[field];
+  if (typeof value !== "string" || !value) {
+    throw new Error("Gemini APIから応答が得られませんでした。");
+  }
+  return value;
+}
+
 function normalizeWeeklyPlanDraft(draft: WeeklyPlanDraft): WeeklyPlanDraft {
   return {
     summary: draft.summary,
@@ -91,7 +107,7 @@ const weeklyPlanSchema = {
 };
 
 function isSenior(birthYear: number): boolean {
-  const age = new Date().getFullYear() - birthYear;
+  const age = getCurrentJstYear() - birthYear;
   return age >= SENIOR_AGE_THRESHOLD;
 }
 
@@ -102,7 +118,7 @@ function buildProfileContext(params: {
   weeklyFrequency: number;
 }): string {
   const { birthYear, goal, gender, weeklyFrequency } = params;
-  const age = new Date().getFullYear() - birthYear;
+  const age = getCurrentJstYear() - birthYear;
   const senior = isSenior(birthYear);
 
   const lines = [
@@ -245,7 +261,7 @@ export async function generateRecoveryAdvice(params: {
   if (!text) {
     throw new Error("Gemini APIから応答が得られませんでした。");
   }
-  return (JSON.parse(text) as { advice: string }).advice;
+  return extractRequiredStringField(text, "advice");
 }
 
 /** 利用者が登録しようとしている計画に対する改善案を提示する */
@@ -338,7 +354,7 @@ export async function summarizeGoal(rawText: string): Promise<string> {
   if (!text) {
     throw new Error("Gemini APIから応答が得られませんでした。");
   }
-  return (JSON.parse(text) as { summary: string }).summary;
+  return extractRequiredStringField(text, "summary");
 }
 
 /**
@@ -394,5 +410,5 @@ export async function generateWeeklyReport(params: {
   if (!text) {
     throw new Error("Gemini APIから応答が得られませんでした。");
   }
-  return (JSON.parse(text) as { report: string }).report;
+  return extractRequiredStringField(text, "report");
 }

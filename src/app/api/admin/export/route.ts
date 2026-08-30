@@ -107,7 +107,7 @@ export async function GET(request: Request) {
   }
 
   if (type === "workout_logs") {
-    const [{ data: logs }, names] = await Promise.all([
+    const [{ data: logs, error: logsError }, names] = await Promise.all([
       admin
         .from("workout_logs")
         .select(
@@ -118,16 +118,22 @@ export async function GET(request: Request) {
         .order("performed_on", { ascending: true }),
       getDisplayNames(),
     ]);
+    if (logsError) {
+      return new Response("db_error", { status: 500 });
+    }
     const itemIds = Array.from(
       new Set((logs ?? []).map((l) => l.plan_item_id).filter(Boolean))
     ) as string[];
-    const { data: items } =
+    const { data: items, error: itemsError } =
       itemIds.length > 0
         ? await admin
             .from("plan_items")
             .select("id, exercise_name")
             .in("id", itemIds)
-        : { data: [] };
+        : { data: [], error: null };
+    if (itemsError) {
+      return new Response("db_error", { status: 500 });
+    }
     const nameById = new Map(
       (items ?? []).map((i) => [i.id, i.exercise_name])
     );
@@ -151,7 +157,7 @@ export async function GET(request: Request) {
   }
 
   if (type === "debts") {
-    const [{ data: debts }, names] = await Promise.all([
+    const [{ data: debts, error: debtsError }, names] = await Promise.all([
       admin
         .from("debts")
         .select(
@@ -162,16 +168,22 @@ export async function GET(request: Request) {
         .order("missed_on", { ascending: true }),
       getDisplayNames(),
     ]);
+    if (debtsError) {
+      return new Response("db_error", { status: 500 });
+    }
     const itemIds = Array.from(
       new Set((debts ?? []).map((d) => d.plan_item_id).filter(Boolean))
     ) as string[];
-    const { data: items } =
+    const { data: items, error: itemsError } =
       itemIds.length > 0
         ? await admin
             .from("plan_items")
             .select("id, exercise_name")
             .in("id", itemIds)
-        : { data: [] };
+        : { data: [], error: null };
+    if (itemsError) {
+      return new Response("db_error", { status: 500 });
+    }
     const nameById = new Map(
       (items ?? []).map((i) => [i.id, i.exercise_name])
     );
@@ -194,7 +206,7 @@ export async function GET(request: Request) {
   }
 
   if (type === "ai_proposals") {
-    const [{ data: aiLogs }, names] = await Promise.all([
+    const [{ data: aiLogs, error: aiLogsError }, names] = await Promise.all([
       admin
         .from("ai_proposal_logs")
         .select("user_id, goal, accepted, created_at, proposal_json")
@@ -203,6 +215,9 @@ export async function GET(request: Request) {
         .order("created_at", { ascending: true }),
       getDisplayNames(),
     ]);
+    if (aiLogsError) {
+      return new Response("db_error", { status: 500 });
+    }
     const rows = (aiLogs ?? []).map((l) => {
       const proposal = l.proposal_json as {
         items?: { exerciseName?: string }[];

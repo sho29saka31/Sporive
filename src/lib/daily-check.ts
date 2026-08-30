@@ -43,7 +43,7 @@ export async function processDailyCheck(
     // 昨日が休息日ならストリークは変化させない（休息日は連続を切らない）
     if (!items || items.length === 0) continue;
 
-    const { data: logs } = await admin
+    const { data: logs, error: logsError } = await admin
       .from("workout_logs")
       .select("plan_item_id, sets_done, reps_done, duration_min")
       .eq("user_id", plan.user_id)
@@ -52,6 +52,17 @@ export async function processDailyCheck(
         "plan_item_id",
         items.map((i) => i.id)
       );
+
+    // このクエリが失敗した場合、logsが空扱いになり「実績が一切ない＝全項目未達成」と
+    // 誤判定してしまう。誤って作成された負債はalreadyProcessedItemIdsによる
+    // 冪等性ガードのせいで後から取り消せず、ストリークも0にリセットされたまま
+    // 復元できなくなる（正しい判定に戻っても継続日数は失われる）ため、
+    // 誤判定するくらいならこのプランの処理自体をスキップし、次回cron実行での
+    // リトライに委ねる
+    if (logsError) {
+      console.error("Failed to fetch workout_logs in daily-check", logsError);
+      continue;
+    }
 
     const logByItemId = new Map(
       (logs ?? []).map((log) => [log.plan_item_id, log])

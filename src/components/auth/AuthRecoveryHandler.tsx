@@ -53,26 +53,34 @@ export default function AuthRecoveryHandler({
       if (!accessToken || !refreshToken) return;
 
       setStatus("processing");
-      const supabase = createClient();
-      const { error } = await supabase.auth.setSession({
-        access_token: accessToken,
-        refresh_token: refreshToken,
-      });
+      try {
+        const supabase = createClient();
+        const { error } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        });
 
-      if (error) {
+        if (error) {
+          setStatus("error");
+          setErrorMessage(INVALID_LINK_MESSAGE);
+          return;
+        }
+
+        const type = params.get("type");
+        let destination = "/home";
+        if (type === "recovery") {
+          destination = "/signup/set-password?reason=reset";
+        } else if (type === "email_change") {
+          destination = "/settings/account/security?email_changed=1";
+        }
+        window.location.href = destination;
+      } catch {
+        // setSession()はストレージ書き込み失敗（プライベートブラウジング等）で
+        // 例外を投げることがある。ここで捕捉しないと"processing"画面のまま
+        // 固まってしまうため、エラー表示に落とす
         setStatus("error");
         setErrorMessage(INVALID_LINK_MESSAGE);
-        return;
       }
-
-      const type = params.get("type");
-      let destination = "/home";
-      if (type === "recovery") {
-        destination = "/signup/set-password?reason=reset";
-      } else if (type === "email_change") {
-        destination = "/settings/account/security?email_changed=1";
-      }
-      window.location.href = destination;
     }
 
     void processTokens();

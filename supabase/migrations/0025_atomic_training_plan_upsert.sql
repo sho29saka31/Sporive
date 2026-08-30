@@ -87,6 +87,18 @@ begin
     raise exception 'authentication required';
   end if;
 
+  -- この関数はauthenticatedロールから直接RPC実行可能で、呼び出し元
+  -- （saveTrainingPlan）は常にp_status='active'しか渡さない。ここでの
+  -- 検証がないと、ブラウザから直接p_status='draft'等でRPCを繰り返し呼び出す
+  -- ことで、既存行検索（status='active'限定）にも一意インデックス
+  -- （status='active'部分インデックス）にも引っかからない重複行を
+  -- 同じ(user_id, week_start_date)に何件でも作成でき、/schedule系画面の
+  -- .maybeSingle()クエリが複数行ヒットで壊れる（自己DoS）ため、
+  -- 現状アプリが使う値のみを許可する
+  if p_status <> 'active' then
+    raise exception 'invalid status: %', p_status;
+  end if;
+
   select id into v_old_plan_id
   from training_plans
   where user_id = v_user_id

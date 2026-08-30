@@ -178,15 +178,15 @@ export async function POST(request: Request) {
       target.daily_last_notified_on !== today
     ) {
       if (!quiet) {
-        const { data: plans } = await admin
+        const { data: plans, error: plansError } = await admin
           .from("training_plans")
           .select("id")
           .eq("user_id", target.user_id)
           .eq("week_start_date", weekStart)
           .eq("status", "active");
 
-        if (plans && plans.length > 0) {
-          const { data: todayItems } = await admin
+        if (!plansError && plans && plans.length > 0) {
+          const { data: todayItems, error: itemsError } = await admin
             .from("plan_items")
             .select("id")
             .in(
@@ -195,7 +195,7 @@ export async function POST(request: Request) {
             )
             .eq("day_of_week", todayDow);
 
-          const count = todayItems?.length ?? 0;
+          const count = itemsError ? 0 : (todayItems?.length ?? 0);
           if (count > 0) {
             bodyLines.push(
               `今日は${count}件のトレーニング予定があります。頑張りましょう！`
@@ -213,13 +213,13 @@ export async function POST(request: Request) {
       target.debt_last_notified_on !== today
     ) {
       if (!quiet && flags.debt_management) {
-        const { data: debts } = await admin
+        const { data: debts, error: debtsError } = await admin
           .from("debts")
           .select("id")
           .eq("user_id", target.user_id)
           .is("resolved_at", null);
 
-        const debtCount = debts?.length ?? 0;
+        const debtCount = debtsError ? 0 : (debts?.length ?? 0);
         if (debtCount > 0) {
           bodyLines.push(
             `未消化の負債が${debtCount}件あります。今日の分に上乗せして取り返しましょう。`
@@ -237,14 +237,17 @@ export async function POST(request: Request) {
     ) {
       if (!quiet) {
         const threeDaysAgo = addDays(today, -2);
-        const { data: recentLogs } = await admin
+        const { data: recentLogs, error: recentLogsError } = await admin
           .from("workout_logs")
           .select("id")
           .eq("user_id", target.user_id)
           .gte("performed_on", threeDaysAgo)
           .limit(1);
 
-        if (!recentLogs || recentLogs.length === 0) {
+        // クエリ失敗時は「記録なし」と決めつけない。直近3日間しっかり記録している
+        // 利用者に対して、事実と異なる「記録がありません」という通知を送って
+        // しまうことを避ける
+        if (!recentLogsError && (!recentLogs || recentLogs.length === 0)) {
           bodyLines.push(
             "3日以上トレーニング記録がありません。無理のない範囲で再開しましょう！"
           );
@@ -263,19 +266,32 @@ export async function POST(request: Request) {
       let reportFailed = false;
       if (!quiet && flags.ai_master) {
         try {
-          const { data: profile } = await admin
+          const { data: profile, error: profileError } = await admin
             .from("profiles")
             .select("birth_year, goal, gender")
             .eq("id", target.user_id)
             .single();
 
+          if (profileError) {
+            // ここで投げてcatch節に落とすことで、「取得失敗＝プロフィールなし」
+            // として無言でスキップ（reportFailed=falseのまま通知済み扱いになり
+            // 二度とリトライされない）にならないようにする
+            throw profileError;
+          }
+
           if (profile) {
             const weekAgo = addDays(today, -6);
-            const { data: weekLogs } = await admin
+            const { data: weekLogs, error: weekLogsError } = await admin
               .from("workout_logs")
               .select("performed_on, sets_done")
               .eq("user_id", target.user_id)
               .gte("performed_on", weekAgo);
+
+            if (weekLogsError) {
+              // 取得失敗時に「実施日数0・合計0セット」という事実と異なる
+              // 週次レポートを生成・送信してしまわないよう、ここで投げてリトライに回す
+              throw weekLogsError;
+            }
 
             const distinctDays = new Set(
               (weekLogs ?? []).map((l) => l.performed_on)
@@ -309,10 +325,19 @@ export async function POST(request: Request) {
     }
 
     if (Object.keys(notifiedUpdate).length > 0) {
-      await admin
+      const { error: notifiedUpdateError } = await admin
         .from("notification_settings")
         .update(notifiedUpdate)
         .eq("user_id", target.user_id);
+      if (notifiedUpdateError) {
+        // 失敗するとこの利用者・この種別は「判定済み」として記録されず、
+        // 次回cron実行（10分後）で同じ種別が重複送信されうる
+        console.error(
+          "Failed to persist notifiedUpdate",
+          target.user_id,
+          notifiedUpdateError
+        );
+      }
     }
 
     if (bodyLines.length === 0) continue;

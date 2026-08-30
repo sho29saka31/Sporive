@@ -196,11 +196,18 @@ export async function updateAnnouncement(
   await requireSuperAdmin();
 
   const admin = createAdminClient();
-  const { data: existing } = await admin
+  const { data: existing, error: existingError } = await admin
     .from("site_announcements")
     .select("scheduled_at")
     .eq("id", id)
     .maybeSingle();
+  // 取得に失敗した場合、existingScheduledAtがnull扱いになりparseScheduledAtの
+  // 「変更なし」判定が効かなくなる（予約日時欄に触れていないのに「現在より後の
+  // 日時を指定してください」という誤ったバリデーションエラーが出うる）ため、
+  // ここで保存自体を失敗として扱う
+  if (existingError) {
+    return { error: "お知らせの更新に失敗しました。" };
+  }
 
   const parsed = parseAnnouncementForm(formData, existing?.scheduled_at ?? null);
   if ("error" in parsed) return parsed;
@@ -320,17 +327,26 @@ export async function toggleFeatureFlag(
   }
 
   const admin = createAdminClient();
-  const { error } = await admin
+  const { error, count } = await admin
     .from("feature_flags")
-    .update({
-      enabled,
-      updated_by: userId,
-      updated_at: new Date().toISOString(),
-    })
+    .update(
+      {
+        enabled,
+        updated_by: userId,
+        updated_at: new Date().toISOString(),
+      },
+      { count: "exact" }
+    )
     .eq("key", key as FeatureFlagKey);
 
   if (error) {
     throw new Error("機能フラグの更新に失敗しました。");
+  }
+  if (!count) {
+    // FEATURE_FLAG_KEYSに含まれるがDB側にseed行がない（将来のフラグ追加漏れ等）
+    // 場合、更新は0件ヒットのままエラーなく成功扱いになり、UIのトグルだけが
+    // 静かに元の状態へ巻き戻ってしまうため、明示的にエラーとして扱う
+    throw new Error("対象の機能フラグが見つかりません。");
   }
 
   revalidatePath("/admin/settings");

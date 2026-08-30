@@ -88,17 +88,33 @@ export default function PlanBuilder({
     }
   }
 
+  // 改善案カード（suggestion）を表示した後に編集フォームで内容を変更すると、
+  // 強度チェック結果（warnings）は取得済みの古いものが表示されたままになり、
+  // 「登録する」を経由せずに「このまま登録」で新しい未チェックの内容が
+  // 保存できてしまう（安全性のための警告機構がバイパスされる）。
+  // 編集操作があった時点でsuggestionを閉じ、再度「登録する」から
+  // 強度チェックをやり直させる
+  function resetSuggestionOnEdit() {
+    if (suggestion) {
+      setSuggestion(null);
+      setAiSuggestionFailed(false);
+    }
+  }
+
   function updateItem(index: number, patch: Partial<PlanItemDraft>) {
+    resetSuggestionOnEdit();
     setItems((prev) =>
       prev.map((it, i) => (i === index ? { ...it, ...patch } : it))
     );
   }
 
   function removeItem(index: number) {
+    resetSuggestionOnEdit();
     setItems((prev) => prev.filter((_, i) => i !== index));
   }
 
   function addItem(dayOfWeek: number) {
+    resetSuggestionOnEdit();
     setItems((prev) => [...prev, emptyItem(dayOfWeek)]);
   }
 

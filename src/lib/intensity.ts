@@ -2,7 +2,7 @@ import {
   INTENSITY_THRESHOLDS,
   type AgeBandThreshold,
 } from "@/config/intensity-thresholds";
-import { DAY_LABELS } from "@/lib/week";
+import { DAY_LABELS, getCurrentJstYear } from "@/lib/week";
 import type { PlanItemDraft } from "@/lib/gemini";
 
 /**
@@ -71,7 +71,7 @@ export function validatePlanIntensity(params: {
   /** 前週の計画項目（増加率チェック用。前週の計画がない場合はnull） */
   previousItems?: PlanItemDraft[] | null;
 }): IntensityWarning[] {
-  const age = new Date().getFullYear() - params.birthYear;
+  const age = getCurrentJstYear() - params.birthYear;
   const band = findConservativeBand(age);
   const warnings: IntensityWarning[] = [];
 
