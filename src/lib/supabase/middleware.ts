@@ -187,9 +187,12 @@ export async function updateSession(request: NextRequest) {
     // 忘れてリセットリンクを踏んだMFA有効ユーザーが、MFA完了後に/homeへ
     // 飛ばされて元のフローに戻れなくなる問題への対処）。
     // /signup/set-passwordは?reason=resetの有無で表示文言・完了後の遷移先が
-    // 変わるため、パス名だけでなくクエリ文字列も保持する
+    // 変わるため、パス名だけでなくクエリ文字列も保持する。
+    // /settings/account/securityも、メールアドレス変更確認リンク経由で
+    // ?email_changed=1付きでアクセスされることがあり、これを保持しないと
+    // MFA完了後に確認メッセージが表示されないまま/homeへ流れてしまう
     const next =
-      isAdminPath || isSetPasswordPath
+      isAdminPath || isSetPasswordPath || pathname === "/settings/account/security"
         ? pathname + request.nextUrl.search
         : null;
     url.pathname = MFA_CHALLENGE_PATH;
@@ -204,7 +207,12 @@ export async function updateSession(request: NextRequest) {
     const nextRaw = request.nextUrl.searchParams.get("next");
     const [nextPath, nextQuery] = nextRaw?.split("?") ?? [null, undefined];
     const url = request.nextUrl.clone();
-    if (nextPath && (nextPath.startsWith("/admin") || nextPath === SET_PASSWORD_PATH)) {
+    if (
+      nextPath &&
+      (nextPath.startsWith("/admin") ||
+        nextPath === SET_PASSWORD_PATH ||
+        nextPath === "/settings/account/security")
+    ) {
       url.pathname = nextPath;
       url.search = nextQuery ? `?${nextQuery}` : "";
     } else {

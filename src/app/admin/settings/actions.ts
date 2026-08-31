@@ -258,11 +258,17 @@ export async function toggleAnnouncementActive(
   // 予約中のお知らせを一度OFF→ONにしただけで、意図せず即時公開されてしまうため
   let scheduledAtToKeep: string | null = null;
   if (isActive) {
-    const { data: existing } = await admin
+    const { data: existing, error: existingError } = await admin
       .from("site_announcements")
       .select("scheduled_at")
       .eq("id", id)
       .maybeSingle();
+    // 取得に失敗した場合、scheduledAtToKeepがnullのまま「予約日時なし」として
+    // 処理が進み、本来まだ先の予約日時だったお知らせが意図せず即時公開されて
+    // しまう（エラーも一切表示されない）ため、ここで処理を中断する
+    if (existingError) {
+      throw new Error("お知らせの更新に失敗しました。");
+    }
     if (existing?.scheduled_at && new Date(existing.scheduled_at).getTime() > Date.now()) {
       scheduledAtToKeep = existing.scheduled_at;
     }

@@ -56,15 +56,19 @@ export default function MfaChallengeForm() {
 
       // クライアントルーターのキャッシュ起因の遷移不具合を避けるため、
       // 認証状態が変わった直後はフルページ遷移でmiddlewareを再評価させる。
-      // ?next=/admin/... または /signup/set-password（パスワード再設定）が
+      // ?next=/admin/... 、/signup/set-password（パスワード再設定）、
+      // /settings/account/security（メールアドレス変更確認）のいずれかが
       // 付いていれば元々アクセスしようとしていたページへ、なければホームへ
       // （実際の遷移先の妥当性はmiddleware側でも再検証される）。
-      // /signup/set-passwordは?reason=resetの有無で表示文言・遷移先が変わるため
-      // クエリ文字列も含めて保持する（middleware.tsと同じロジック）
+      // これらは?reason=reset・?email_changed=1等のクエリで表示文言・完了後の
+      // 案内が変わるため、クエリ文字列も含めて保持する（middleware.tsと同じロジック）
       const nextRaw = new URLSearchParams(window.location.search).get("next");
       const [nextPath, nextQuery] = nextRaw?.split("?") ?? [null, undefined];
       window.location.href =
-        nextPath && (nextPath.startsWith("/admin") || nextPath === "/signup/set-password")
+        nextPath &&
+        (nextPath.startsWith("/admin") ||
+          nextPath === "/signup/set-password" ||
+          nextPath === "/settings/account/security")
           ? nextPath + (nextQuery ? `?${nextQuery}` : "")
           : "/home";
     } catch {

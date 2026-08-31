@@ -91,7 +91,7 @@ export async function getAdminStats(
   const logsFrom = weekStarts[0]; // 週集計のため期間先頭の週の日曜から取得
 
   const [
-    { count: totalUsers },
+    { count: totalUsers, error: totalUsersError },
     logsResult,
     plansResult,
     debtsResult,
@@ -126,6 +126,7 @@ export async function getAdminStats(
   // 管理者が区別できない（ダッシュボードの数値が静かに不正確になる）ため、
   // 明示的にエラーとして扱う
   if (
+    totalUsersError ||
     logsResult.error ||
     plansResult.error ||
     debtsResult.error ||

@@ -59,18 +59,41 @@ function extractRequiredStringField(text: string, field: string): string {
   return value;
 }
 
+/**
+ * normalizeWeeklyPlanDraftが呼ぶ、必須フィールドの検証。summary・
+ * items[].dayOfWeek・items[].exerciseNameはスキーマ上requiredだが、
+ * 実運用上Geminiが出力を途中で打ち切る等で欠落したJSONを返すことがある。
+ * ここで弾かないと、例えばexerciseNameがundefinedのままPlanBuilder.tsxまで
+ * 渡り、`item.exerciseName.trim()`で未処理の例外が発生し、ユーザーには
+ * 何の反応もないまま登録操作が無言で失敗する
+ */
 function normalizeWeeklyPlanDraft(draft: WeeklyPlanDraft): WeeklyPlanDraft {
+  if (typeof draft.summary !== "string" || !draft.summary) {
+    throw new Error("Gemini APIから応答が得られませんでした。");
+  }
   return {
     summary: draft.summary,
-    items: draft.items.map((item) => ({
-      dayOfWeek: item.dayOfWeek,
-      exerciseName: item.exerciseName,
-      category: item.category ?? null,
-      sets: item.sets ?? null,
-      reps: item.reps ?? null,
-      weightKg: item.weightKg ?? null,
-      durationMin: item.durationMin ?? null,
-    })),
+    items: draft.items.map((item) => {
+      if (
+        typeof item.dayOfWeek !== "number" ||
+        !Number.isInteger(item.dayOfWeek) ||
+        item.dayOfWeek < 0 ||
+        item.dayOfWeek > 6 ||
+        typeof item.exerciseName !== "string" ||
+        !item.exerciseName.trim()
+      ) {
+        throw new Error("Gemini APIから応答が得られませんでした。");
+      }
+      return {
+        dayOfWeek: item.dayOfWeek,
+        exerciseName: item.exerciseName,
+        category: item.category ?? null,
+        sets: item.sets ?? null,
+        reps: item.reps ?? null,
+        weightKg: item.weightKg ?? null,
+        durationMin: item.durationMin ?? null,
+      };
+    }),
   };
 }
 

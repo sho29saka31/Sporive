@@ -185,7 +185,9 @@ export async function POST(request: Request) {
           .eq("week_start_date", weekStart)
           .eq("status", "active");
 
-        if (!plansError && plans && plans.length > 0) {
+        if (plansError) {
+          console.error("Failed to fetch training_plans for daily reminder", target.user_id, plansError);
+        } else if (plans && plans.length > 0) {
           const { data: todayItems, error: itemsError } = await admin
             .from("plan_items")
             .select("id")
@@ -194,6 +196,9 @@ export async function POST(request: Request) {
               plans.map((p) => p.id)
             )
             .eq("day_of_week", todayDow);
+          if (itemsError) {
+            console.error("Failed to fetch plan_items for daily reminder", target.user_id, itemsError);
+          }
 
           const count = itemsError ? 0 : (todayItems?.length ?? 0);
           if (count > 0) {
@@ -219,6 +224,9 @@ export async function POST(request: Request) {
           .eq("user_id", target.user_id)
           .is("resolved_at", null);
 
+        if (debtsError) {
+          console.error("Failed to fetch debts for debt reminder", target.user_id, debtsError);
+        }
         const debtCount = debtsError ? 0 : (debts?.length ?? 0);
         if (debtCount > 0) {
           bodyLines.push(
@@ -244,6 +252,9 @@ export async function POST(request: Request) {
           .gte("performed_on", threeDaysAgo)
           .limit(1);
 
+        if (recentLogsError) {
+          console.error("Failed to fetch workout_logs for reengagement", target.user_id, recentLogsError);
+        }
         // クエリ失敗時は「記録なし」と決めつけない。直近3日間しっかり記録している
         // 利用者に対して、事実と異なる「記録がありません」という通知を送って
         // しまうことを避ける
@@ -342,10 +353,21 @@ export async function POST(request: Request) {
 
     if (bodyLines.length === 0) continue;
 
-    const { data: subscriptions } = await admin
+    const { data: subscriptions, error: subscriptionsError } = await admin
       .from("push_subscriptions")
       .select("endpoint, p256dh, auth")
       .eq("user_id", target.user_id);
+    if (subscriptionsError) {
+      // notifiedUpdateは既にコミット済みのため、ここで失敗すると当日この
+      // 利用者へは1件も送信されないまま「判定済み」扱いになり、後追い送信も
+      // されない。せめてログに残し、運用側が気づけるようにする
+      console.error(
+        "Failed to fetch push_subscriptions",
+        target.user_id,
+        subscriptionsError
+      );
+      continue;
+    }
 
     const body = bodyLines.join("\n\n");
     let deliveredToUser = false;

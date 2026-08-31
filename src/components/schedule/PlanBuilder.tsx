@@ -99,6 +99,10 @@ export default function PlanBuilder({
       setSuggestion(null);
       setAiSuggestionFailed(false);
     }
+    // warningsも編集前の値のまま残ると、実際にはもう問題のない内容に対して
+    // 古い警告が表示され続けてしまう（逆に、編集で新たに問題が生じても
+    // 再度「登録する」を押すまで警告が出ないのは想定通り）
+    setWarnings([]);
   }
 
   function updateItem(index: number, patch: Partial<PlanItemDraft>) {

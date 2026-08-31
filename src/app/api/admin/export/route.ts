@@ -76,7 +76,12 @@ export async function GET(request: Request) {
 
   // user_id → 表示名の対応表（明細エクスポートで使用）
   async function getDisplayNames(): Promise<Map<string, string>> {
-    const { data } = await admin.from("profiles").select("id, display_name");
+    const { data, error } = await admin.from("profiles").select("id, display_name");
+    if (error) {
+      // ここで握りつぶすと、失敗時に全行が「利用者」列＝UUIDのまま
+      // エクスポートされ、200 OKで返るため管理者が異常に気づけない
+      throw new Error("表示名の取得に失敗しました。");
+    }
     return new Map((data ?? []).map((p) => [p.id, p.display_name]));
   }
 
