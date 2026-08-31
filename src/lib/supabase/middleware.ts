@@ -88,7 +88,7 @@ export async function updateSession(request: NextRequest) {
   // 満たせなくなる
   if (
     isMaintenanceLockdownTime(getJstMinutesOfDay()) &&
-    requestPath !== "/" &&
+    !STATIC_PATHS.includes(requestPath) &&
     !LOGIN_FLOW_PATHS.includes(requestPath) &&
     !requestPath.startsWith("/auth/") &&
     !requestPath.startsWith("/admin") &&
@@ -132,7 +132,7 @@ export async function updateSession(request: NextRequest) {
   // super-adminが誰もログインできなくなり、解除する手段がなくなってサイトが
   // 恒久的にロックされてしまうため
   if (
-    requestPath !== "/" &&
+    !STATIC_PATHS.includes(requestPath) &&
     !LOGIN_FLOW_PATHS.includes(requestPath) &&
     !requestPath.startsWith("/auth/") &&
     !requestPath.startsWith("/admin") &&

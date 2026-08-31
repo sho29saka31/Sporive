@@ -67,6 +67,11 @@ export default function PlanBuilder({
   const [isPending, startTransition] = useTransition();
 
   async function handleAiPropose() {
+    // 既に改善案（suggestion）が表示された状態で「AI提案を生成」を再度押すと、
+    // items/summary/warningsは新しい提案に更新されるのにsuggestionだけ古いまま
+    // 残り、「改善案を採用して登録」を押すと古い（画面に表示されていない）
+    // 内容が保存されてしまう。手動編集時と同様にここでもリセットする
+    resetSuggestionOnEdit();
     setAiLoading(true);
     setError(null);
     try {

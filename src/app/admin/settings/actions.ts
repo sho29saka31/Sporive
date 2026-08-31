@@ -234,7 +234,18 @@ export async function updateAnnouncement(
     return { error: "対象のお知らせが見つかりません。" };
   }
 
-  await admin.from("announcement_reads").delete().eq("announcement_id", id);
+  const { error: readsError } = await admin
+    .from("announcement_reads")
+    .delete()
+    .eq("announcement_id", id);
+  if (readsError) {
+    // site_announcements自体の更新は既に成功しているため巻き戻さないが、
+    // 既読状態がリセットできておらず再周知の意図（読み直してもらう）を
+    // 達成できていないため、それが伝わるメッセージにする
+    return {
+      error: "お知らせは更新しましたが、既読状態のリセットに失敗しました。",
+    };
+  }
 
   revalidateAnnouncementSurfaces();
   return { success: "お知らせを更新しました。" };
@@ -296,7 +307,16 @@ export async function toggleAnnouncementActive(
   }
 
   if (isActive) {
-    await admin.from("announcement_reads").delete().eq("announcement_id", id);
+    const { error: readsError } = await admin
+      .from("announcement_reads")
+      .delete()
+      .eq("announcement_id", id);
+    if (readsError) {
+      // is_active自体の更新は成功しているため巻き戻さないが、既読状態が
+      // 残ったままだと再有効化＝再周知の意図を達成できていないため、
+      // 単なる成功として扱わずエラーを呼び出し元に伝える
+      throw new Error("お知らせは更新しましたが、既読状態のリセットに失敗しました。");
+    }
   }
 
   revalidateAnnouncementSurfaces();

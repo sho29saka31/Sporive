@@ -61,7 +61,7 @@ export default async function ScheduleEditPage() {
       <h1 className="text-xl font-bold">週間スケジュールを編集</h1>
       <div className="mt-4">
         <PlanBuilder
-          goal={profile?.goal ?? "lose_weight"}
+          goal={profile?.goal ?? ""}
           initialItems={initialItems}
         />
       </div>
