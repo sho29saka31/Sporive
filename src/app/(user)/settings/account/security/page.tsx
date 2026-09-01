@@ -5,6 +5,7 @@ import EmailEditForm from "@/components/settings/EmailEditForm";
 import PasswordChangeForm from "@/components/settings/PasswordChangeForm";
 import DeleteAccountButton from "@/components/settings/DeleteAccountButton";
 import SettingsHeader from "@/components/settings/SettingsHeader";
+import MfaSettings from "@/components/settings/MfaSettings";
 
 export const metadata: Metadata = { title: "セキュリティ設定" };
 
@@ -19,6 +20,10 @@ export default async function SecuritySettingsPage({
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  const { data: factorsData } = await supabase.auth.mfa.listFactors();
+  const mfaFactors = (factorsData?.totp ?? [])
+    .filter((f) => f.status === "verified")
+    .map((f) => ({ id: f.id, friendlyName: f.friendly_name || "認証アプリ" }));
 
   return (
     <div className="py-6">
@@ -41,6 +46,13 @@ export default async function SecuritySettingsPage({
         <h2 className="text-sm font-bold text-navy-800">パスワード</h2>
         <div className="mt-3">
           <PasswordChangeForm email={user?.email ?? ""} />
+        </div>
+      </div>
+
+      <div className="mt-4 rounded-xl bg-white p-6 shadow-sm">
+        <h2 className="text-sm font-bold text-navy-800">多要素認証（MFA）</h2>
+        <div className="mt-3">
+          <MfaSettings initialFactors={mfaFactors} />
         </div>
       </div>
 
