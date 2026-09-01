@@ -3,6 +3,11 @@ import { createClient } from "@/lib/supabase/server";
 import { generateImprovementSuggestion, type WeeklyPlanDraft } from "@/lib/gemini";
 import { getFeatureFlags } from "@/lib/feature-flags";
 
+// Vercel無料プランの既定タイムアウト（10秒）ではGeminiの構造化JSON生成が
+// 間に合わないことがあり、想定済みのエラーハンドリング（try/catch）を経由せず
+// プラットフォームに強制終了されてしまうため、上限内で余裕を持たせる
+export const maxDuration = 45;
+
 /** 登録直前の計画（AI提案 or 手動作成）に対してAIが改善案を提示する */
 export async function POST(request: Request) {
   const supabase = await createClient();

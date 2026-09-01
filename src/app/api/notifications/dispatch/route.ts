@@ -1,9 +1,10 @@
+import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendPush } from "@/lib/push";
 import { processDailyCheck } from "@/lib/daily-check";
 import { generateWeeklyReport } from "@/lib/gemini";
-import { getFeatureFlags } from "@/lib/feature-flags";
+import { getFeatureFlags, isEmergencyMaintenanceActive } from "@/lib/feature-flags";
 import {
   addDays,
   getCurrentWeekStartDate,
@@ -16,8 +17,14 @@ import {
 // 先にVercel関数がkillされないよう、Hobbyプランの上限（60秒）内で余裕を持たせる
 export const maxDuration = 20;
 
-/** 日次判定（負債記録・ストリーク更新）を実行するJST時間帯（03:00〜08:59） */
-const DAILY_CHECK_START_MIN = 3 * 60;
+/**
+ * 日次判定（負債記録・ストリーク更新）を実行するJST時間帯（03:30〜08:59）。
+ * 定期メンテナンスのロックダウン窓（2:30〜3:30、src/lib/maintenance.ts）は
+ * Supabase側の定期クリーンアップジョブに書き込みを専念させる目的のため、
+ * 全アクティブ利用者分の書き込みを伴うこのバッチと時間帯が重ならないよう
+ * ロックダウン終了後に開始する
+ */
+const DAILY_CHECK_START_MIN = 3 * 60 + 30;
 const DAILY_CHECK_END_MIN = 9 * 60;
 
 /** 再エンゲージメント通知の送信時刻（固定、要件定義書 §8-1） */
@@ -69,22 +76,47 @@ function isQuietTime(
  *    非通知時間帯・非通知曜日に該当する場合は、いずれの種別も送信をスキップする
  *    （判定済みとして記録し、後追い送信はしない）。
  */
+/** タイミング攻撃対策の定数時間比較（長さが異なる場合は即falseを返す） */
+function safeEqual(a: string, b: string): boolean {
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  if (bufA.length !== bufB.length) return false;
+  return timingSafeEqual(bufA, bufB);
+}
+
 export async function POST(request: Request) {
   const authHeader = request.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+  if (
+    !cronSecret ||
+    !authHeader ||
+    !safeEqual(authHeader, `Bearer ${cronSecret}`)
+  ) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
   const admin = createAdminClient();
+
+  // 緊急メンテナンスモード（要件定義書 §8-3, §10-3）中は、日次判定（負債記録・
+  // ストリーク更新）・通知送信のいずれも行わない。super-adminが全サイトを
+  // 止めている間もこのバッチだけ動き続けると、利用者に見せない画面の裏側で
+  // 負債やストリークの状態が変わってしまい、メンテナンス解除後の状態と
+  // 利用者の認識がずれるため
+  if (await isEmergencyMaintenanceActive(admin)) {
+    return NextResponse.json({ ok: true, sent: 0, dailyCheck: null, skipped: "emergency_maintenance" });
+  }
+
   const nowMinutes = getJstMinutesOfDay();
   const today = getTodayDate();
   const todayDow = getTodayDayOfWeek();
 
-  // 機能フラグ（要件定義書 §10-3）：通知機能全体・負債管理機能の一括停止に対応
+  // 機能フラグ（要件定義書 §10-3）：通知機能全体・負債管理機能の一括停止に対応。
+  // ai_masterは週次レポート生成（Gemini呼び出し）に使う。他のAI機能同様、
+  // Gemini API障害・混雑時にsuper-adminが一括停止できる対象に含める
   const flags = await getFeatureFlags(admin, [
     "notifications",
     "debt_management",
+    "ai_master",
   ]);
 
   // 日次判定（前日の負債記録・ストリーク更新）。処理自体が冪等なので
@@ -146,15 +178,17 @@ export async function POST(request: Request) {
       target.daily_last_notified_on !== today
     ) {
       if (!quiet) {
-        const { data: plans } = await admin
+        const { data: plans, error: plansError } = await admin
           .from("training_plans")
           .select("id")
           .eq("user_id", target.user_id)
           .eq("week_start_date", weekStart)
           .eq("status", "active");
 
-        if (plans && plans.length > 0) {
-          const { data: todayItems } = await admin
+        if (plansError) {
+          console.error("Failed to fetch training_plans for daily reminder", target.user_id, plansError);
+        } else if (plans && plans.length > 0) {
+          const { data: todayItems, error: itemsError } = await admin
             .from("plan_items")
             .select("id")
             .in(
@@ -162,8 +196,11 @@ export async function POST(request: Request) {
               plans.map((p) => p.id)
             )
             .eq("day_of_week", todayDow);
+          if (itemsError) {
+            console.error("Failed to fetch plan_items for daily reminder", target.user_id, itemsError);
+          }
 
-          const count = todayItems?.length ?? 0;
+          const count = itemsError ? 0 : (todayItems?.length ?? 0);
           if (count > 0) {
             bodyLines.push(
               `今日は${count}件のトレーニング予定があります。頑張りましょう！`
@@ -181,13 +218,16 @@ export async function POST(request: Request) {
       target.debt_last_notified_on !== today
     ) {
       if (!quiet && flags.debt_management) {
-        const { data: debts } = await admin
+        const { data: debts, error: debtsError } = await admin
           .from("debts")
           .select("id")
           .eq("user_id", target.user_id)
           .is("resolved_at", null);
 
-        const debtCount = debts?.length ?? 0;
+        if (debtsError) {
+          console.error("Failed to fetch debts for debt reminder", target.user_id, debtsError);
+        }
+        const debtCount = debtsError ? 0 : (debts?.length ?? 0);
         if (debtCount > 0) {
           bodyLines.push(
             `未消化の負債が${debtCount}件あります。今日の分に上乗せして取り返しましょう。`
@@ -205,14 +245,20 @@ export async function POST(request: Request) {
     ) {
       if (!quiet) {
         const threeDaysAgo = addDays(today, -2);
-        const { data: recentLogs } = await admin
+        const { data: recentLogs, error: recentLogsError } = await admin
           .from("workout_logs")
           .select("id")
           .eq("user_id", target.user_id)
           .gte("performed_on", threeDaysAgo)
           .limit(1);
 
-        if (!recentLogs || recentLogs.length === 0) {
+        if (recentLogsError) {
+          console.error("Failed to fetch workout_logs for reengagement", target.user_id, recentLogsError);
+        }
+        // クエリ失敗時は「記録なし」と決めつけない。直近3日間しっかり記録している
+        // 利用者に対して、事実と異なる「記録がありません」という通知を送って
+        // しまうことを避ける
+        if (!recentLogsError && (!recentLogs || recentLogs.length === 0)) {
           bodyLines.push(
             "3日以上トレーニング記録がありません。無理のない範囲で再開しましょう！"
           );
@@ -228,21 +274,35 @@ export async function POST(request: Request) {
       timeToMinutes(target.weekly_report_time) <= nowMinutes &&
       target.weekly_report_last_notified_on !== today
     ) {
-      if (!quiet) {
+      let reportFailed = false;
+      if (!quiet && flags.ai_master) {
         try {
-          const { data: profile } = await admin
+          const { data: profile, error: profileError } = await admin
             .from("profiles")
             .select("birth_year, goal, gender")
             .eq("id", target.user_id)
             .single();
 
+          if (profileError) {
+            // ここで投げてcatch節に落とすことで、「取得失敗＝プロフィールなし」
+            // として無言でスキップ（reportFailed=falseのまま通知済み扱いになり
+            // 二度とリトライされない）にならないようにする
+            throw profileError;
+          }
+
           if (profile) {
             const weekAgo = addDays(today, -6);
-            const { data: weekLogs } = await admin
+            const { data: weekLogs, error: weekLogsError } = await admin
               .from("workout_logs")
               .select("performed_on, sets_done")
               .eq("user_id", target.user_id)
               .gte("performed_on", weekAgo);
+
+            if (weekLogsError) {
+              // 取得失敗時に「実施日数0・合計0セット」という事実と異なる
+              // 週次レポートを生成・送信してしまわないよう、ここで投げてリトライに回す
+              throw weekLogsError;
+            }
 
             const distinctDays = new Set(
               (weekLogs ?? []).map((l) => l.performed_on)
@@ -265,43 +325,88 @@ export async function POST(request: Request) {
           }
         } catch (error) {
           console.error("Weekly report generation failed", error);
+          reportFailed = true;
         }
       }
-      notifiedUpdate.weekly_report_last_notified_on = today;
+      // 生成失敗時は「通知済み」を記録せず、同日中の次回cron実行で
+      // リトライできるようにする（非通知時間帯によるスキップは既存どおり記録する）
+      if (!reportFailed) {
+        notifiedUpdate.weekly_report_last_notified_on = today;
+      }
     }
 
     if (Object.keys(notifiedUpdate).length > 0) {
-      await admin
+      const { error: notifiedUpdateError } = await admin
         .from("notification_settings")
         .update(notifiedUpdate)
         .eq("user_id", target.user_id);
+      if (notifiedUpdateError) {
+        // 失敗するとこの利用者・この種別は「判定済み」として記録されず、
+        // 次回cron実行（10分後）で同じ種別が重複送信されうる
+        console.error(
+          "Failed to persist notifiedUpdate",
+          target.user_id,
+          notifiedUpdateError
+        );
+      }
     }
 
     if (bodyLines.length === 0) continue;
 
-    const { data: subscriptions } = await admin
+    const { data: subscriptions, error: subscriptionsError } = await admin
       .from("push_subscriptions")
       .select("endpoint, p256dh, auth")
       .eq("user_id", target.user_id);
+    if (subscriptionsError) {
+      // notifiedUpdateは既にコミット済みのため、ここで失敗すると当日この
+      // 利用者へは1件も送信されないまま「判定済み」扱いになり、後追い送信も
+      // されない。せめてログに残し、運用側が気づけるようにする
+      console.error(
+        "Failed to fetch push_subscriptions",
+        target.user_id,
+        subscriptionsError
+      );
+      continue;
+    }
 
     const body = bodyLines.join("\n\n");
     let deliveredToUser = false;
 
-    for (const sub of subscriptions ?? []) {
-      const result = await sendPush(sub, {
-        title: "Sporive",
-        body,
-        url: "/home",
-      });
+    // 1利用者が複数端末で購読している場合の送信を並列化し、maxDuration（20秒）
+    // 内により多くの利用者を処理できるようにする（各購読は互いに独立しており、
+    // 直列で待つ理由がない）
+    const sendResults = await Promise.all(
+      (subscriptions ?? []).map(async (sub) => ({
+        sub,
+        result: await sendPush(sub, { title: "Sporive", body, url: "/home" }),
+      }))
+    );
+
+    const sentEndpoints: string[] = [];
+    const expiredEndpoints: string[] = [];
+    for (const { sub, result } of sendResults) {
       if (result === "sent") {
         sentCount++;
         deliveredToUser = true;
+        sentEndpoints.push(sub.endpoint);
       } else if (result === "expired") {
-        await admin
-          .from("push_subscriptions")
-          .delete()
-          .eq("endpoint", sub.endpoint);
+        expiredEndpoints.push(sub.endpoint);
       }
+    }
+
+    // 送信成功した購読は「現役」であることが確認できたとみなし、updated_atを
+    // まとめて更新する（購読ごとに個別クエリを発行せず1回にまとめることで
+    // ラウンドトリップ数を減らす）。クライアントが再購読しない限り更新されない
+    // 状態のままだと、実際には送信し続けられている購読でも登録から365日経過した
+    // 時点でクリーンアップ（0024マイグレーション）に誤って削除されてしまうため
+    if (sentEndpoints.length > 0) {
+      await admin
+        .from("push_subscriptions")
+        .update({ updated_at: new Date().toISOString() })
+        .in("endpoint", sentEndpoints);
+    }
+    if (expiredEndpoints.length > 0) {
+      await admin.from("push_subscriptions").delete().in("endpoint", expiredEndpoints);
     }
 
     // 履歴表示（/settings/notifications）用に、実際に届いた通知の内容を記録する

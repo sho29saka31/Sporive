@@ -64,11 +64,12 @@ export default async function NotificationHistoryPage({
         .eq("user_id", user!.id),
     ]);
 
-    const now = new Date().toISOString();
+    const now = new Date().getTime();
     const readIds = new Set((reads ?? []).map((r) => r.announcement_id));
     announcements = (siteAnnouncements ?? [])
       // 予約公開時刻に達していないものは利用者側には見せない
-      .filter((a) => !a.scheduled_at || a.scheduled_at <= now)
+      // （タイムスタンプの書式差異を避けるためDateに変換してから比較する）
+      .filter((a) => !a.scheduled_at || new Date(a.scheduled_at).getTime() <= now)
       .map((a) => ({
         id: a.id,
         noticeCode: a.notice_code,

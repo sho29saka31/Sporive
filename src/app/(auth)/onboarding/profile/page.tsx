@@ -1,25 +1,46 @@
 import type { Metadata } from "next";
-import { createProfile } from "./actions";
+import OnboardingProfileForm from "@/components/auth/OnboardingProfileForm";
+import { createClient } from "@/lib/supabase/server";
+import { getFeatureFlag } from "@/lib/feature-flags";
+import { signOut } from "@/app/(user)/settings/account/actions";
 
 export const metadata: Metadata = { title: "プロフィール登録" };
-
-const CURRENT_YEAR = new Date().getFullYear();
-const MIN_AGE = 13;
-
-const GOAL_MAX_LENGTH = 500;
-
-const GENDERS = [
-  { value: "", label: "未回答" },
-  { value: "male", label: "男性" },
-  { value: "female", label: "女性" },
-  { value: "other", label: "その他" },
-];
 
 /**
  * 初回プロフィール入力（requirements.md §4）。
  * ここで登録した目標・生年・性別が Phase 3 のAI提案の入力になる。
+ *
+ * new_signupフラグは/signupページ（Googleボタン非表示）で新規登録の入口を
+ * 塞いでいるが、/loginのGoogleログイン・マジックリンクは既存利用者のログインも
+ * 兼ねるため同様にボタンごと塞ぐことができず、Supabase Auth側で初回ログインの
+ * 未登録ユーザーとして自動的にauth.usersが作られてしまうことがある。
+ * 従来はフォーム送信時（createProfile内）にのみ拒否しており、ここに来た
+ * ユーザーはフォーム入力後に初めてエラーに気づいていた。ここでもフラグを
+ * 確認し、ページを開いた時点で状況を伝えられるようにする
  */
-export default function OnboardingProfilePage() {
+export default async function OnboardingProfilePage() {
+  const supabase = await createClient();
+  const signupEnabled = await getFeatureFlag(supabase, "new_signup");
+
+  if (!signupEnabled) {
+    return (
+      <div className="flex flex-col gap-4">
+        <h2 className="text-lg font-bold text-navy-800">プロフィール登録</h2>
+        <p className="rounded-lg bg-navy-50 p-4 text-sm leading-relaxed text-navy-600">
+          現在、新規登録の受付を一時的に停止しています。時間をおいて再度お試しください。
+        </p>
+        <form action={signOut}>
+          <button
+            type="submit"
+            className="w-full rounded-lg border border-navy-200 px-4 py-3 text-sm font-medium text-navy-600 hover:bg-navy-50"
+          >
+            ログアウト
+          </button>
+        </form>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <div>
@@ -28,87 +49,7 @@ export default function OnboardingProfilePage() {
           AIによるトレーニング計画の提案に使用します。
         </p>
       </div>
-      <form action={createProfile} className="flex flex-col gap-3">
-        <div>
-          <label
-            htmlFor="display_name"
-            className="text-xs font-medium text-navy-500"
-          >
-            表示名
-          </label>
-          <input
-            id="display_name"
-            name="display_name"
-            type="text"
-            required
-            maxLength={30}
-            autoComplete="name"
-            className="mt-1 w-full rounded-lg border border-navy-200 px-3 py-2 text-sm focus:border-navy-500 focus:outline-none"
-          />
-        </div>
-        <div>
-          <label
-            htmlFor="birth_year"
-            className="text-xs font-medium text-navy-500"
-          >
-            生年
-          </label>
-          <input
-            id="birth_year"
-            name="birth_year"
-            type="number"
-            required
-            min={CURRENT_YEAR - 100}
-            max={CURRENT_YEAR - MIN_AGE}
-            placeholder={`例: ${CURRENT_YEAR - 30}`}
-            autoComplete="bday-year"
-            className="mt-1 w-full rounded-lg border border-navy-200 px-3 py-2 text-sm focus:border-navy-500 focus:outline-none"
-          />
-        </div>
-        <div>
-          <label htmlFor="gender" className="text-xs font-medium text-navy-500">
-            性別
-          </label>
-          <select
-            id="gender"
-            name="gender"
-            defaultValue=""
-            className="mt-1 w-full rounded-lg border border-navy-200 bg-white px-3 py-2 text-sm focus:border-navy-500 focus:outline-none"
-          >
-            {GENDERS.map((g) => (
-              <option key={g.value} value={g.value}>
-                {g.label}
-              </option>
-            ))}
-          </select>
-          <p className="mt-1 text-[10px] text-navy-300">
-            AIによるトレーニング提案の精度向上に利用します（未回答も可）。
-          </p>
-        </div>
-        <div>
-          <label htmlFor="goal" className="text-xs font-medium text-navy-500">
-            目標
-          </label>
-          <textarea
-            id="goal"
-            name="goal"
-            required
-            rows={4}
-            maxLength={GOAL_MAX_LENGTH}
-            placeholder="例: 全体的に筋肉をつけて体を大きくしたい。特に腕と胸を重点的に鍛えたい。週3回くらいのペースで無理なく続けたい。"
-            className="mt-1 w-full rounded-lg border border-navy-200 px-3 py-2 text-sm focus:border-navy-500 focus:outline-none"
-          />
-          <p className="mt-1 text-[10px] text-navy-300">
-            大きくしたい部位や重視したいことなど、具体的な要望があれば自由に書いてください。AIが内容を整理してトレーニング提案に活用します。
-          </p>
-        </div>
-        <button
-          type="submit"
-          className="mt-1 rounded-lg bg-navy-700 px-4 py-3 text-sm font-medium text-white transition-colors hover:bg-navy-600"
-        >
-          登録してはじめる
-        </button>
-      </form>
+      <OnboardingProfileForm />
     </div>
   );
 }

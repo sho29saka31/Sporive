@@ -154,13 +154,24 @@ export async function syncPlanToCalendar(
     )}`,
     { headers: authHeaders }
   );
-  if (listRes.ok) {
-    const listJson = (await listRes.json()) as { items?: { id: string }[] };
-    for (const event of listJson.items ?? []) {
-      await fetch(`${CALENDAR_BASE}/calendars/primary/events/${event.id}`, {
-        method: "DELETE",
-        headers: authHeaders,
-      });
+  if (!listRes.ok) {
+    // 既存イベントの一覧取得に失敗した状態で新規作成だけ進めると、
+    // 古いイベントが残ったまま重複して蓄積してしまうため、ここで打ち切る
+    // （呼び出し元は同期失敗を計画保存の失敗としては扱わない設計）
+    throw new Error("既存のカレンダー予定の取得に失敗しました。");
+  }
+  const listJson = (await listRes.json()) as { items?: { id: string }[] };
+  for (const event of listJson.items ?? []) {
+    const deleteRes = await fetch(
+      `${CALENDAR_BASE}/calendars/primary/events/${event.id}`,
+      { method: "DELETE", headers: authHeaders }
+    );
+    // 410 Gone（既に削除済み）は無害。それ以外の失敗はログに残す
+    // （古いイベントが残るだけで処理自体は継続する）
+    if (!deleteRes.ok && deleteRes.status !== 410) {
+      console.error(
+        `Failed to delete calendar event ${event.id}: ${deleteRes.status}`
+      );
     }
   }
 

@@ -44,13 +44,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "計画が不正です。" }, { status: 400 });
   }
 
-  // 前週の計画（増加率チェック用）
+  // 前週の計画（増加率チェック用）。status='active'に絞らないと、過去の重複
+  // 保存の残骸（archived行）がある週で.maybeSingle()が複数行ヒットエラーになり、
+  // 増加率チェックが無言でスキップされてしまう
   const previousWeekStart = addDays(getCurrentWeekStartDate(), -7);
   const { data: prevPlan } = await supabase
     .from("training_plans")
     .select("id")
     .eq("user_id", user.id)
     .eq("week_start_date", previousWeekStart)
+    .eq("status", "active")
     .maybeSingle();
 
   let previousItems: PlanItemDraft[] | null = null;

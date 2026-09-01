@@ -74,10 +74,12 @@ export default function SetPasswordPage() {
           setError(
             "このアカウントには既にパスワードが設定されています。現在のパスワードを入力して変更してください。"
           );
+        } else if (error.code === "same_password") {
+          setError("新しいパスワードは現在のパスワードと異なるものにしてください。");
         } else if (
           needsCurrent &&
-          (error.code === "invalid_credentials" ||
-            error.message?.toLowerCase().includes("password"))
+          (error.code === "current_password_invalid" ||
+            error.code === "invalid_credentials")
         ) {
           setError("現在のパスワードが正しくありません。");
         } else {

@@ -36,16 +36,16 @@ export async function processDailyCheck(
   for (const plan of plans ?? []) {
     const { data: items } = await admin
       .from("plan_items")
-      .select("id, exercise_name, sets, reps")
+      .select("id, exercise_name, sets, reps, duration_min")
       .eq("plan_id", plan.id)
       .eq("day_of_week", dow);
 
     // 昨日が休息日ならストリークは変化させない（休息日は連続を切らない）
     if (!items || items.length === 0) continue;
 
-    const { data: logs } = await admin
+    const { data: logs, error: logsError } = await admin
       .from("workout_logs")
-      .select("plan_item_id, sets_done, reps_done")
+      .select("plan_item_id, sets_done, reps_done, duration_min")
       .eq("user_id", plan.user_id)
       .eq("performed_on", yesterday)
       .in(
@@ -53,18 +53,33 @@ export async function processDailyCheck(
         items.map((i) => i.id)
       );
 
+    // このクエリが失敗した場合、logsが空扱いになり「実績が一切ない＝全項目未達成」と
+    // 誤判定してしまう。誤って作成された負債はalreadyProcessedItemIdsによる
+    // 冪等性ガードのせいで後から取り消せず、ストリークも0にリセットされたまま
+    // 復元できなくなる（正しい判定に戻っても継続日数は失われる）ため、
+    // 誤判定するくらいならこのプランの処理自体をスキップし、次回cron実行での
+    // リトライに委ねる
+    if (logsError) {
+      console.error("Failed to fetch workout_logs in daily-check", logsError);
+      continue;
+    }
+
     const logByItemId = new Map(
       (logs ?? []).map((log) => [log.plan_item_id, log])
     );
 
-    // すでに昨日分の負債を登録済みならスキップ（冪等性）
+    // すでに昨日分の負債を登録済みの種目をスキップする（冪等性）。
+    // ユーザー単位ではなくplan_item_id単位で判定することで、同じcronウィンドウ内で
+    // 一部の種目のinsertだけが一時的なDBエラー等で失敗しても、その種目だけ
+    // 次回実行でリトライでき、成功済みの他の種目の負債と正しく共存できる
     const { data: existingDebts } = await admin
       .from("debts")
-      .select("id")
+      .select("plan_item_id")
       .eq("user_id", plan.user_id)
-      .eq("missed_on", yesterday)
-      .limit(1);
-    const alreadyProcessed = (existingDebts?.length ?? 0) > 0;
+      .eq("missed_on", yesterday);
+    const alreadyProcessedItemIds = new Set(
+      (existingDebts ?? []).map((d) => d.plan_item_id)
+    );
 
     let allAchieved = true;
 
@@ -76,7 +91,15 @@ export async function processDailyCheck(
       const repsRemaining = item.reps
         ? Math.max(0, item.reps - (log?.reps_done ?? 0))
         : 0;
-      const missed = !log || setsRemaining > 0 || repsRemaining > 0;
+      // セット・回数の指定がない種目（例：ウォーキング30分など時間のみの種目）は、
+      // ログの有無だけでは達成判定できないため、実施時間が計画時間に
+      // 達しているかで判定する（補填対象の負債は記録しない、既存仕様どおり）
+      const durationShortfall =
+        !item.sets && !item.reps && item.duration_min
+          ? (log?.duration_min ?? 0) < item.duration_min
+          : false;
+      const missed =
+        !log || setsRemaining > 0 || repsRemaining > 0 || durationShortfall;
 
       if (missed) {
         allAchieved = false;
@@ -86,14 +109,20 @@ export async function processDailyCheck(
           options.debtManagementEnabled &&
           (setsRemaining > 0 || repsRemaining > 0)
         ) {
-          if (!alreadyProcessed) {
-            const { error } = await admin.from("debts").insert({
-              user_id: plan.user_id,
-              plan_item_id: item.id,
-              missed_on: yesterday,
-              sets_remaining: setsRemaining,
-              reps_remaining: repsRemaining,
-            });
+          if (!alreadyProcessedItemIds.has(item.id)) {
+            // アプリ側の事前チェック（alreadyProcessedItemIds）だけでなく、
+            // (user_id, plan_item_id, missed_on)のDB一意制約（0027マイグレーション）に
+            // 対するupsertにすることで、cronの同時実行による重複記録もDBレベルで防ぐ
+            const { error } = await admin.from("debts").upsert(
+              {
+                user_id: plan.user_id,
+                plan_item_id: item.id,
+                missed_on: yesterday,
+                sets_remaining: setsRemaining,
+                reps_remaining: repsRemaining,
+              },
+              { onConflict: "user_id,plan_item_id,missed_on", ignoreDuplicates: true }
+            );
             if (!error) debtsCreated++;
           }
         }
