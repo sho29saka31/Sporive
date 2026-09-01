@@ -15,7 +15,14 @@ function isGenderType(value: string): value is GenderType {
   return (GENDER_TYPES as readonly string[]).includes(value);
 }
 
-export async function createProfile(formData: FormData) {
+export type OnboardingActionState = {
+  error?: string;
+} | null;
+
+export async function createProfile(
+  _prevState: OnboardingActionState,
+  formData: FormData
+): Promise<OnboardingActionState> {
   const displayName = String(formData.get("display_name") ?? "").trim();
   const birthYear = Number(formData.get("birth_year"));
   const goalInput = String(formData.get("goal") ?? "").trim();
@@ -30,7 +37,7 @@ export async function createProfile(formData: FormData) {
     goalInput.length > GOAL_MAX_LENGTH ||
     (genderInput && !isGenderType(genderInput))
   ) {
-    throw new Error("入力内容を確認してください。");
+    return { error: "入力内容を確認してください。" };
   }
 
   const supabase = await createClient();
@@ -48,9 +55,9 @@ export async function createProfile(formData: FormData) {
     "ai_goal_summarize",
   ]);
   if (!flags.new_signup) {
-    throw new Error(
-      "現在新規登録の受付を停止しています。時間をおいて再度お試しください。"
-    );
+    return {
+      error: "現在新規登録の受付を停止しています。時間をおいて再度お試しください。",
+    };
   }
 
   // Gemini APIで要望を簡潔な文章に整形する。API障害時・機能フラグ停止時も
@@ -73,7 +80,7 @@ export async function createProfile(formData: FormData) {
   });
 
   if (error) {
-    throw new Error("プロフィールの登録に失敗しました。");
+    return { error: "プロフィールの登録に失敗しました。" };
   }
 
   redirect("/home");

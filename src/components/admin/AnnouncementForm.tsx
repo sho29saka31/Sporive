@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import {
   createAnnouncement,
   updateAnnouncement,
@@ -59,18 +59,30 @@ export default function AnnouncementForm({
   const [level, setLevel] = useState<"info" | "notice" | "warning">(
     editing?.level ?? "info"
   );
+  const formRef = useRef<HTMLFormElement>(null);
 
   const isWarning = level === "warning";
 
   useEffect(() => {
-    if (state?.success && editing && onDone) {
+    if (!state?.success) return;
+    if (editing && onDone) {
       onDone();
+      return;
+    }
+    // 新規作成成功時、入力値が残ったままだと管理者が「反映されていない」と
+    // 誤解して再送信し、同一内容のお知らせが重複作成されてしまう
+    // （全利用者への重複通知・既読リセットにつながる）ため、フォームをクリアする
+    if (!editing) {
+      formRef.current?.reset();
+      // 送信成功という1回限りのイベントに対する後始末で、無限ループにはならない
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setLevel("info");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- stateの変化のみで発火させる
   }, [state]);
 
   return (
-    <form action={formAction} className="flex flex-col gap-4">
+    <form ref={formRef} action={formAction} className="flex flex-col gap-4">
       <div>
         <label htmlFor="title" className="text-xs font-medium text-navy-500">
           タイトル

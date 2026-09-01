@@ -26,6 +26,7 @@ export default async function SchedulePage() {
     .select("id, source, summary")
     .eq("user_id", user!.id)
     .eq("week_start_date", weekStartDate)
+    .eq("status", "active")
     .maybeSingle();
 
   if (!existingPlan) {

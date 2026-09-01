@@ -36,8 +36,12 @@ export async function sendPush(
   subscription: PushSubscriptionRecord,
   payload: PushPayload
 ): Promise<"sent" | "expired" | "failed"> {
-  ensureVapid();
   try {
+    // VAPID鍵未設定時の例外がここに入る前だと、この関数の「常に
+    // "sent"|"expired"|"failed"のいずれかを返す」という契約を破って
+    // 呼び出し元（Promise.all）へ伝播し、dispatch route全体を巻き込んで
+    // 未処理の他の利用者への通知判定が丸ごと止まってしまうため、try内で呼ぶ
+    ensureVapid();
     await webpush.sendNotification(
       {
         endpoint: subscription.endpoint,

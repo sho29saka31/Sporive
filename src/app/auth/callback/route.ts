@@ -47,12 +47,15 @@ export async function GET(request: Request) {
   ).provider_refresh_token;
 
   if (providerRefreshToken) {
-    await supabase.from("calendar_tokens").upsert({
+    const { error: tokenError } = await supabase.from("calendar_tokens").upsert({
       user_id: data.session.user.id,
       refresh_token: providerRefreshToken,
       scope: "https://www.googleapis.com/auth/calendar",
       updated_at: new Date().toISOString(),
     });
+    if (tokenError) {
+      console.error("Failed to save calendar refresh token", tokenError);
+    }
   }
 
   return NextResponse.redirect(`${origin}/home`);

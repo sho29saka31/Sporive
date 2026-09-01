@@ -16,7 +16,15 @@ import { getAdminStats, resolveDateRange } from "@/lib/admin-stats";
 
 function csvEscape(value: unknown): string {
   if (value === null || value === undefined) return "";
-  const s = String(value);
+  let s = String(value);
+  // フォーミュラインジェクション対策：セルの先頭が =/+/-/@ または
+  // タブ・キャリッジリターンだと、Excel等のスプレッドシートソフトで開いた際に
+  // 数式として解釈されうる（display_name・exercise_name・note等、利用者の
+  // 自由入力がそのままCSVに出力されるため）。数式と解釈されないよう
+  // 先頭にシングルクォートを付与して無害化する
+  if (/^[=+\-@\t\r]/.test(s)) {
+    s = `'${s}`;
+  }
   if (/[",\n\r]/.test(s)) {
     return `"${s.replace(/"/g, '""')}"`;
   }
@@ -68,7 +76,12 @@ export async function GET(request: Request) {
 
   // user_id → 表示名の対応表（明細エクスポートで使用）
   async function getDisplayNames(): Promise<Map<string, string>> {
-    const { data } = await admin.from("profiles").select("id, display_name");
+    const { data, error } = await admin.from("profiles").select("id, display_name");
+    if (error) {
+      // ここで握りつぶすと、失敗時に全行が「利用者」列＝UUIDのまま
+      // エクスポートされ、200 OKで返るため管理者が異常に気づけない
+      throw new Error("表示名の取得に失敗しました。");
+    }
     return new Map((data ?? []).map((p) => [p.id, p.display_name]));
   }
 
@@ -99,7 +112,7 @@ export async function GET(request: Request) {
   }
 
   if (type === "workout_logs") {
-    const [{ data: logs }, names] = await Promise.all([
+    const [{ data: logs, error: logsError }, names] = await Promise.all([
       admin
         .from("workout_logs")
         .select(
@@ -110,16 +123,22 @@ export async function GET(request: Request) {
         .order("performed_on", { ascending: true }),
       getDisplayNames(),
     ]);
+    if (logsError) {
+      return new Response("db_error", { status: 500 });
+    }
     const itemIds = Array.from(
       new Set((logs ?? []).map((l) => l.plan_item_id).filter(Boolean))
     ) as string[];
-    const { data: items } =
+    const { data: items, error: itemsError } =
       itemIds.length > 0
         ? await admin
             .from("plan_items")
             .select("id, exercise_name")
             .in("id", itemIds)
-        : { data: [] };
+        : { data: [], error: null };
+    if (itemsError) {
+      return new Response("db_error", { status: 500 });
+    }
     const nameById = new Map(
       (items ?? []).map((i) => [i.id, i.exercise_name])
     );
@@ -143,7 +162,7 @@ export async function GET(request: Request) {
   }
 
   if (type === "debts") {
-    const [{ data: debts }, names] = await Promise.all([
+    const [{ data: debts, error: debtsError }, names] = await Promise.all([
       admin
         .from("debts")
         .select(
@@ -154,16 +173,22 @@ export async function GET(request: Request) {
         .order("missed_on", { ascending: true }),
       getDisplayNames(),
     ]);
+    if (debtsError) {
+      return new Response("db_error", { status: 500 });
+    }
     const itemIds = Array.from(
       new Set((debts ?? []).map((d) => d.plan_item_id).filter(Boolean))
     ) as string[];
-    const { data: items } =
+    const { data: items, error: itemsError } =
       itemIds.length > 0
         ? await admin
             .from("plan_items")
             .select("id, exercise_name")
             .in("id", itemIds)
-        : { data: [] };
+        : { data: [], error: null };
+    if (itemsError) {
+      return new Response("db_error", { status: 500 });
+    }
     const nameById = new Map(
       (items ?? []).map((i) => [i.id, i.exercise_name])
     );
@@ -186,7 +211,7 @@ export async function GET(request: Request) {
   }
 
   if (type === "ai_proposals") {
-    const [{ data: aiLogs }, names] = await Promise.all([
+    const [{ data: aiLogs, error: aiLogsError }, names] = await Promise.all([
       admin
         .from("ai_proposal_logs")
         .select("user_id, goal, accepted, created_at, proposal_json")
@@ -195,6 +220,9 @@ export async function GET(request: Request) {
         .order("created_at", { ascending: true }),
       getDisplayNames(),
     ]);
+    if (aiLogsError) {
+      return new Response("db_error", { status: 500 });
+    }
     const rows = (aiLogs ?? []).map((l) => {
       const proposal = l.proposal_json as {
         items?: { exerciseName?: string }[];

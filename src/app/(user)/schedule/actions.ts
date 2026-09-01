@@ -7,6 +7,7 @@ import { getCurrentWeekStartDate } from "@/lib/week";
 import { syncPlanToCalendar, type CalendarDayPlan } from "@/lib/calendar";
 import { getFeatureFlag } from "@/lib/feature-flags";
 import type { PlanItemDraft, WeeklyPlanDraft } from "@/lib/gemini";
+import { validateWorkoutValue } from "@/lib/workout-limits";
 
 /** 種目1件をカレンダーの説明用テキストにする（例：スクワット（3セット×10回×45kg 20分）） */
 function toExerciseLine(item: PlanItemDraft): string {
@@ -22,7 +23,11 @@ function toExerciseLine(item: PlanItemDraft): string {
 
 /**
  * 確認済みの週間計画を保存する。
- * 同じ週にすでに計画がある場合は削除して作り直す（plan_itemsはON DELETE CASCADE）。
+ * 同じ週にすでに計画がある場合は置き換える。保存処理全体は
+ * upsert_training_plan（DB関数）に委譲し、単一トランザクションで行う
+ * （旧計画の削除・新計画の作成・項目の入れ替えを別々のクエリで行うと、
+ * 連打や複数タブでの同時保存時に計画が重複したり、編集のたびに全項目が
+ * 新規IDで作り直されて当日の記録・負債との紐付けが失われたりするため）。
  */
 export async function saveTrainingPlan(
   plan: WeeklyPlanDraft,
@@ -39,55 +44,56 @@ export async function saveTrainingPlan(
     throw new Error("認証が必要です。");
   }
 
+  // AI改善案がまれに空配列を返した場合に、確認なく既存の週間計画を
+  // 空で上書きしてしまわないようにする
+  if (plan.items.length === 0) {
+    throw new Error("計画に運動が1件もありません。");
+  }
+
+  for (const item of plan.items) {
+    // AI改善案（suggestion）はクライアント側の入力フォームの検証を経由しないため、
+    // 種目名の空文字チェックはここでも必須で行う
+    if (!item.exerciseName.trim()) {
+      throw new Error("種目名が空の項目があります。");
+    }
+    const invalid =
+      validateWorkoutValue("sets", item.sets) ??
+      validateWorkoutValue("reps", item.reps) ??
+      validateWorkoutValue("weightKg", item.weightKg) ??
+      validateWorkoutValue("durationMin", item.durationMin);
+    if (invalid) {
+      throw new Error(invalid);
+    }
+  }
+
   const weekStartDate = getCurrentWeekStartDate();
 
-  const { data: existing } = await supabase
-    .from("training_plans")
-    .select("id")
-    .eq("user_id", user.id)
-    .eq("week_start_date", weekStartDate)
-    .maybeSingle();
-
-  if (existing) {
-    await supabase.from("training_plans").delete().eq("id", existing.id);
-  }
-
-  const { data: newPlan, error: planError } = await supabase
-    .from("training_plans")
-    .insert({
-      user_id: user.id,
-      week_start_date: weekStartDate,
-      status: "active",
-      source,
-      summary: plan.summary || null,
+  const { data: result, error: rpcError } = await supabase
+    .rpc("upsert_training_plan", {
+      p_week_start_date: weekStartDate,
+      p_status: "active",
+      p_source: source,
+      p_summary: plan.summary || null,
+      p_items: plan.items.map((item, index) => ({
+        day_of_week: item.dayOfWeek,
+        exercise_name: item.exerciseName,
+        category: item.category,
+        sets: item.sets,
+        reps: item.reps,
+        weight_kg: item.weightKg,
+        duration_min: item.durationMin,
+        sort_order: index,
+      })),
     })
-    .select("id")
     .single();
 
-  if (planError || !newPlan) {
+  if (rpcError) {
     throw new Error("計画の保存に失敗しました。");
   }
-
-  if (plan.items.length > 0) {
-    const items = plan.items.map((item, index) => ({
-      plan_id: newPlan.id,
-      day_of_week: item.dayOfWeek,
-      exercise_name: item.exerciseName,
-      category: item.category,
-      sets: item.sets,
-      reps: item.reps,
-      weight_kg: item.weightKg,
-      duration_min: item.durationMin,
-      sort_order: index,
-    }));
-
-    const { error: itemsError } = await supabase
-      .from("plan_items")
-      .insert(items);
-
-    if (itemsError) {
-      throw new Error("計画項目の保存に失敗しました。");
-    }
+  if (result?.conflict) {
+    throw new Error(
+      "他の操作と競合しました。画面を更新してもう一度お試しください。"
+    );
   }
 
   await supabase.from("ai_proposal_logs").insert({

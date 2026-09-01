@@ -20,26 +20,42 @@ export default async function AdminSettingsPage({
 
   const admin = createAdminClient();
 
-  const flags =
-    activeTab === "features"
-      ? (
-          await admin
-            .from("feature_flags")
-            .select("key, enabled, description")
-        ).data ?? []
-      : [];
+  // 取得に失敗した場合、空配列のままだと「機能フラグ／お知らせが1件もない」
+  // という誤った状態がエラーなく表示され、管理者が状況を誤認しかねないため、
+  // 明示的にエラーとして扱う
+  let flags: { key: string; enabled: boolean; description: string }[] = [];
+  if (activeTab === "features") {
+    const { data, error } = await admin
+      .from("feature_flags")
+      .select("key, enabled, description");
+    if (error) {
+      throw new Error("機能フラグの取得に失敗しました。");
+    }
+    flags = data ?? [];
+  }
 
-  const announcements =
-    activeTab === "announcements"
-      ? (
-          await admin
-            .from("site_announcements")
-            .select(
-              "id, title, body, level, blocked_pages, is_active, published_at, scheduled_at"
-            )
-            .order("published_at", { ascending: false })
-        ).data ?? []
-      : [];
+  let announcements: {
+    id: string;
+    title: string;
+    body: string;
+    level: "info" | "notice" | "warning";
+    blocked_pages: string[];
+    is_active: boolean;
+    published_at: string;
+    scheduled_at: string | null;
+  }[] = [];
+  if (activeTab === "announcements") {
+    const { data, error } = await admin
+      .from("site_announcements")
+      .select(
+        "id, title, body, level, blocked_pages, is_active, published_at, scheduled_at"
+      )
+      .order("published_at", { ascending: false });
+    if (error) {
+      throw new Error("お知らせの取得に失敗しました。");
+    }
+    announcements = data ?? [];
+  }
 
   return (
     <div className="flex flex-col gap-4">

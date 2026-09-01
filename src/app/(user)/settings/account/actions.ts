@@ -17,9 +17,29 @@ export async function signOut() {
   redirect("/login");
 }
 
-/** このアカウントの全セッションを失効させる（他デバイスも含む） */
+/**
+ * このアカウントの全セッションを失効させる（他デバイスも含む）。
+ * スマホ紛失・不正ログインへの自衛手段のため、失効と同時に全端末のPush購読も
+ * 削除する（そうしないと、セッションを切ってもプッシュ通知だけは紛失端末に
+ * 届き続けてしまう）
+ */
 export async function signOutEverywhere() {
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (user) {
+    const { error } = await supabase
+      .from("push_subscriptions")
+      .delete()
+      .eq("user_id", user.id);
+    // セッション失効自体は自衛手段としてより優先度が高いため、この削除が
+    // 失敗してもサインアウト自体は続行する。ただし失敗を握りつぶさず、
+    // 紛失端末への通知が止まっていない可能性があることをログに残す
+    if (error) {
+      console.error("Failed to delete push subscriptions on sign-out-everywhere", error);
+    }
+  }
   await supabase.auth.signOut({ scope: "global" });
   redirect("/login");
 }
@@ -29,31 +49,37 @@ export async function signOutEverywhere() {
  * profiles等の関連テーブルはON DELETE CASCADEで連動して削除される。
  * service_roleキーが必要な管理者操作のため、必ずServer Actionからのみ呼び出すこと。
  *
- * Supabaseはユーザー削除時に発行済みのアクセストークンを即座には失効させないため
- * （JWTは有効期限まで検証をパスしてしまう）、削除前に全セッションを失効させておく。
+ * 削除を先に行い、成功した場合のみセッションを失効させる。
+ * 逆順（先にsignOut）だと、削除がDBエラー等で失敗した際にアカウントは
+ * 残ったままセッションだけ失われ、この画面自体からログインし直さないと
+ * リトライできない状態になってしまうため
  */
-export async function deleteAccount() {
+export async function deleteAccount(): Promise<{ error?: string }> {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
   if (!user) {
-    redirect("/login");
+    return { error: "認証が必要です。再度ログインしてください。" };
   }
 
   const userId = user.id;
-
-  await supabase.auth.signOut({ scope: "global" });
 
   const admin = createAdminClient();
   const { error } = await admin.auth.admin.deleteUser(userId);
 
   if (error) {
-    throw new Error("アカウントの削除に失敗しました。時間をおいて再度お試しください。");
+    return {
+      error: "アカウントの削除に失敗しました。時間をおいて再度お試しください。",
+    };
   }
 
-  redirect("/login");
+  // アカウントは既に削除済みのため、ここでの失敗は無視してよい
+  // （発行済みJWTは有効期限切れで自然に失効し、削除済みユーザーとしてどのみち機能しない）
+  await supabase.auth.signOut({ scope: "global" }).catch(() => {});
+
+  return {};
 }
 
 export type ActionState = {
@@ -163,7 +189,15 @@ export async function updateEmail(
   );
 
   if (error) {
-    return { error: error.message };
+    if (error.code === "email_exists") {
+      return { error: "このメールアドレスは既に使用されています。" };
+    }
+    if (error.code === "email_address_invalid") {
+      return { error: "有効なメールアドレスを入力してください。" };
+    }
+    return {
+      error: "メールアドレスの変更に失敗しました。時間をおいて再度お試しください。",
+    };
   }
 
   return {
@@ -227,10 +261,16 @@ export async function changePassword(
           "このアカウントには既にパスワードが設定されています。現在のパスワードを入力して変更してください。",
       };
     }
+    if (error.code === "same_password") {
+      return {
+        needsCurrentPassword: Boolean(currentPassword),
+        error: "新しいパスワードは現在のパスワードと異なるものにしてください。",
+      };
+    }
     if (
       currentPassword &&
-      (error.code === "invalid_credentials" ||
-        error.message?.toLowerCase().includes("password"))
+      (error.code === "current_password_invalid" ||
+        error.code === "invalid_credentials")
     ) {
       return {
         needsCurrentPassword: true,

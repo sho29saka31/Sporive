@@ -12,10 +12,37 @@ export const ANNOUNCEMENT_PAGES = [
   { value: "/schedule", label: "スケジュール" },
   { value: "/progress", label: "進捗" },
   { value: "/debts", label: "負債管理" },
-  { value: "/settings/notifications", label: "お知らせ" },
   { value: "/settings/account", label: "アカウント設定" },
   { value: "*", label: "すべて" },
 ] as const;
+
+/**
+ * ブロック対象にしてはいけないページ。"*"（すべて）が選択された場合でも、
+ * これらのページは常にアクセス可能でなければならない。
+ * - /settings/notifications：お知らせ自体の内容を確認する画面。ここが
+ *   ブロックされると、利用者が原因を確認できず抜け出せなくなる
+ * - /mfa-challenge：MFA認証コード入力画面。ログインを完走するために必須
+ * - /settings/account/security：メール・パスワード変更、MFA設定に加えて
+ *   「全デバイスからログアウト」を含む。スマホ紛失・不正ログインに気づいた
+ *   利用者の唯一の自衛手段のため、「アカウント設定」（/settings/account）が
+ *   警告レベルのお知らせでブロック対象に選ばれた場合でも、この画面だけは
+ *   常にアクセス可能にする
+ */
+const NEVER_BLOCKED_PAGES = [
+  "/settings/notifications",
+  "/mfa-challenge",
+  "/settings/account/security",
+];
+
+/**
+ * /settings/account（アカウント設定のハブページ）は完全一致でのみブロック対象外にする。
+ * このページは /settings/account/security への唯一の入口（アプリ内に他の導線がない）
+ * のため、ここをNEVER_BLOCKED_PAGES（プレフィックス一致）に入れると配下の
+ * /settings/account/profile・/settings/account/notificationsまで巻き添えで
+ * ブロック不可になってしまう。完全一致のみの除外にすることで、ハブページへは
+ * 常に到達でき、かつ配下ページは個別に警告レベルのお知らせでブロックできる状態を両立する
+ */
+const NEVER_BLOCKED_EXACT_PAGES = ["/settings/account"];
 
 export function announcementPageLabel(value: string): string {
   return ANNOUNCEMENT_PAGES.find((p) => p.value === value)?.label ?? value;
@@ -44,7 +71,10 @@ export type UnreadAnnouncement = {
  * （管理画面の一覧だけは予約中のものも見せたいので通さない）。
  */
 function isPublished(row: { scheduled_at: string | null }): boolean {
-  return !row.scheduled_at || row.scheduled_at <= new Date().toISOString();
+  // SupabaseがtimestamptzをPostgREST経由で返す書式（例："+00:00"）と
+  // Date.prototype.toISOString()の書式（"Z"）が異なるため、文字列比較ではなく
+  // Dateへ変換してから比較する
+  return !row.scheduled_at || new Date(row.scheduled_at).getTime() <= Date.now();
 }
 
 /**
@@ -82,6 +112,13 @@ export async function getBlockingAnnouncement(
   client: SupabaseClient<Database>,
   requestPath: string
 ): Promise<{ id: string; title: string } | null> {
+  if (
+    NEVER_BLOCKED_EXACT_PAGES.includes(requestPath) ||
+    NEVER_BLOCKED_PAGES.some((p) => requestPath === p || requestPath.startsWith(`${p}/`))
+  ) {
+    return null;
+  }
+
   const { data } = await client
     .from("site_announcements")
     .select("id, title, blocked_pages, scheduled_at")

@@ -22,21 +22,29 @@ export default function GoogleAuthButton({
   async function handleClick() {
     setLoading(true);
     setError(null);
-    const supabase = createClient();
+    try {
+      const supabase = createClient();
 
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-        scopes: "https://www.googleapis.com/auth/calendar",
-        queryParams: {
-          access_type: "offline",
-          prompt: consentPrompt ? "consent" : "select_account",
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+          scopes: "https://www.googleapis.com/auth/calendar",
+          queryParams: {
+            access_type: "offline",
+            prompt: consentPrompt ? "consent" : "select_account",
+          },
         },
-      },
-    });
+      });
 
-    if (error) {
+      if (error) {
+        setError("Googleログインに失敗しました。時間をおいて再度お試しください。");
+        setLoading(false);
+      }
+    } catch {
+      // signInWithOAuth()はPKCEのcode_verifierをストレージへ書き込む際、
+      // プライベートブラウジング等で例外を投げることがある。ここで捕捉しないと
+      // setLoading(false)が実行されずボタンが無効のまま固まってしまう
       setError("Googleログインに失敗しました。時間をおいて再度お試しください。");
       setLoading(false);
     }

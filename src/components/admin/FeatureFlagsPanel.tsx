@@ -48,7 +48,15 @@ function Toggle({
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
+  const isEmergency = flag.key === "emergency_maintenance";
+
   function handleChange(checked: boolean) {
+    if (isEmergency) {
+      const message = checked
+        ? "緊急メンテナンスモードを有効にします。管理者画面を除く、サイト全体が即座に利用できなくなります。よろしいですか？"
+        : "緊急メンテナンスモードを解除します。よろしいですか？";
+      if (!window.confirm(message)) return;
+    }
     setError(null);
     startTransition(async () => {
       try {
@@ -58,8 +66,6 @@ function Toggle({
       }
     });
   }
-
-  const isEmergency = flag.key === "emergency_maintenance";
 
   return (
     <div

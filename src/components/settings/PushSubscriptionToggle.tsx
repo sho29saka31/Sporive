@@ -36,12 +36,36 @@ export default function PushSubscriptionToggle() {
         setStatus("denied");
         return;
       }
+      let subscription: PushSubscription | null;
       try {
         const registration = await navigator.serviceWorker.ready;
-        const subscription = await registration.pushManager.getSubscription();
-        setStatus(subscription ? "subscribed" : "unsubscribed");
+        subscription = await registration.pushManager.getSubscription();
       } catch {
+        // ここで失敗するのはPush非対応環境（Service Worker自体が使えない等）
         setStatus("unsupported");
+        return;
+      }
+      if (!subscription) {
+        setStatus("unsubscribed");
+        return;
+      }
+      // ブラウザ側の購読の有無だけでなく、そのendpointが現在ログイン中の
+      // アカウントに紐づいているかもサーバーに確認する。家族共有端末等で
+      // 前の利用者の購読がブラウザに残っている場合、確認しないと
+      // 「通知は有効です」と誤表示されてしまう。この確認はオフライン等の
+      // 一時的なネットワークエラーで失敗することがあるが、それは
+      // 「非対応ブラウザ」ではないため、上のtry/catchとは分けて扱う
+      try {
+        const res = await fetch(
+          `/api/notifications/subscribe?endpoint=${encodeURIComponent(subscription.endpoint)}`
+        );
+        const data = res.ok ? ((await res.json()) as { owned?: boolean }) : null;
+        setStatus(data?.owned ? "subscribed" : "unsubscribed");
+      } catch {
+        // 所有者確認ができなかっただけで、ブラウザ側には購読が存在するため
+        // 「無効」と決めつけず、有効なものとして扱う（誤って「非対応」と
+        // 表示し有効化ボタンごと消してしまうよりは安全側に倒す）
+        setStatus("subscribed");
       }
     }
     void checkStatus();
@@ -50,6 +74,7 @@ export default function PushSubscriptionToggle() {
   async function subscribe() {
     setStatus("processing");
     setError(null);
+    let createdSubscription: PushSubscription | null = null;
     try {
       const permission = await Notification.requestPermission();
       if (permission !== "granted") {
@@ -67,6 +92,7 @@ export default function PushSubscriptionToggle() {
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(vapidKey).buffer as ArrayBuffer,
       });
+      createdSubscription = subscription;
       const res = await fetch("/api/notifications/subscribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -75,6 +101,16 @@ export default function PushSubscriptionToggle() {
       if (!res.ok) throw new Error("subscribe failed");
       setStatus("subscribed");
     } catch {
+      // サーバー登録に失敗した場合、ブラウザ側だけ購読が残ると次回チェック時に
+      // 「通知は有効です」と誤表示されてしまうため、作成済みの購読があれば
+      // ロールバックしておく
+      if (createdSubscription) {
+        try {
+          await createdSubscription.unsubscribe();
+        } catch {
+          // ロールバック自体の失敗は無視する（表示上はunsubscribed扱いにする）
+        }
+      }
       setError("通知の登録に失敗しました。時間をおいて再度お試しください。");
       setStatus("unsubscribed");
     }
@@ -87,11 +123,27 @@ export default function PushSubscriptionToggle() {
       const registration = await navigator.serviceWorker.ready;
       const subscription = await registration.pushManager.getSubscription();
       if (subscription) {
-        await fetch("/api/notifications/subscribe", {
+        const res = await fetch("/api/notifications/subscribe", {
           method: "DELETE",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ endpoint: subscription.endpoint }),
         });
+        if (!res.ok) throw new Error("unsubscribe failed");
+        const data = (await res.json()) as { deleted?: boolean };
+        // サーバー側で自分の購読として削除できた場合のみ、ブラウザ側も解除する。
+        // 家族共有端末で他の利用者の購読がブラウザに残っていた場合（サーバー側は
+        // 0件のため何も削除されない）、無関係な他人の購読をブラウザ側から
+        // 巻き添えで解除してしまわないようにする。
+        // サーバー側で削除できなかった場合、実際には無効化できていないため
+        // 「無効です」と偽って表示しない（他人の通知が届き続けているのに
+        // 気づけなくなるため）
+        if (!data.deleted) {
+          setError(
+            "この端末の通知購読は別のアカウントのものです。解除できませんでした。"
+          );
+          setStatus("subscribed");
+          return;
+        }
         await subscription.unsubscribe();
       }
       setStatus("unsubscribed");

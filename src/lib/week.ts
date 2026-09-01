@@ -17,6 +17,16 @@ const WEEKDAY_INDEX: Record<string, number> = {
  * 日本時間の日付が変わった直後（0-8時台）でも前日の曜日として扱われてしまう。
  */
 
+/** 現在の年（JST基準）を返す */
+export function getCurrentJstYear(): number {
+  return Number(
+    new Intl.DateTimeFormat("en-CA", {
+      timeZone: JST_TIME_ZONE,
+      year: "numeric",
+    }).format(new Date())
+  );
+}
+
 /** 今日の日付（JST基準）を YYYY-MM-DD 形式で返す */
 export function getTodayDate(): string {
   return new Intl.DateTimeFormat("en-CA", {

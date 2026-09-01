@@ -174,10 +174,18 @@ export default function AnnouncementsPanel({
                   )}
                   <div className="mt-3 flex items-center justify-between">
                     <p className="text-[10px] text-navy-300">
-                      {a.scheduledAt && a.scheduledAt > new Date().toISOString() ? (
-                        <span className="font-medium text-accent-teal">
-                          予約中：{formatPublishedAt(a.scheduledAt)}に公開予定
-                        </span>
+                      {a.scheduledAt && new Date(a.scheduledAt).getTime() > new Date().getTime() ? (
+                        a.isActive ? (
+                          <span className="font-medium text-accent-teal">
+                            予約中：{formatPublishedAt(a.scheduledAt)}に公開予定
+                          </span>
+                        ) : (
+                          // 無効化されていると予約時刻が来ても自動公開されないため、
+                          // 「予約中」のような自動公開を示唆する表示にはしない
+                          <span className="font-medium text-navy-400">
+                            無効化済み（予約日時：{formatPublishedAt(a.scheduledAt)}。有効化すると公開されます）
+                          </span>
+                        )
                       ) : (
                         <>発信日時：{formatPublishedAt(a.publishedAt)}</>
                       )}
