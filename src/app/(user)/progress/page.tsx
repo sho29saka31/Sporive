@@ -2,13 +2,12 @@ import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import ProgressCharts from "@/components/progress/ProgressChartsLoader";
 import type { DailyProgressPoint } from "@/components/progress/ProgressCharts";
+import { addDays, getTodayDate } from "@/lib/week";
 
 export const metadata: Metadata = { title: "進捗" };
 
 function daysAgo(n: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() - n);
-  return d.toISOString().slice(0, 10);
+  return addDays(getTodayDate(), -n);
 }
 
 /** 進捗タブ：トレーニングログ・グラフ・頻度表示（requirements.md §6, §9-2） */

@@ -6,6 +6,7 @@ import type { PlanItemDraft, WeeklyPlanDraft } from "@/lib/gemini";
 import type { IntensityWarning } from "@/lib/intensity";
 import { DAY_LABELS } from "@/lib/week";
 import { saveTrainingPlan } from "@/app/(user)/schedule/actions";
+import { WORKOUT_LIMITS, validateWorkoutValue } from "@/lib/workout-limits";
 
 /** 運動強度チェックAPIを呼び、警告一覧を取得する（失敗時は空配列） */
 async function fetchIntensityWarnings(
@@ -60,11 +61,17 @@ export default function PlanBuilder({
   const [aiLoading, setAiLoading] = useState(false);
   const [suggestLoading, setSuggestLoading] = useState(false);
   const [suggestion, setSuggestion] = useState<WeeklyPlanDraft | null>(null);
+  const [aiSuggestionFailed, setAiSuggestionFailed] = useState(false);
   const [warnings, setWarnings] = useState<IntensityWarning[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   async function handleAiPropose() {
+    // 既に改善案（suggestion）が表示された状態で「AI提案を生成」を再度押すと、
+    // items/summary/warningsは新しい提案に更新されるのにsuggestionだけ古いまま
+    // 残り、「改善案を採用して登録」を押すと古い（画面に表示されていない）
+    // 内容が保存されてしまう。手動編集時と同様にここでもリセットする
+    resetSuggestionOnEdit();
     setAiLoading(true);
     setError(null);
     try {
@@ -86,17 +93,37 @@ export default function PlanBuilder({
     }
   }
 
+  // 改善案カード（suggestion）を表示した後に編集フォームで内容を変更すると、
+  // 強度チェック結果（warnings）は取得済みの古いものが表示されたままになり、
+  // 「登録する」を経由せずに「このまま登録」で新しい未チェックの内容が
+  // 保存できてしまう（安全性のための警告機構がバイパスされる）。
+  // 編集操作があった時点でsuggestionを閉じ、再度「登録する」から
+  // 強度チェックをやり直させる
+  function resetSuggestionOnEdit() {
+    if (suggestion) {
+      setSuggestion(null);
+      setAiSuggestionFailed(false);
+    }
+    // warningsも編集前の値のまま残ると、実際にはもう問題のない内容に対して
+    // 古い警告が表示され続けてしまう（逆に、編集で新たに問題が生じても
+    // 再度「登録する」を押すまで警告が出ないのは想定通り）
+    setWarnings([]);
+  }
+
   function updateItem(index: number, patch: Partial<PlanItemDraft>) {
+    resetSuggestionOnEdit();
     setItems((prev) =>
       prev.map((it, i) => (i === index ? { ...it, ...patch } : it))
     );
   }
 
   function removeItem(index: number) {
+    resetSuggestionOnEdit();
     setItems((prev) => prev.filter((_, i) => i !== index));
   }
 
   function addItem(dayOfWeek: number) {
+    resetSuggestionOnEdit();
     setItems((prev) => [...prev, emptyItem(dayOfWeek)]);
   }
 
@@ -106,7 +133,19 @@ export default function PlanBuilder({
       setError("すべての運動に種目名を入力してください。");
       return;
     }
+    for (const item of items) {
+      const invalid =
+        validateWorkoutValue("sets", item.sets) ??
+        validateWorkoutValue("reps", item.reps) ??
+        validateWorkoutValue("weightKg", item.weightKg) ??
+        validateWorkoutValue("durationMin", item.durationMin);
+      if (invalid) {
+        setError(`${item.exerciseName || "運動"}：${invalid}`);
+        return;
+      }
+    }
     setSuggestLoading(true);
+    setAiSuggestionFailed(false);
     try {
       // 手動編集後の計画にも強度チェックを適用（Phase 8）
       const [warningsResult, res] = await Promise.all([
@@ -118,11 +157,18 @@ export default function PlanBuilder({
         }),
       ]);
       setWarnings(warningsResult);
+      if (!res.ok) {
+        // AI改善提案は補助機能のため、取得に失敗しても入力済みの計画を
+        // そのまま登録できるようにする（コア機能である登録自体は止めない）
+        setAiSuggestionFailed(true);
+        setSuggestion({ summary, items });
+        return;
+      }
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "改善案の取得に失敗しました。");
       setSuggestion(data.suggestion);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "改善案の取得に失敗しました。");
+    } catch {
+      setAiSuggestionFailed(true);
+      setSuggestion({ summary, items });
     } finally {
       setSuggestLoading(false);
     }
@@ -224,6 +270,9 @@ export default function PlanBuilder({
                           セット
                           <input
                             type="number"
+                            min={WORKOUT_LIMITS.sets.min}
+                            max={WORKOUT_LIMITS.sets.max}
+                            step={1}
                             value={item.sets ?? ""}
                             onChange={(e) =>
                               updateItem(index, {
@@ -237,6 +286,9 @@ export default function PlanBuilder({
                           回数
                           <input
                             type="number"
+                            min={WORKOUT_LIMITS.reps.min}
+                            max={WORKOUT_LIMITS.reps.max}
+                            step={1}
                             value={item.reps ?? ""}
                             onChange={(e) =>
                               updateItem(index, {
@@ -250,6 +302,9 @@ export default function PlanBuilder({
                           重量kg
                           <input
                             type="number"
+                            min={WORKOUT_LIMITS.weightKg.min}
+                            max={WORKOUT_LIMITS.weightKg.max}
+                            step="any"
                             value={item.weightKg ?? ""}
                             onChange={(e) =>
                               updateItem(index, {
@@ -263,6 +318,9 @@ export default function PlanBuilder({
                           時間(分)
                           <input
                             type="number"
+                            min={WORKOUT_LIMITS.durationMin.min}
+                            max={WORKOUT_LIMITS.durationMin.max}
+                            step={1}
                             value={item.durationMin ?? ""}
                             onChange={(e) =>
                               updateItem(index, {
@@ -319,44 +377,61 @@ export default function PlanBuilder({
 
       {suggestion ? (
         <div className="rounded-xl border border-navy-200 bg-white p-6 shadow-sm">
-          <h2 className="text-sm font-bold text-navy-800">AIからの改善案</h2>
-          <p className="mt-2 text-xs text-navy-600">{suggestion.summary}</p>
-          <div className="mt-2 flex flex-col gap-2 text-xs text-navy-500">
-            {DAY_LABELS.map((label, dayOfWeek) => {
-              const dayItems = suggestion.items.filter(
-                (item) => item.dayOfWeek === dayOfWeek
-              );
-              if (dayItems.length === 0) return null;
-              return (
-                <div key={dayOfWeek}>
-                  <p className="font-bold text-navy-700">{label}曜日</p>
-                  <ul className="mt-0.5 list-disc pl-5">
-                    {dayItems.map((item, i) => (
-                      <li key={i}>
-                        {item.exerciseName}
-                        {item.sets ? ` ${item.sets}セット` : ""}
-                        {item.reps ? ` × ${item.reps}回` : ""}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              );
-            })}
-          </div>
+          {aiSuggestionFailed ? (
+            <>
+              <h2 className="text-sm font-bold text-navy-800">このまま登録しますか？</h2>
+              <p className="mt-2 text-xs text-navy-500">
+                AIによる改善提案の取得に失敗しました。入力した内容のまま登録できます。
+              </p>
+            </>
+          ) : (
+            <>
+              <h2 className="text-sm font-bold text-navy-800">AIからの改善案</h2>
+              <p className="mt-2 text-xs text-navy-600">{suggestion.summary}</p>
+              <div className="mt-2 flex flex-col gap-2 text-xs text-navy-500">
+                {DAY_LABELS.map((label, dayOfWeek) => {
+                  const dayItems = suggestion.items.filter(
+                    (item) => item.dayOfWeek === dayOfWeek
+                  );
+                  if (dayItems.length === 0) return null;
+                  return (
+                    <div key={dayOfWeek}>
+                      <p className="font-bold text-navy-700">{label}曜日</p>
+                      <ul className="mt-0.5 list-disc pl-5">
+                        {dayItems.map((item, i) => (
+                          <li key={i}>
+                            {item.exerciseName}
+                            {item.sets ? ` ${item.sets}セット` : ""}
+                            {item.reps ? ` × ${item.reps}回` : ""}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
           <div className="mt-4 flex gap-2">
-            <button
-              type="button"
-              onClick={() => confirmSave(suggestion, "ai")}
-              disabled={isPending}
-              className="flex-1 rounded-lg bg-navy-700 px-4 py-2 text-xs font-medium text-white hover:bg-navy-600 disabled:opacity-60"
-            >
-              {isPending ? "登録中..." : "改善案を採用して登録"}
-            </button>
+            {!aiSuggestionFailed && (
+              <button
+                type="button"
+                onClick={() => confirmSave(suggestion, "ai")}
+                disabled={isPending}
+                className="flex-1 rounded-lg bg-navy-700 px-4 py-2 text-xs font-medium text-white hover:bg-navy-600 disabled:opacity-60"
+              >
+                {isPending ? "登録中..." : "改善案を採用して登録"}
+              </button>
+            )}
             <button
               type="button"
               onClick={() => confirmSave({ summary, items }, "manual")}
               disabled={isPending}
-              className="flex-1 rounded-lg border border-navy-200 px-4 py-2 text-xs font-medium text-navy-600 hover:bg-navy-50 disabled:opacity-60"
+              className={
+                aiSuggestionFailed
+                  ? "flex-1 rounded-lg bg-navy-700 px-4 py-2 text-xs font-medium text-white hover:bg-navy-600 disabled:opacity-60"
+                  : "flex-1 rounded-lg border border-navy-200 px-4 py-2 text-xs font-medium text-navy-600 hover:bg-navy-50 disabled:opacity-60"
+              }
             >
               {isPending ? "登録中..." : "このまま登録"}
             </button>

@@ -20,10 +20,14 @@ export default async function AdminSettingsLayout({
     data: { user },
   } = await supabase.auth.getUser();
 
+  if (!user) {
+    redirect("/login");
+  }
+
   const { data: profile } = await supabase
     .from("profiles")
     .select("is_super_admin")
-    .eq("id", user!.id)
+    .eq("id", user.id)
     .maybeSingle();
 
   if (!profile?.is_super_admin) {

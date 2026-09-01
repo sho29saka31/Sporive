@@ -5,6 +5,11 @@ import { getWeekBusySummary } from "@/lib/calendar";
 import { getCurrentWeekStartDate } from "@/lib/week";
 import { getFeatureFlags } from "@/lib/feature-flags";
 
+// Vercel無料プランの既定タイムアウト（10秒）ではGeminiの構造化JSON生成が
+// 間に合わないことがあり、想定済みのエラーハンドリング（try/catch）を経由せず
+// プラットフォームに強制終了されてしまうため、上限内で余裕を持たせる
+export const maxDuration = 45;
+
 const REQUEST_TEXT_MAX_LENGTH = 300;
 
 /** プロフィール・希望頻度からAIが週間トレーニング計画を新規提案する */

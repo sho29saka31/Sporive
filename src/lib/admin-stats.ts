@@ -91,7 +91,7 @@ export async function getAdminStats(
   const logsFrom = weekStarts[0]; // 週集計のため期間先頭の週の日曜から取得
 
   const [
-    { count: totalUsers },
+    { count: totalUsers, error: totalUsersError },
     logsResult,
     plansResult,
     debtsResult,
@@ -121,12 +121,26 @@ export async function getAdminStats(
       .lte("created_at", `${to}T23:59:59+09:00`),
   ]);
 
+  // いずれかのクエリが失敗した場合、そのデータだけ「0件」として扱ってしまうと、
+  // 実際にはデータがあるのに集計に失敗しただけなのか、本当に0件なのかを
+  // 管理者が区別できない（ダッシュボードの数値が静かに不正確になる）ため、
+  // 明示的にエラーとして扱う
+  if (
+    totalUsersError ||
+    logsResult.error ||
+    plansResult.error ||
+    debtsResult.error ||
+    aiLogsResult.error
+  ) {
+    throw new Error("管理統計の取得に失敗しました。");
+  }
+
   const logs = logsResult.data ?? [];
   const plans = plansResult.data ?? [];
   const debts = debtsResult.data ?? [];
   const aiLogs = aiLogsResult.data ?? [];
 
-  const { data: planItems } =
+  const { data: planItems, error: planItemsError } =
     plans.length > 0
       ? await admin
           .from("plan_items")
@@ -135,7 +149,10 @@ export async function getAdminStats(
             "plan_id",
             plans.map((p) => p.id)
           )
-      : { data: [] };
+      : { data: [], error: null };
+  if (planItemsError) {
+    throw new Error("管理統計の取得に失敗しました。");
+  }
   const itemsByPlanId = new Map<string, { id: string; day_of_week: number }[]>();
   for (const item of planItems ?? []) {
     itemsByPlanId.set(item.plan_id, [

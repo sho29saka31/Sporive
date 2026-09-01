@@ -12,13 +12,15 @@ export default function DeleteAccountButton() {
   function handleDelete() {
     setError(null);
     startTransition(async () => {
-      try {
-        await deleteAccount();
-      } catch (e) {
-        setError(
-          e instanceof Error ? e.message : "アカウントの削除に失敗しました。"
-        );
+      const result = await deleteAccount();
+      if (result?.error) {
+        setError(result.error);
+        return;
       }
+      // Server Action内でredirect()を使うとNext.jsの内部エラーが
+      // このtry/catch相当の呼び出し元に伝播してしまうため、
+      // 成功時は戻り値を見てクライアント側で明示的に遷移する
+      window.location.href = "/login";
     });
   }
 
