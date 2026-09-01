@@ -25,6 +25,14 @@ const LEVEL_STYLES: Record<AnnouncementItem["level"], string> = {
   warning: "bg-accent-coral/10 text-accent-coral border-accent-coral/30",
 };
 
+// カード自体の背景（LEVEL_STYLES）と同系色の淡い色のため、その上に乗せる
+// レベル表示バッジは視認性のために塗りつぶしの濃い配色にする
+const LEVEL_BADGE_STYLES: Record<AnnouncementItem["level"], string> = {
+  info: "bg-navy-700 text-white",
+  notice: "bg-accent-teal text-white",
+  warning: "bg-accent-coral text-white",
+};
+
 const FOCUSABLE_SELECTOR =
   'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
 
@@ -131,8 +139,10 @@ export default function AnnouncementList({
             className={`flex items-center justify-between rounded-xl border p-4 text-left shadow-sm ${LEVEL_STYLES[item.level]}`}
           >
             <span className="flex items-center gap-2">
-              <span className="text-[10px] font-bold">
-                [{LEVEL_LABELS[item.level]}]
+              <span
+                className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${LEVEL_BADGE_STYLES[item.level]}`}
+              >
+                {LEVEL_LABELS[item.level]}
               </span>
               <span className="text-sm font-bold">{item.title}</span>
             </span>
@@ -162,8 +172,10 @@ export default function AnnouncementList({
             <div
               className={`flex items-center justify-between border-b p-4 ${LEVEL_STYLES[openItem.level]}`}
             >
-              <span className="text-xs font-bold">
-                [{LEVEL_LABELS[openItem.level]}]
+              <span
+                className={`rounded-full px-2 py-0.5 text-xs font-bold ${LEVEL_BADGE_STYLES[openItem.level]}`}
+              >
+                {LEVEL_LABELS[openItem.level]}
               </span>
               <button
                 type="button"

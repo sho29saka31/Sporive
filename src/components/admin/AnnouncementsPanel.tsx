@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import {
+  deleteAllAnnouncements,
   deleteAnnouncement,
   toggleAnnouncementActive,
 } from "@/app/admin/settings/actions";
@@ -105,6 +106,44 @@ function DeleteButton({ id }: { id: string }) {
   );
 }
 
+function DeleteAllButton({ count }: { count: number }) {
+  const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+
+  function handleClick() {
+    if (
+      !window.confirm(
+        `すべてのお知らせ（${count}件）を削除します。この操作は取り消せません。よろしいですか？`
+      )
+    )
+      return;
+    setError(null);
+    startTransition(async () => {
+      try {
+        await deleteAllAnnouncements();
+      } catch {
+        setError("全削除に失敗しました。");
+      }
+    });
+  }
+
+  if (count === 0) return null;
+
+  return (
+    <div className="flex flex-col items-end gap-0.5">
+      <button
+        type="button"
+        onClick={handleClick}
+        disabled={isPending}
+        className="text-xs font-medium text-accent-coral underline disabled:opacity-60"
+      >
+        {isPending ? "削除中..." : "すべて削除"}
+      </button>
+      {error && <p className="text-[10px] text-accent-coral">{error}</p>}
+    </div>
+  );
+}
+
 /** お知らせタブ：作成フォーム＋既存お知らせ一覧（編集・削除・有効切替）（要件定義書 §10-3） */
 export default function AnnouncementsPanel({
   announcements,
@@ -123,9 +162,12 @@ export default function AnnouncementsPanel({
       </div>
 
       <div className="rounded-xl bg-white p-6 shadow-sm">
-        <h2 className="text-sm font-bold text-navy-800">
-          お知らせ一覧（{announcements.length}件）
-        </h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-bold text-navy-800">
+            お知らせ一覧（{announcements.length}件）
+          </h2>
+          <DeleteAllButton count={announcements.length} />
+        </div>
         {announcements.length === 0 ? (
           <p className="mt-2 text-sm text-navy-400">まだお知らせはありません。</p>
         ) : (

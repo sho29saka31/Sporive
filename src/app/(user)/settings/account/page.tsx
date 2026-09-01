@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { createClient } from "@/lib/supabase/server";
 import { signOut } from "./actions";
 
 export const metadata: Metadata = { title: "アカウント設定" };
@@ -23,10 +24,49 @@ const MENU = [
 ];
 
 /** アカウント設定のハブ。各設定ページへの入口（requirements.md §4） */
-export default function AccountSettingsPage() {
+export default async function AccountSettingsPage() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("is_admin, is_super_admin")
+    .eq("id", user!.id)
+    .maybeSingle();
+  // 管理者画面はPC/タブレット専用のため、ここから開いてもスマホでは
+  // 案内画面が表示される（admin/layout.tsxのガードに委ねる）
+  const isAdmin = profile?.is_admin || profile?.is_super_admin;
+
   return (
     <div className="py-6">
       <h1 className="text-xl font-bold">アカウント設定</h1>
+
+      {isAdmin && (
+        <Link
+          href="/admin"
+          prefetch={false}
+          className="mt-4 flex items-center justify-between rounded-xl bg-navy-700 p-4 text-white shadow-sm transition-colors hover:bg-navy-600"
+        >
+          <div>
+            <p className="text-sm font-bold">管理者ページ</p>
+            <p className="mt-0.5 text-xs text-navy-200">
+              機能フラグ・お知らせ管理・利用状況の確認
+            </p>
+          </div>
+          <svg
+            className="h-4 w-4 shrink-0"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <polyline points="9 18 15 12 9 6" />
+          </svg>
+        </Link>
+      )}
 
       <div className="mt-4 flex flex-col gap-3">
         {MENU.map((item) => (
