@@ -342,6 +342,25 @@ export async function deleteAnnouncement(id: string): Promise<void> {
   revalidateAnnouncementSurfaces();
 }
 
+/** すべてのお知らせを削除する（既読状態もON DELETE CASCADEで連動して削除される） */
+export async function deleteAllAnnouncements(): Promise<void> {
+  await requireSuperAdmin();
+
+  const admin = createAdminClient();
+  // PostgRESTのDELETEはWHERE句なしでは実行できないため、常に真になる
+  // 条件（idがnullでない＝全行）を明示して全件削除する
+  const { error } = await admin
+    .from("site_announcements")
+    .delete()
+    .not("id", "is", null);
+
+  if (error) {
+    throw new Error("お知らせの全削除に失敗しました。");
+  }
+
+  revalidateAnnouncementSurfaces();
+}
+
 /** 機能フラグのON/OFFを切り替える */
 export async function toggleFeatureFlag(
   key: string,
