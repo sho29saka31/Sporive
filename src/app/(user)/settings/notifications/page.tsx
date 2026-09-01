@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/server";
 import AnnouncementList, {
   type AnnouncementItem,
@@ -24,10 +25,13 @@ function formatSentAt(sentAt: string): string {
 export default async function NotificationHistoryPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string }>;
+  searchParams: Promise<{ tab?: string; notice?: string }>;
 }) {
-  const { tab } = await searchParams;
-  const activeTab = tab === "announcements" ? "announcements" : "history";
+  const { tab, notice } = await searchParams;
+  // お知らせバー・プッシュ通知からの直リンク（?notice=8桁）はtab未指定でも
+  // お知らせタブを表示する
+  const activeTab =
+    tab === "announcements" || notice ? "announcements" : "history";
 
   const supabase = await createClient();
   const {
@@ -51,7 +55,7 @@ export default async function NotificationHistoryPage({
     const [{ data: siteAnnouncements }, { data: reads }] = await Promise.all([
       supabase
         .from("site_announcements")
-        .select("id, title, body, level, scheduled_at")
+        .select("id, notice_code, title, body, level, scheduled_at")
         .eq("is_active", true)
         .order("published_at", { ascending: false }),
       supabase
@@ -67,6 +71,7 @@ export default async function NotificationHistoryPage({
       .filter((a) => !a.scheduled_at || a.scheduled_at <= now)
       .map((a) => ({
         id: a.id,
+        noticeCode: a.notice_code,
         title: a.title,
         body: a.body,
         level: a.level,
@@ -137,7 +142,11 @@ export default async function NotificationHistoryPage({
           </p>
         )
       ) : (
-        <AnnouncementList announcements={announcements} />
+        // AnnouncementListはuseSearchParamsでモーダル開閉を管理するため
+        // Suspenseでラップする（Next.jsのビルド要件）
+        <Suspense fallback={null}>
+          <AnnouncementList announcements={announcements} />
+        </Suspense>
       )}
     </div>
   );

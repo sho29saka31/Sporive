@@ -312,6 +312,7 @@ export interface Database {
           created_at: string;
           published_at: string;
           scheduled_at: string | null;
+          notice_code: string;
         };
         Insert: {
           id?: string;
@@ -323,6 +324,7 @@ export interface Database {
           created_by?: string | null;
           published_at?: string;
           scheduled_at?: string | null;
+          notice_code?: string;
         };
         Update: Partial<{
           title: string;
