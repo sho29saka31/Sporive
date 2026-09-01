@@ -342,6 +342,33 @@ export async function deleteAnnouncement(id: string): Promise<void> {
   revalidateAnnouncementSurfaces();
 }
 
+/**
+ * チェックボックスで選択した複数のお知らせをまとめて削除する
+ * （既読状態もON DELETE CASCADEで連動して削除される）
+ */
+export async function deleteAnnouncements(ids: string[]): Promise<void> {
+  await requireSuperAdmin();
+
+  if (ids.length === 0) {
+    throw new Error("削除対象が選択されていません。");
+  }
+
+  const admin = createAdminClient();
+  const { error, count } = await admin
+    .from("site_announcements")
+    .delete({ count: "exact" })
+    .in("id", ids);
+
+  if (error) {
+    throw new Error("お知らせの削除に失敗しました。");
+  }
+  if (!count) {
+    throw new Error("対象のお知らせが見つかりません。");
+  }
+
+  revalidateAnnouncementSurfaces();
+}
+
 /** すべてのお知らせを削除する（既読状態もON DELETE CASCADEで連動して削除される） */
 export async function deleteAllAnnouncements(): Promise<void> {
   await requireSuperAdmin();
@@ -359,6 +386,93 @@ export async function deleteAllAnnouncements(): Promise<void> {
   }
 
   revalidateAnnouncementSurfaces();
+}
+
+type DeletableTable =
+  | "training_plans"
+  | "workout_logs"
+  | "debts"
+  | "ai_proposal_logs"
+  | "notification_logs";
+
+/**
+ * データ管理タブ共通の削除処理。userIdを指定すればその利用者のみ、
+ * nullなら全利用者分を対象に削除する。
+ */
+async function deleteRowsForUserOrAll(
+  table: DeletableTable,
+  userId: string | null
+): Promise<string | null> {
+  const admin = createAdminClient();
+  const base = admin.from(table).delete();
+  // PostgRESTのDELETEはWHERE句なしでは実行できないため、全削除時は
+  // 常に真になる条件（idがnullでない＝全行）を明示する
+  const { error } = userId
+    ? await base.eq("user_id", userId)
+    : await base.not("id", "is", null);
+  return error ? error.message : null;
+}
+
+/**
+ * トレーニング計画・実績（データ管理タブ、ユーザー指示）を削除する。
+ * plan_itemsはtraining_plans削除でON DELETE CASCADEにより連動して消えるが、
+ * workout_logsはplan_item_id経由のON DELETE SET NULLでは削除されないため、
+ * 別テーブルとして個別に削除する。
+ */
+export async function deleteTrainingData(userId: string | null): Promise<void> {
+  await requireSuperAdmin();
+
+  const plansError = await deleteRowsForUserOrAll("training_plans", userId);
+  if (plansError) {
+    throw new Error("トレーニング計画の削除に失敗しました。");
+  }
+
+  const logsError = await deleteRowsForUserOrAll("workout_logs", userId);
+  if (logsError) {
+    throw new Error("実績ログの削除に失敗しました。");
+  }
+
+  revalidatePath("/admin");
+}
+
+/** 負債データ（データ管理タブ、ユーザー指示）を削除する */
+export async function deleteDebtsData(userId: string | null): Promise<void> {
+  await requireSuperAdmin();
+
+  const error = await deleteRowsForUserOrAll("debts", userId);
+  if (error) {
+    throw new Error("負債データの削除に失敗しました。");
+  }
+
+  revalidatePath("/admin");
+}
+
+/** AI提案ログ（データ管理タブ、ユーザー指示）を削除する */
+export async function deleteAiProposalLogsData(
+  userId: string | null
+): Promise<void> {
+  await requireSuperAdmin();
+
+  const error = await deleteRowsForUserOrAll("ai_proposal_logs", userId);
+  if (error) {
+    throw new Error("AI提案ログの削除に失敗しました。");
+  }
+
+  revalidatePath("/admin");
+}
+
+/** 通知履歴（データ管理タブ、ユーザー指示）を削除する */
+export async function deleteNotificationLogsData(
+  userId: string | null
+): Promise<void> {
+  await requireSuperAdmin();
+
+  const error = await deleteRowsForUserOrAll("notification_logs", userId);
+  if (error) {
+    throw new Error("通知履歴の削除に失敗しました。");
+  }
+
+  revalidatePath("/admin");
 }
 
 /** 機能フラグのON/OFFを切り替える */

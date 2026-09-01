@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import {
   deleteAllAnnouncements,
   deleteAnnouncement,
+  deleteAnnouncements,
   toggleAnnouncementActive,
 } from "@/app/admin/settings/actions";
 import { announcementPageLabel } from "@/lib/site-announcements";
@@ -144,6 +145,53 @@ function DeleteAllButton({ count }: { count: number }) {
   );
 }
 
+function BulkDeleteButton({
+  selectedIds,
+  onDone,
+}: {
+  selectedIds: string[];
+  onDone: () => void;
+}) {
+  const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+
+  function handleClick() {
+    if (
+      !window.confirm(
+        `選択したお知らせ（${selectedIds.length}件）を削除します。この操作は取り消せません。よろしいですか？`
+      )
+    )
+      return;
+    setError(null);
+    startTransition(async () => {
+      try {
+        await deleteAnnouncements(selectedIds);
+        onDone();
+      } catch {
+        setError("削除に失敗しました。");
+      }
+    });
+  }
+
+  if (selectedIds.length === 0) return null;
+
+  return (
+    <div className="flex flex-col items-end gap-0.5">
+      <button
+        type="button"
+        onClick={handleClick}
+        disabled={isPending}
+        className="rounded-lg bg-accent-coral px-3 py-1.5 text-xs font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+      >
+        {isPending
+          ? "削除中..."
+          : `選択した${selectedIds.length}件を削除`}
+      </button>
+      {error && <p className="text-[10px] text-accent-coral">{error}</p>}
+    </div>
+  );
+}
+
 /** お知らせタブ：作成フォーム＋既存お知らせ一覧（編集・削除・有効切替）（要件定義書 §10-3） */
 export default function AnnouncementsPanel({
   announcements,
@@ -151,6 +199,26 @@ export default function AnnouncementsPanel({
   announcements: AdminAnnouncementRow[];
 }) {
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  const allSelected =
+    announcements.length > 0 && selectedIds.size === announcements.length;
+
+  function toggleSelect(id: string, checked: boolean) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (checked) {
+        next.add(id);
+      } else {
+        next.delete(id);
+      }
+      return next;
+    });
+  }
+
+  function toggleSelectAll(checked: boolean) {
+    setSelectedIds(checked ? new Set(announcements.map((a) => a.id)) : new Set());
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -166,45 +234,67 @@ export default function AnnouncementsPanel({
           <h2 className="text-sm font-bold text-navy-800">
             お知らせ一覧（{announcements.length}件）
           </h2>
-          <DeleteAllButton count={announcements.length} />
+          <div className="flex items-center gap-3">
+            <BulkDeleteButton
+              selectedIds={Array.from(selectedIds)}
+              onDone={() => setSelectedIds(new Set())}
+            />
+            <DeleteAllButton count={announcements.length} />
+          </div>
         </div>
         {announcements.length === 0 ? (
           <p className="mt-2 text-sm text-navy-400">まだお知らせはありません。</p>
         ) : (
-          <div className="mt-3 flex flex-col gap-2">
-            {announcements.map((a) =>
-              editingId === a.id ? (
-                <div
-                  key={a.id}
-                  className="rounded-lg border border-navy-300 bg-navy-50 p-3"
-                >
-                  <AnnouncementForm
-                    editing={{
-                      id: a.id,
-                      title: a.title,
-                      body: a.body,
-                      level: a.level,
-                      blockedPages: a.blockedPages,
-                      scheduledAt: a.scheduledAt,
-                    }}
-                    onDone={() => setEditingId(null)}
-                  />
-                </div>
-              ) : (
-                <div key={a.id} className="rounded-lg border border-navy-100 p-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${LEVEL_STYLES[a.level]}`}
-                      >
-                        {LEVEL_LABELS[a.level]}
-                      </span>
-                      <span className="text-sm font-bold text-navy-800">
-                        {a.title}
-                      </span>
-                    </div>
-                    <ActiveToggle row={a} />
+          <>
+            <label className="mt-3 flex items-center gap-2 text-xs text-navy-500">
+              <input
+                type="checkbox"
+                checked={allSelected}
+                onChange={(e) => toggleSelectAll(e.target.checked)}
+                className="h-4 w-4 accent-navy-700"
+              />
+              すべて選択
+            </label>
+            <div className="mt-2 flex flex-col gap-2">
+              {announcements.map((a) =>
+                editingId === a.id ? (
+                  <div
+                    key={a.id}
+                    className="rounded-lg border border-navy-300 bg-navy-50 p-3"
+                  >
+                    <AnnouncementForm
+                      editing={{
+                        id: a.id,
+                        title: a.title,
+                        body: a.body,
+                        level: a.level,
+                        blockedPages: a.blockedPages,
+                        scheduledAt: a.scheduledAt,
+                      }}
+                      onDone={() => setEditingId(null)}
+                    />
                   </div>
+                ) : (
+                  <div key={a.id} className="rounded-lg border border-navy-100 p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(a.id)}
+                          onChange={(e) => toggleSelect(a.id, e.target.checked)}
+                          className="h-4 w-4 accent-navy-700"
+                        />
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${LEVEL_STYLES[a.level]}`}
+                        >
+                          {LEVEL_LABELS[a.level]}
+                        </span>
+                        <span className="text-sm font-bold text-navy-800">
+                          {a.title}
+                        </span>
+                      </div>
+                      <ActiveToggle row={a} />
+                    </div>
                   <p className="mt-2 whitespace-pre-line text-xs leading-relaxed text-navy-500">
                     {a.body}
                   </p>
@@ -246,7 +336,8 @@ export default function AnnouncementsPanel({
                 </div>
               )
             )}
-          </div>
+            </div>
+          </>
         )}
       </div>
     </div>
