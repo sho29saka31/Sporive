@@ -14,6 +14,58 @@ const LEVELS = [
   { value: "warning", label: "警告", hint: "障害・緊急メンテナンス・重要な対応依頼など" },
 ] as const;
 
+/** よく使う告知のひな形。ボタン1つでタイトル・本文・レベルを一括入力する（新規作成時のみ表示） */
+const TEMPLATES: {
+  key: string;
+  label: string;
+  title: string;
+  body: string;
+  level: "info" | "notice" | "warning";
+}[] = [
+  {
+    key: "app_failure",
+    label: "アプリ障害",
+    title: "アプリ障害のお知らせ",
+    body: "現在、一部機能で不具合が発生しております。ご迷惑をおかけし申し訳ございません。復旧まで今しばらくお待ちください。",
+    level: "warning",
+  },
+  {
+    key: "new_feature",
+    label: "新機能リリース",
+    title: "新機能リリースのお知らせ",
+    body: "新機能を追加しました。ぜひご利用ください。",
+    level: "info",
+  },
+  {
+    key: "update",
+    label: "アップデート",
+    title: "アップデートのお知らせ",
+    body: "アプリをアップデートしました。主な変更点は以下の通りです。\n・",
+    level: "info",
+  },
+  {
+    key: "legal_revision",
+    label: "法令文改訂",
+    title: "利用規約・プライバシーポリシー改定のお知らせ",
+    body: "利用規約およびプライバシーポリシーの内容を改定いたしました。お手数ですが、変更内容のご確認をお願いいたします。",
+    level: "notice",
+  },
+  {
+    key: "maintenance",
+    label: "メンテナンス",
+    title: "メンテナンスのお知らせ",
+    body: "下記の日時にメンテナンスを実施いたします。メンテナンス中はサービスをご利用いただけません。\n\n日時：\n影響範囲：",
+    level: "notice",
+  },
+  {
+    key: "emergency_maintenance",
+    label: "緊急メンテナンス",
+    title: "緊急メンテナンスのお知らせ",
+    body: "緊急メンテナンスを実施しております。ご不便をおかけし申し訳ございません。復旧まで今しばらくお待ちください。",
+    level: "warning",
+  },
+];
+
 export type AnnouncementFormValues = {
   id: string;
   title: string;
@@ -59,9 +111,19 @@ export default function AnnouncementForm({
   const [level, setLevel] = useState<"info" | "notice" | "warning">(
     editing?.level ?? "info"
   );
+  // テンプレートボタンでタイトル・本文を一括入力できるようにするため、
+  // この2つだけ制御コンポーネントにする（他の項目はdefaultValueのままでよい）
+  const [title, setTitle] = useState(editing?.title ?? "");
+  const [body, setBody] = useState(editing?.body ?? "");
   const formRef = useRef<HTMLFormElement>(null);
 
   const isWarning = level === "warning";
+
+  function applyTemplate(template: (typeof TEMPLATES)[number]) {
+    setTitle(template.title);
+    setBody(template.body);
+    setLevel(template.level);
+  }
 
   useEffect(() => {
     if (!state?.success) return;
@@ -75,14 +137,38 @@ export default function AnnouncementForm({
     if (!editing) {
       formRef.current?.reset();
       // 送信成功という1回限りのイベントに対する後始末で、無限ループにはならない
-      // eslint-disable-next-line react-hooks/set-state-in-effect
+      /* eslint-disable react-hooks/set-state-in-effect */
       setLevel("info");
+      setTitle("");
+      setBody("");
+      /* eslint-enable react-hooks/set-state-in-effect */
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- stateの変化のみで発火させる
   }, [state]);
 
   return (
     <form ref={formRef} action={formAction} className="flex flex-col gap-4">
+      {!editing && (
+        <div>
+          <p className="text-xs font-medium text-navy-500">テンプレート</p>
+          <p className="mt-0.5 text-[10px] text-navy-300">
+            タイトル・本文・レベルを一括で入力します。送信前に内容を編集できます。
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {TEMPLATES.map((t) => (
+              <button
+                key={t.key}
+                type="button"
+                onClick={() => applyTemplate(t)}
+                className="rounded-full border border-navy-200 px-3 py-1 text-xs text-navy-600 hover:bg-navy-50"
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div>
         <label htmlFor="title" className="text-xs font-medium text-navy-500">
           タイトル
@@ -93,7 +179,8 @@ export default function AnnouncementForm({
           type="text"
           required
           maxLength={60}
-          defaultValue={editing?.title}
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
           className="mt-1 w-full rounded-lg border border-navy-200 bg-white px-3 py-2 text-sm focus:border-navy-500 focus:outline-none"
         />
       </div>
@@ -108,7 +195,8 @@ export default function AnnouncementForm({
           required
           maxLength={1000}
           rows={4}
-          defaultValue={editing?.body}
+          value={body}
+          onChange={(e) => setBody(e.target.value)}
           className="mt-1 w-full rounded-lg border border-navy-200 bg-white px-3 py-2 text-sm focus:border-navy-500 focus:outline-none"
         />
       </div>
