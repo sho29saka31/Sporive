@@ -35,7 +35,7 @@ export default function AnnouncementBarList({
           className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs shadow-sm ${LEVEL_STYLES[item.level]}`}
         >
           <Link
-            href="/settings/notifications?tab=announcements"
+            href={`/settings/notifications?notice=${item.noticeCode}`}
             prefetch={false}
             className="flex-1 truncate font-medium"
           >
