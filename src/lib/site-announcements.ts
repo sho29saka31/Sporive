@@ -61,6 +61,7 @@ export function matchesAnnouncementPages(
 
 export type UnreadAnnouncement = {
   id: string;
+  noticeCode: string;
   title: string;
   level: "info" | "notice" | "warning";
 };
@@ -88,7 +89,7 @@ export async function getUnreadAnnouncements(
   const [{ data: announcements }, { data: reads }] = await Promise.all([
     client
       .from("site_announcements")
-      .select("id, title, level, scheduled_at")
+      .select("id, notice_code, title, level, scheduled_at")
       .eq("is_active", true)
       .order("published_at", { ascending: false }),
     client
@@ -100,7 +101,13 @@ export async function getUnreadAnnouncements(
   const readIds = new Set((reads ?? []).map((r) => r.announcement_id));
   return (announcements ?? [])
     .filter(isPublished)
-    .filter((a) => !readIds.has(a.id));
+    .filter((a) => !readIds.has(a.id))
+    .map((a) => ({
+      id: a.id,
+      noticeCode: a.notice_code,
+      title: a.title,
+      level: a.level,
+    }));
 }
 
 /**

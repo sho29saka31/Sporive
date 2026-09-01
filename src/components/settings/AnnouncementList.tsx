@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useRef } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { markAnnouncementRead } from "@/app/(user)/settings/notifications/actions";
 
 export type AnnouncementItem = {
   id: string;
+  noticeCode: string;
   title: string;
   body: string;
   level: "info" | "notice" | "warning";
@@ -23,21 +25,92 @@ const LEVEL_STYLES: Record<AnnouncementItem["level"], string> = {
   warning: "bg-accent-coral/10 text-accent-coral border-accent-coral/30",
 };
 
-/** 管理者が発行したお知らせの一覧・詳細表示（要件定義書 §8-4） */
+const FOCUSABLE_SELECTOR =
+  'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
+
+/**
+ * 管理者が発行したお知らせの一覧・詳細表示（要件定義書 §8-4）。
+ * 開閉状態は ?notice=<8桁の公開ID>（site_announcements.notice_code）で管理する。
+ * 本来のid（uuid）を使わないのは、URLを共有・プッシュ通知の遷移先にしても
+ * 短く扱いやすくするため。
+ */
 export default function AnnouncementList({
   announcements,
 }: {
   announcements: AnnouncementItem[];
 }) {
-  const [openId, setOpenId] = useState<string | null>(null);
-  const openItem = announcements.find((a) => a.id === openId) ?? null;
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const noticeCode = searchParams.get("notice");
+  const openItem =
+    announcements.find((a) => a.noticeCode === noticeCode) ?? null;
+
+  // このコンポーネント内の操作でURLに?notice=を積んだ場合はtrue。
+  // プッシュ通知等からの直リンクで最初から?notice=が付いている場合はfalseのままにし、
+  // 閉じる際にrouter.back()でアプリの外（履歴なし）に出てしまわないようにする
+  const openedBySelfRef = useRef(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
 
   function handleOpen(item: AnnouncementItem) {
-    setOpenId(item.id);
+    openedBySelfRef.current = true;
+    router.push(`${pathname}?notice=${item.noticeCode}`, { scroll: false });
     if (!item.isRead) {
       markAnnouncementRead(item.id);
     }
   }
+
+  const handleClose = useCallback(() => {
+    if (openedBySelfRef.current) {
+      router.back();
+    } else {
+      router.replace(pathname, { scroll: false });
+    }
+    openedBySelfRef.current = false;
+  }, [router, pathname]);
+
+  // モーダル表示中：フォーカストラップ・Escで閉じる・背景スクロールロック
+  useEffect(() => {
+    if (!openItem) return;
+
+    previouslyFocusedRef.current = document.activeElement as HTMLElement | null;
+    dialogRef.current?.focus();
+
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        handleClose();
+        return;
+      }
+      if (event.key !== "Tab" || !dialogRef.current) return;
+
+      const focusable = Array.from(
+        dialogRef.current.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)
+      );
+      if (focusable.length === 0) return;
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = originalOverflow;
+      previouslyFocusedRef.current?.focus();
+    };
+  }, [openItem, handleClose]);
 
   if (announcements.length === 0) {
     return (
@@ -74,32 +147,44 @@ export default function AnnouncementList({
 
       {openItem && (
         <div
-          className="fixed inset-0 z-50 flex flex-col bg-white"
-          role="dialog"
-          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-navy-900/50 p-4"
+          onClick={handleClose}
         >
           <div
-            className={`flex items-center justify-between border-b p-4 ${LEVEL_STYLES[openItem.level]}`}
+            ref={dialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="announcement-modal-title"
+            tabIndex={-1}
+            onClick={(event) => event.stopPropagation()}
+            className="flex max-h-[80vh] w-full max-w-sm flex-col overflow-hidden rounded-2xl bg-white shadow-xl outline-none"
           >
-            <span className="text-xs font-bold">
-              [{LEVEL_LABELS[openItem.level]}]
-            </span>
-            <button
-              type="button"
-              onClick={() => setOpenId(null)}
-              aria-label="閉じる"
-              className="text-sm text-navy-500"
+            <div
+              className={`flex items-center justify-between border-b p-4 ${LEVEL_STYLES[openItem.level]}`}
             >
-              閉じる
-            </button>
-          </div>
-          <div className="flex-1 overflow-y-auto p-6">
-            <h2 className="text-lg font-bold text-navy-800">
-              {openItem.title}
-            </h2>
-            <p className="mt-4 whitespace-pre-line text-sm leading-relaxed text-navy-600">
-              {openItem.body}
-            </p>
+              <span className="text-xs font-bold">
+                [{LEVEL_LABELS[openItem.level]}]
+              </span>
+              <button
+                type="button"
+                onClick={handleClose}
+                aria-label="閉じる"
+                className="text-sm text-navy-500"
+              >
+                閉じる
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6">
+              <h2
+                id="announcement-modal-title"
+                className="text-lg font-bold text-navy-800"
+              >
+                {openItem.title}
+              </h2>
+              <p className="mt-4 whitespace-pre-line text-sm leading-relaxed text-navy-600">
+                {openItem.body}
+              </p>
+            </div>
           </div>
         </div>
       )}
