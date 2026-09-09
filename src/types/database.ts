@@ -9,7 +9,7 @@ export type PlanStatus = "draft" | "active" | "archived";
 export type PlanSource = "ai" | "manual";
 
 export interface Database {
-  public: {
+  sporive: {
     Tables: {
       profiles: {
         Row: {
