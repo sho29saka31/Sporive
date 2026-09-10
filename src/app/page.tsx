@@ -282,10 +282,16 @@ export default async function LandingPage() {
         <div className="mx-auto flex max-w-5xl flex-col items-center justify-between gap-4 px-6 py-8 text-xs text-navy-400 sm:flex-row">
           <span>© {new Date().getFullYear()} Sporive</span>
           <nav className="flex items-center gap-4">
-            <Link href="/terms" className="underline hover:text-navy-600">
+            <Link
+              href="https://service.saka2931.jp/terms"
+              className="underline hover:text-navy-600"
+            >
               利用規約
             </Link>
-            <Link href="/privacy" className="underline hover:text-navy-600">
+            <Link
+              href="https://service.saka2931.jp/privacy"
+              className="underline hover:text-navy-600"
+            >
               プライバシーポリシー
             </Link>
             {canUseButtons && !isLockdown && (

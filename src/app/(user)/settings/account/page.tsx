@@ -107,11 +107,11 @@ export default async function AccountSettingsPage() {
       </div>
 
       <p className="mt-6 text-center text-xs text-navy-300">
-        <Link href="/terms" className="underline">
+        <Link href="https://service.saka2931.jp/terms" className="underline">
           利用規約
         </Link>
         {" ・ "}
-        <Link href="/privacy" className="underline">
+        <Link href="https://service.saka2931.jp/privacy" className="underline">
           プライバシーポリシー
         </Link>
       </p>
