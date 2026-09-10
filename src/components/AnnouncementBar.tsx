@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { getUnreadAnnouncements } from "@/lib/site-announcements";
+import { getBarAnnouncements } from "@/lib/site-announcements";
 import AnnouncementBarList from "@/components/AnnouncementBarList";
 
 /**
@@ -7,6 +7,8 @@ import AnnouncementBarList from "@/components/AnnouncementBarList";
  * ×で閉じると既読になり、以後表示されなくなる。
  * お知らせ本体はsaka2931-infra（adacの管理画面が書き込む）から取得し、
  * 既読状態のみSporive自身のDB（announcement_reads）で管理する。
+ * adacの管理画面で「通知バーに表示する」を無効にしたお知らせは、
+ * 一覧には表示されるがこのバーには表示されない。
  */
 export default async function AnnouncementBar() {
   const supabase = await createClient();
@@ -21,8 +23,8 @@ export default async function AnnouncementBar() {
     .eq("user_id", user.id);
   const readIds = new Set((reads ?? []).map((r) => r.announcement_id));
 
-  const unread = await getUnreadAnnouncements(readIds);
-  if (unread.length === 0) return null;
+  const items = await getBarAnnouncements(readIds);
+  if (items.length === 0) return null;
 
-  return <AnnouncementBarList items={unread} />;
+  return <AnnouncementBarList items={items} />;
 }
