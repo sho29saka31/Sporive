@@ -283,6 +283,12 @@ export default async function LandingPage() {
           <span>© {new Date().getFullYear()} Sporive</span>
           <nav className="flex items-center gap-4">
             <Link
+              href="https://service.saka2931.jp/contact/sporive"
+              className="underline hover:text-navy-600"
+            >
+              お問い合わせ
+            </Link>
+            <Link
               href="https://service.saka2931.jp/terms"
               className="underline hover:text-navy-600"
             >
