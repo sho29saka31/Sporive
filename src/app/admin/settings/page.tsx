@@ -1,20 +1,20 @@
 import Link from "next/link";
 import { createAdminClient } from "@/lib/supabase/admin";
 import FeatureFlagsPanel from "@/components/admin/FeatureFlagsPanel";
-import AnnouncementsPanel from "@/components/admin/AnnouncementsPanel";
 import DataManagementPanel from "@/components/admin/DataManagementPanel";
 
 export const dynamic = "force-dynamic";
 
 const TABS = [
   { value: "features", label: "機能" },
-  { value: "announcements", label: "お知らせ" },
   { value: "data", label: "データ管理" },
 ] as const;
 type Tab = (typeof TABS)[number]["value"];
 
 /**
- * 高度な設定：機能タブ・お知らせタブ・データ管理タブ（要件定義書 §10-3）。
+ * 高度な設定：機能タブ・データ管理タブ（要件定義書 §10-3）。
+ * お知らせの作成・編集はadacの管理画面に一元化したため、このページからは削除した
+ * （利用者向けの表示・既読管理はSporive自身のコードに残る）。
  * アクセス制御（is_super_admin）は layout.tsx で実施済み。
  * 全利用者に影響する設定のため service_role クライアントで取得・更新する。
  */
@@ -42,29 +42,6 @@ export default async function AdminSettingsPage({
       throw new Error("機能フラグの取得に失敗しました。");
     }
     flags = data ?? [];
-  }
-
-  let announcements: {
-    id: string;
-    title: string;
-    body: string;
-    level: "info" | "notice" | "warning";
-    blocked_pages: string[];
-    is_active: boolean;
-    published_at: string;
-    scheduled_at: string | null;
-  }[] = [];
-  if (activeTab === "announcements") {
-    const { data, error } = await admin
-      .from("site_announcements")
-      .select(
-        "id, title, body, level, blocked_pages, is_active, published_at, scheduled_at"
-      )
-      .order("published_at", { ascending: false });
-    if (error) {
-      throw new Error("お知らせの取得に失敗しました。");
-    }
-    announcements = data ?? [];
   }
 
   // 利用者選択セレクト用の一覧（データ管理タブでのみ必要）
@@ -99,20 +76,6 @@ export default async function AdminSettingsPage({
       </div>
 
       {activeTab === "features" && <FeatureFlagsPanel flags={flags} />}
-      {activeTab === "announcements" && (
-        <AnnouncementsPanel
-          announcements={announcements.map((a) => ({
-            id: a.id,
-            title: a.title,
-            body: a.body,
-            level: a.level,
-            blockedPages: a.blocked_pages,
-            isActive: a.is_active,
-            publishedAt: a.published_at,
-            scheduledAt: a.scheduled_at,
-          }))}
-        />
-      )}
       {activeTab === "data" && <DataManagementPanel users={users} />}
     </div>
   );
