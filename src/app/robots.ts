@@ -25,7 +25,7 @@ export default function robots(): MetadataRoute.Robots {
         "/auth",
       ],
     },
-    host: "https://sporive.vercel.app",
-    sitemap: "https://sporive.vercel.app/sitemap.xml",
+    host: "https://sporive.saka2931.jp",
+    sitemap: "https://sporive.saka2931.jp/sitemap.xml",
   };
 }
