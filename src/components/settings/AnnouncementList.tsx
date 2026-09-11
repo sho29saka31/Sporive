@@ -6,7 +6,6 @@ import { markAnnouncementRead } from "@/app/(user)/settings/notifications/action
 
 export type AnnouncementItem = {
   id: string;
-  noticeCode: string;
   title: string;
   body: string;
   level: "info" | "notice" | "warning";
@@ -38,9 +37,7 @@ const FOCUSABLE_SELECTOR =
 
 /**
  * 管理者が発行したお知らせの一覧・詳細表示（要件定義書 §8-4）。
- * 開閉状態は ?notice=<8桁の公開ID>（site_announcements.notice_code）で管理する。
- * 本来のid（uuid）を使わないのは、URLを共有・プッシュ通知の遷移先にしても
- * 短く扱いやすくするため。
+ * 開閉状態は ?notice=<id>（service_announcements.id、saka2931-infra側の値）で管理する。
  */
 export default function AnnouncementList({
   announcements,
@@ -50,9 +47,8 @@ export default function AnnouncementList({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const noticeCode = searchParams.get("notice");
-  const openItem =
-    announcements.find((a) => a.noticeCode === noticeCode) ?? null;
+  const noticeId = searchParams.get("notice");
+  const openItem = announcements.find((a) => a.id === noticeId) ?? null;
 
   // このコンポーネント内の操作でURLに?notice=を積んだ場合はtrue。
   // プッシュ通知等からの直リンクで最初から?notice=が付いている場合はfalseのままにし、
@@ -63,7 +59,7 @@ export default function AnnouncementList({
 
   function handleOpen(item: AnnouncementItem) {
     openedBySelfRef.current = true;
-    router.push(`${pathname}?notice=${item.noticeCode}`, { scroll: false });
+    router.push(`${pathname}?notice=${item.id}`, { scroll: false });
     if (!item.isRead) {
       markAnnouncementRead(item.id);
     }

@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import GoogleAuthButton from "@/components/auth/GoogleAuthButton";
-import { createClient } from "@/lib/supabase/server";
 import { getFeatureFlag } from "@/lib/feature-flags";
 
 const TITLE = "新規登録";
@@ -35,8 +34,7 @@ export const metadata: Metadata = {
  * OAuth後のパスワード設定は /signup/set-password（middlewareが自動誘導）。
  */
 export default async function SignupPage() {
-  const supabase = await createClient();
-  const signupEnabled = await getFeatureFlag(supabase, "new_signup");
+  const signupEnabled = await getFeatureFlag("new_signup");
 
   if (!signupEnabled) {
     return (

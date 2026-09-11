@@ -23,7 +23,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "認証が必要です。" }, { status: 401 });
   }
 
-  const flags = await getFeatureFlags(supabase, [
+  const flags = await getFeatureFlags([
     "ai_master",
     "ai_weekly_proposal",
     "calendar_integration",

@@ -49,7 +49,7 @@ export async function createProfile(
     redirect("/login");
   }
 
-  const flags = await getFeatureFlags(supabase, [
+  const flags = await getFeatureFlags([
     "new_signup",
     "ai_master",
     "ai_goal_summarize",

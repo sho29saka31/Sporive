@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import OnboardingProfileForm from "@/components/auth/OnboardingProfileForm";
-import { createClient } from "@/lib/supabase/server";
 import { getFeatureFlag } from "@/lib/feature-flags";
 import { signOut } from "@/app/(user)/settings/account/actions";
 
@@ -19,8 +18,7 @@ export const metadata: Metadata = { title: "プロフィール登録" };
  * 確認し、ページを開いた時点で状況を伝えられるようにする
  */
 export default async function OnboardingProfilePage() {
-  const supabase = await createClient();
-  const signupEnabled = await getFeatureFlag(supabase, "new_signup");
+  const signupEnabled = await getFeatureFlag("new_signup");
 
   if (!signupEnabled) {
     return (
