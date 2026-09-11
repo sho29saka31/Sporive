@@ -144,7 +144,7 @@ export async function updateSession(request: NextRequest) {
     !requestPath.startsWith("/auth/") &&
     !requestPath.startsWith("/admin") &&
     !requestPath.startsWith("/api/") &&
-    (await isEmergencyMaintenanceActive(supabase))
+    (await isEmergencyMaintenanceActive())
   ) {
     const url = request.nextUrl.clone();
     url.pathname = "/";

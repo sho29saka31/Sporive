@@ -3,7 +3,6 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { FEATURE_FLAG_KEYS, type FeatureFlagKey } from "@/lib/feature-flags";
 
 export type SettingsActionState = {
   error?: string;
@@ -119,40 +118,4 @@ export async function deleteNotificationLogsData(
   }
 
   revalidatePath("/admin");
-}
-
-/** 機能フラグのON/OFFを切り替える */
-export async function toggleFeatureFlag(
-  key: string,
-  enabled: boolean
-): Promise<void> {
-  const userId = await requireSuperAdmin();
-  if (!(FEATURE_FLAG_KEYS as readonly string[]).includes(key)) {
-    throw new Error("不正なフラグです。");
-  }
-
-  const admin = createAdminClient();
-  const { error, count } = await admin
-    .from("feature_flags")
-    .update(
-      {
-        enabled,
-        updated_by: userId,
-        updated_at: new Date().toISOString(),
-      },
-      { count: "exact" }
-    )
-    .eq("key", key as FeatureFlagKey);
-
-  if (error) {
-    throw new Error("機能フラグの更新に失敗しました。");
-  }
-  if (!count) {
-    // FEATURE_FLAG_KEYSに含まれるがDB側にseed行がない（将来のフラグ追加漏れ等）
-    // 場合、更新は0件ヒットのままエラーなく成功扱いになり、UIのトグルだけが
-    // 静かに元の状態へ巻き戻ってしまうため、明示的にエラーとして扱う
-    throw new Error("対象の機能フラグが見つかりません。");
-  }
-
-  revalidatePath("/admin/settings");
 }

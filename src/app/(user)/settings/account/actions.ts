@@ -140,7 +140,7 @@ export async function updateProfile(
   // Gemini APIで要望を簡潔な文章に整形する。API障害時・機能フラグ停止時も
   // 更新自体は止めず、入力された文章をそのまま保存してフォールバックする。
   let goal = goalInput;
-  const flags = await getFeatureFlags(supabase, ["ai_master", "ai_goal_summarize"]);
+  const flags = await getFeatureFlags(["ai_master", "ai_goal_summarize"]);
   if (flags.ai_master && flags.ai_goal_summarize) {
     try {
       goal = await summarizeGoal(goalInput);

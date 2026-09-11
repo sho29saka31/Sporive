@@ -1,8 +1,9 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "@/types/database";
+import { createInfraReadOnlyClient } from "@/lib/supabase/infra";
 
 /**
- * 機能フラグ（要件定義書 §10-3）。DBの feature_flags テーブルと対応する。
+ * 機能フラグ（要件定義書 §10-3）。saka2931-infra（adacの管理画面が書き込む）の
+ * feature_flags テーブルと対応する。フラグの作成・編集・削除はadacの管理画面から
+ * 行う（Sporive自身のadmin/settingsからは削除済み）。
  * 「AI機能」マスタースイッチは各AI機能フラグと組み合わせて判定する
  * （マスターOFF、または個別機能OFFのいずれかで停止）。
  */
@@ -29,7 +30,6 @@ export type FeatureFlagKey = (typeof FEATURE_FLAG_KEYS)[number];
  * 誤って止まらないようフェイルオープンにする）。
  */
 export async function getFeatureFlags<K extends string>(
-  client: SupabaseClient<Database>,
   keys: readonly K[]
 ): Promise<Record<K, boolean>> {
   const result = Object.fromEntries(keys.map((k) => [k, true])) as Record<
@@ -37,9 +37,11 @@ export async function getFeatureFlags<K extends string>(
     boolean
   >;
 
-  const { data } = await client
+  const infra = createInfraReadOnlyClient();
+  const { data } = await infra
     .from("feature_flags")
     .select("key, enabled")
+    .eq("service", "sporive")
     .in("key", [...keys]);
 
   for (const row of data ?? []) {
@@ -52,11 +54,8 @@ export async function getFeatureFlags<K extends string>(
 }
 
 /** 単一の機能フラグを取得する */
-export async function getFeatureFlag(
-  client: SupabaseClient<Database>,
-  key: FeatureFlagKey
-): Promise<boolean> {
-  const flags = await getFeatureFlags(client, [key]);
+export async function getFeatureFlag(key: FeatureFlagKey): Promise<boolean> {
+  const flags = await getFeatureFlags([key]);
   return flags[key];
 }
 
@@ -65,12 +64,12 @@ export async function getFeatureFlag(
  * 未取得時は「無効」を既定値とする（他フラグと異なり、この値だけは
  * フェイルオープンにすると誤って全サイトを止めてしまうため）。
  */
-export async function isEmergencyMaintenanceActive(
-  client: SupabaseClient<Database>
-): Promise<boolean> {
-  const { data } = await client
+export async function isEmergencyMaintenanceActive(): Promise<boolean> {
+  const infra = createInfraReadOnlyClient();
+  const { data } = await infra
     .from("feature_flags")
     .select("enabled")
+    .eq("service", "sporive")
     .eq("key", "emergency_maintenance")
     .maybeSingle();
   return data?.enabled ?? false;

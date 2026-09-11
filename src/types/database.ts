@@ -316,28 +316,6 @@ export interface Database {
         Update: Record<string, never>;
         Relationships: [];
       };
-      feature_flags: {
-        Row: {
-          key: string;
-          enabled: boolean;
-          description: string;
-          updated_by: string | null;
-          updated_at: string;
-        };
-        Insert: {
-          key: string;
-          enabled?: boolean;
-          description: string;
-          updated_by?: string | null;
-        };
-        Update: Partial<{
-          enabled: boolean;
-          description: string;
-          updated_by: string | null;
-          updated_at: string;
-        }>;
-        Relationships: [];
-      };
       ai_proposal_logs: {
         Row: {
           id: string;

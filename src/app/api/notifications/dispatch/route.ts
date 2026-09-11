@@ -102,7 +102,7 @@ export async function POST(request: Request) {
   // 止めている間もこのバッチだけ動き続けると、利用者に見せない画面の裏側で
   // 負債やストリークの状態が変わってしまい、メンテナンス解除後の状態と
   // 利用者の認識がずれるため
-  if (await isEmergencyMaintenanceActive(admin)) {
+  if (await isEmergencyMaintenanceActive()) {
     return NextResponse.json({ ok: true, sent: 0, dailyCheck: null, skipped: "emergency_maintenance" });
   }
 
@@ -113,7 +113,7 @@ export async function POST(request: Request) {
   // 機能フラグ（要件定義書 §10-3）：通知機能全体・負債管理機能の一括停止に対応。
   // ai_masterは週次レポート生成（Gemini呼び出し）に使う。他のAI機能同様、
   // Gemini API障害・混雑時にsuper-adminが一括停止できる対象に含める
-  const flags = await getFeatureFlags(admin, [
+  const flags = await getFeatureFlags([
     "notifications",
     "debt_management",
     "ai_master",
