@@ -7,7 +7,7 @@ import { isSmartphone } from "@/lib/device";
 import { isLockdownActive } from "@/lib/maintenance";
 import MaintenanceNoticeBar from "@/components/MaintenanceNoticeBar";
 
-const SITE_URL = "https://sporive.vercel.app/";
+const SITE_URL = "https://sporive.saka2931.jp/";
 
 const TITLE = "Sporive — AIパーソナライズ・トレーニング計画アプリ";
 const DESCRIPTION =
@@ -16,12 +16,12 @@ const DESCRIPTION =
 export const metadata: Metadata = {
   title: TITLE,
   description: DESCRIPTION,
-  alternates: { canonical: "https://sporive.vercel.app/" },
+  alternates: { canonical: "https://sporive.saka2931.jp/" },
   robots: { index: true, follow: true, noarchive: true },
   openGraph: {
     title: TITLE,
     description: DESCRIPTION,
-    url: "https://sporive.vercel.app/",
+    url: "https://sporive.saka2931.jp/",
     siteName: "Sporive",
     locale: "ja_JP",
     type: "website",
@@ -92,7 +92,7 @@ const STRUCTURED_DATA = {
   applicationCategory: "HealthApplication",
   operatingSystem: "Web",
   description: DESCRIPTION,
-  url: "https://sporive.vercel.app/",
+  url: "https://sporive.saka2931.jp/",
   offers: {
     "@type": "Offer",
     price: "0",

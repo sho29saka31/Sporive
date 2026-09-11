@@ -12,13 +12,13 @@ const DESCRIPTION =
 export const metadata: Metadata = {
   title: TITLE,
   description: DESCRIPTION,
-  alternates: { canonical: "https://sporive.vercel.app/login" },
+  alternates: { canonical: "https://sporive.saka2931.jp/login" },
   // ログイン不要でアクセスできる公開ページのため、検索経由で直接たどり着けるようにする
   robots: { index: true, follow: true, noarchive: true },
   openGraph: {
     title: TITLE,
     description: DESCRIPTION,
-    url: "https://sporive.vercel.app/login",
+    url: "https://sporive.saka2931.jp/login",
     siteName: "Sporive",
     locale: "ja_JP",
     type: "website",
