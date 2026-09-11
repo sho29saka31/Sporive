@@ -6,7 +6,6 @@ import QRCode from "qrcode";
 import { isSmartphone } from "@/lib/device";
 import { isLockdownActive } from "@/lib/maintenance";
 import MaintenanceNoticeBar from "@/components/MaintenanceNoticeBar";
-import { createClient } from "@/lib/supabase/server";
 
 const SITE_URL = "https://sporive.vercel.app/";
 
@@ -113,8 +112,7 @@ export default async function LandingPage() {
   const forceMobilePreview =
     (await cookies()).get("force-mobile-preview")?.value === "1";
   const canUseButtons = isSmartphone(userAgent) || forceMobilePreview;
-  const supabase = await createClient();
-  const isLockdown = await isLockdownActive(supabase);
+  const isLockdown = await isLockdownActive();
 
   const qrDataUrl = canUseButtons
     ? null

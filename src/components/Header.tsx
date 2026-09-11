@@ -13,9 +13,15 @@ export default async function Header() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  const hasUnreadAnnouncement = user
-    ? (await getUnreadAnnouncements(supabase, user.id)).length > 0
-    : false;
+  let hasUnreadAnnouncement = false;
+  if (user) {
+    const { data: reads } = await supabase
+      .from("announcement_reads")
+      .select("announcement_id")
+      .eq("user_id", user.id);
+    const readIds = new Set((reads ?? []).map((r) => r.announcement_id));
+    hasUnreadAnnouncement = (await getUnreadAnnouncements(readIds)).length > 0;
+  }
 
   return (
     <header className="fixed inset-x-0 top-0 z-50 h-header bg-navy-700 text-white shadow-md">

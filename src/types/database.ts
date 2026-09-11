@@ -303,43 +303,6 @@ export interface Database {
         }>;
         Relationships: [];
       };
-      site_announcements: {
-        Row: {
-          id: string;
-          title: string;
-          body: string;
-          level: "info" | "notice" | "warning";
-          blocked_pages: string[];
-          is_active: boolean;
-          created_by: string | null;
-          created_at: string;
-          published_at: string;
-          scheduled_at: string | null;
-          notice_code: string;
-        };
-        Insert: {
-          id?: string;
-          title: string;
-          body: string;
-          level: "info" | "notice" | "warning";
-          blocked_pages?: string[];
-          is_active?: boolean;
-          created_by?: string | null;
-          published_at?: string;
-          scheduled_at?: string | null;
-          notice_code?: string;
-        };
-        Update: Partial<{
-          title: string;
-          body: string;
-          level: "info" | "notice" | "warning";
-          blocked_pages: string[];
-          is_active: boolean;
-          published_at: string;
-          scheduled_at: string | null;
-        }>;
-        Relationships: [];
-      };
       announcement_reads: {
         Row: {
           user_id: string;
@@ -351,28 +314,6 @@ export interface Database {
           announcement_id: string;
         };
         Update: Record<string, never>;
-        Relationships: [];
-      };
-      feature_flags: {
-        Row: {
-          key: string;
-          enabled: boolean;
-          description: string;
-          updated_by: string | null;
-          updated_at: string;
-        };
-        Insert: {
-          key: string;
-          enabled?: boolean;
-          description: string;
-          updated_by?: string | null;
-        };
-        Update: Partial<{
-          enabled: boolean;
-          description: string;
-          updated_by: string | null;
-          updated_at: string;
-        }>;
         Relationships: [];
       };
       ai_proposal_logs: {

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/server";
+import { getAllAnnouncements } from "@/lib/site-announcements";
 import AnnouncementList, {
   type AnnouncementItem,
 } from "@/components/settings/AnnouncementList";
@@ -52,32 +53,22 @@ export default async function NotificationHistoryPage({
 
   let announcements: AnnouncementItem[] = [];
   if (activeTab === "announcements") {
-    const [{ data: siteAnnouncements }, { data: reads }] = await Promise.all([
-      supabase
-        .from("site_announcements")
-        .select("id, notice_code, title, body, level, scheduled_at")
-        .eq("is_active", true)
-        .order("published_at", { ascending: false }),
+    const [siteAnnouncements, { data: reads }] = await Promise.all([
+      getAllAnnouncements(),
       supabase
         .from("announcement_reads")
         .select("announcement_id")
         .eq("user_id", user!.id),
     ]);
 
-    const now = new Date().getTime();
     const readIds = new Set((reads ?? []).map((r) => r.announcement_id));
-    announcements = (siteAnnouncements ?? [])
-      // 予約公開時刻に達していないものは利用者側には見せない
-      // （タイムスタンプの書式差異を避けるためDateに変換してから比較する）
-      .filter((a) => !a.scheduled_at || new Date(a.scheduled_at).getTime() <= now)
-      .map((a) => ({
-        id: a.id,
-        noticeCode: a.notice_code,
-        title: a.title,
-        body: a.body,
-        level: a.level,
-        isRead: readIds.has(a.id),
-      }));
+    announcements = siteAnnouncements.map((a) => ({
+      id: a.id,
+      title: a.title,
+      body: a.body,
+      level: a.level,
+      isRead: readIds.has(a.id),
+    }));
   }
 
   return (

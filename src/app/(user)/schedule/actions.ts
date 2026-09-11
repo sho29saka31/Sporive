@@ -107,7 +107,6 @@ export async function saveTrainingPlan(
   // Google APIとの通信は数秒かかることがあるため、after()でレスポンス返却後に実行し、
   // 保存ボタンの待ち時間を短くする（同期失敗は計画保存の成功を妨げない）。
   const calendarIntegrationEnabled = await getFeatureFlag(
-    supabase,
     "calendar_integration"
   );
   const { data: calendarToken } = calendarIntegrationEnabled

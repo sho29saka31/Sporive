@@ -4,7 +4,6 @@ import type { Database } from "@/types/database";
 import { getJstMinutesOfDay } from "@/lib/week";
 import { isMaintenanceLockdownTime } from "@/lib/maintenance";
 import { isEmergencyMaintenanceActive } from "@/lib/feature-flags";
-import { getBlockingAnnouncement } from "@/lib/site-announcements";
 
 const PUBLIC_PATHS = ["/login", "/signup", "/reset-password"];
 /** MFA（TOTP）を有効にしている利用者が、ログイン後に認証コード入力を求められる画面 */
@@ -145,7 +144,7 @@ export async function updateSession(request: NextRequest) {
     !requestPath.startsWith("/auth/") &&
     !requestPath.startsWith("/admin") &&
     !requestPath.startsWith("/api/") &&
-    (await isEmergencyMaintenanceActive(supabase))
+    (await isEmergencyMaintenanceActive())
   ) {
     const url = request.nextUrl.clone();
     url.pathname = "/";
@@ -283,18 +282,6 @@ export async function updateSession(request: NextRequest) {
         return applyMobilePreviewParam(request, NextResponse.redirect(url));
       }
       supabaseResponse.cookies.set(ONBOARDED_COOKIE, user.id, { path: "/" });
-    }
-
-    // 警告レベルのお知らせによるページブロック（要件定義書 §10-3）。
-    // URLはそのままに/blockedの内容を返す（redirectだとブロック対象ページ同士で
-    // ループしうるため、rewriteでmiddlewareの再実行を避ける）
-    const blocking = await getBlockingAnnouncement(supabase, pathname);
-    if (blocking) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/blocked";
-      url.search = "";
-      url.searchParams.set("title", blocking.title);
-      return applyMobilePreviewParam(request, NextResponse.rewrite(url));
     }
   }
 

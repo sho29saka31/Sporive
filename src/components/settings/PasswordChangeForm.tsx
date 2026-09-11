@@ -26,6 +26,7 @@ export default function PasswordChangeForm({ email }: { email: string }) {
   const [resetError, setResetError] = useState<string | null>(null);
 
   const needsCurrent = state?.needsCurrentPassword === true;
+  const needsReauthOtp = state?.needsReauthOtp === true;
 
   async function handleSendReset() {
     setResetSending(true);
@@ -103,6 +104,24 @@ export default function PasswordChangeForm({ email }: { email: string }) {
       />
       {confirmPassword.length > 0 && confirmPassword !== newPassword && (
         <p className="text-xs text-accent-coral">パスワードが一致しません。</p>
+      )}
+      {needsReauthOtp && (
+        <div>
+          <label htmlFor="password-reauth-nonce" className="text-xs font-medium text-navy-500">
+            確認コード
+          </label>
+          <input
+            id="password-reauth-nonce"
+            name="nonce"
+            type="text"
+            inputMode="numeric"
+            maxLength={8}
+            autoComplete="one-time-code"
+            required
+            className="mt-1 w-full rounded-lg border border-navy-200 px-3 py-2 text-sm tracking-widest focus:border-navy-500 focus:outline-none"
+          />
+          <p className="mt-1 text-xs text-navy-300">登録済みのメールアドレスに送信した確認コードを入力してください。</p>
+        </div>
       )}
       {state?.error && <p className="text-xs text-accent-coral">{state.error}</p>}
       {state?.success && (

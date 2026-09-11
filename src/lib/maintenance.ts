@@ -1,5 +1,3 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "@/types/database";
 import { getJstMinutesOfDay } from "@/lib/week";
 import { isEmergencyMaintenanceActive } from "@/lib/feature-flags";
 
@@ -42,9 +40,7 @@ export function getMaintenanceState(): {
  * フラグを含む）と一致させる必要があるため、時刻のみで判定するgetMaintenanceState()
  * とは別に、DB照会を伴うこちらを使う。
  */
-export async function isLockdownActive(
-  supabase: SupabaseClient<Database>
-): Promise<boolean> {
+export async function isLockdownActive(): Promise<boolean> {
   if (isMaintenanceLockdownTime(getJstMinutesOfDay())) return true;
-  return isEmergencyMaintenanceActive(supabase);
+  return isEmergencyMaintenanceActive();
 }

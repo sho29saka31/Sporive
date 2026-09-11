@@ -87,6 +87,12 @@ export type ActionState = {
   success?: string;
   /** 現在のパスワード入力が必要な場合にtrue（既存パスワードありのアカウント） */
   needsCurrentPassword?: boolean;
+  /**
+   * Supabase側の「安全なパスワード変更」設定により、セッションが最近の
+   * ログイン（24時間以内）とみなされず再認証が必要な場合にtrue。
+   * 確認コードをメールへ送信済みで、入力欄を表示する必要があることを示す。
+   */
+  needsReauthOtp?: boolean;
 } | null;
 
 const CURRENT_YEAR = new Date().getFullYear();
@@ -140,7 +146,7 @@ export async function updateProfile(
   // Gemini APIで要望を簡潔な文章に整形する。API障害時・機能フラグ停止時も
   // 更新自体は止めず、入力された文章をそのまま保存してフォールバックする。
   let goal = goalInput;
-  const flags = await getFeatureFlags(supabase, ["ai_master", "ai_goal_summarize"]);
+  const flags = await getFeatureFlags(["ai_master", "ai_goal_summarize"]);
   if (flags.ai_master && flags.ai_goal_summarize) {
     try {
       goal = await summarizeGoal(goalInput);
@@ -167,12 +173,19 @@ export async function updateProfile(
   return { success: "プロフィールを更新しました。" };
 }
 
-/** メールアドレスの変更（Supabaseから確認メールが送信される） */
+/**
+ * メールアドレスの変更。
+ * Supabase側の「安全なメール変更」設定が有効なため、旧メールアドレス・
+ * 新メールアドレスの両方に確認メールが送信され、両方のリンクをクリックする
+ * まで変更は反映されない（無効な場合は新メールアドレスのみで完了する）。
+ */
 export async function updateEmail(
-  _prevState: ActionState,
+  prevState: ActionState,
   formData: FormData
 ): Promise<ActionState> {
   const email = String(formData.get("email") ?? "").trim();
+  const nonce = String(formData.get("nonce") ?? "").trim();
+  const wasAwaitingReauthOtp = prevState?.needsReauthOtp === true;
 
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return { error: "有効なメールアドレスを入力してください。" };
@@ -180,7 +193,7 @@ export async function updateEmail(
 
   const supabase = await createClient();
   const { error } = await supabase.auth.updateUser(
-    { email },
+    { email, ...(nonce ? { nonce } : {}) },
     {
       emailRedirectTo: `${await getOrigin()}/auth/callback?next=${encodeURIComponent(
         "/settings/account/security?email_changed=1"
@@ -189,6 +202,22 @@ export async function updateEmail(
   );
 
   if (error) {
+    if (error.code === "reauthentication_needed") {
+      // 安全なメール変更：セッションが「最近のログイン」とみなされないため、
+      // 登録済みのメールアドレスへ確認コードを送り、入力を求める。
+      const { error: reauthError } = await supabase.auth.reauthenticate();
+      if (reauthError) {
+        return {
+          error: "確認コードの送信に失敗しました。時間をおいて再度お試しください。",
+        };
+      }
+      return {
+        needsReauthOtp: true,
+        error: wasAwaitingReauthOtp
+          ? "確認コードが正しくないか、有効期限が切れています。新しいコードを送信しました。"
+          : "セキュリティのため、現在のメールアドレスに確認コードを送信しました。コードを入力してください。",
+      };
+    }
     if (error.code === "email_exists") {
       return { error: "このメールアドレスは既に使用されています。" };
     }
@@ -202,7 +231,7 @@ export async function updateEmail(
 
   return {
     success:
-      "確認メールを送信しました。新しいメールアドレス宛のメールを確認し、リンクをクリックして変更を完了してください。",
+      "確認メールを送信しました。現在のメールアドレス・新しいメールアドレスの両方に届くメール内のリンクをそれぞれクリックし、変更を完了してください。",
   };
 }
 
@@ -218,19 +247,29 @@ export async function updateEmail(
  * これにより、ダッシュボード作成アカウントでもサイト画面からパスワードを変更できる。
  */
 export async function changePassword(
-  _prevState: ActionState,
+  prevState: ActionState,
   formData: FormData
 ): Promise<ActionState> {
   const currentPassword = String(formData.get("current_password") ?? "");
   const newPassword = String(formData.get("new_password") ?? "");
   const confirmPassword = String(formData.get("confirm_password") ?? "");
+  const nonce = String(formData.get("nonce") ?? "").trim();
+  const wasAwaitingReauthOtp = prevState?.needsReauthOtp === true;
 
   const validationError = validatePassword(newPassword);
   if (validationError) {
-    return { error: validationError };
+    return {
+      error: validationError,
+      needsCurrentPassword: prevState?.needsCurrentPassword,
+      needsReauthOtp: wasAwaitingReauthOtp,
+    };
   }
   if (newPassword !== confirmPassword) {
-    return { error: "新しいパスワードが一致しません。" };
+    return {
+      error: "新しいパスワードが一致しません。",
+      needsCurrentPassword: prevState?.needsCurrentPassword,
+      needsReauthOtp: wasAwaitingReauthOtp,
+    };
   }
 
   const supabase = await createClient();
@@ -245,13 +284,37 @@ export async function changePassword(
   const { error } = await supabase.auth.updateUser({
     password: newPassword,
     ...(currentPassword ? { current_password: currentPassword } : {}),
+    ...(nonce ? { nonce } : {}),
     data: { password_set: true },
   });
 
   if (error) {
+    if (error.code === "reauthentication_needed") {
+      // 安全なパスワード変更：セッションが「最近のログイン」(24時間以内)と
+      // みなされないため、current_passwordの検証とは別に、登録済みの
+      // メールアドレスへ確認コードを送り、入力を求める。
+      const { error: reauthError } = await supabase.auth.reauthenticate();
+      if (reauthError) {
+        return {
+          error: "確認コードの送信に失敗しました。時間をおいて再度お試しください。",
+          needsCurrentPassword: Boolean(currentPassword),
+        };
+      }
+      return {
+        needsCurrentPassword: Boolean(currentPassword),
+        needsReauthOtp: true,
+        error: wasAwaitingReauthOtp
+          ? "確認コードが正しくないか、有効期限が切れています。新しいコードを送信しました。"
+          : "セキュリティのため、登録済みのメールアドレスに確認コードを送信しました。コードを入力してください。",
+      };
+    }
     if (error.code === "weak_password") {
       const reasons = isAuthWeakPasswordError(error) ? error.reasons : undefined;
-      return { error: describeWeakPasswordError(reasons) };
+      return {
+        error: describeWeakPasswordError(reasons),
+        needsCurrentPassword: Boolean(currentPassword),
+        needsReauthOtp: wasAwaitingReauthOtp,
+      };
     }
     if (error.code === "current_password_required") {
       // 既存パスワードありのアカウント。現在のパスワード入力欄を出して再試行させる。
@@ -264,6 +327,7 @@ export async function changePassword(
     if (error.code === "same_password") {
       return {
         needsCurrentPassword: Boolean(currentPassword),
+        needsReauthOtp: wasAwaitingReauthOtp,
         error: "新しいパスワードは現在のパスワードと異なるものにしてください。",
       };
     }
@@ -274,11 +338,14 @@ export async function changePassword(
     ) {
       return {
         needsCurrentPassword: true,
+        needsReauthOtp: wasAwaitingReauthOtp,
         error: "現在のパスワードが正しくありません。",
       };
     }
     return {
       error: "パスワードの変更に失敗しました。時間をおいて再度お試しください。",
+      needsCurrentPassword: Boolean(currentPassword),
+      needsReauthOtp: wasAwaitingReauthOtp,
     };
   }
 
