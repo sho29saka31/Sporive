@@ -66,11 +66,11 @@ export default async function SignupPage() {
       <GoogleAuthButton label="Googleで始める" consentPrompt />
       <p className="text-center text-xs text-navy-300">
         登録することで、
-        <Link href="/terms" className="underline">
+        <Link href="https://service.saka2931.jp/terms" className="underline">
           利用規約
         </Link>
         および
-        <Link href="/privacy" className="underline">
+        <Link href="https://service.saka2931.jp/privacy" className="underline">
           プライバシーポリシー
         </Link>
         に同意したものとみなされます。

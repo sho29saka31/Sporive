@@ -5,7 +5,9 @@ import { useEffect } from "react";
 
 declare global {
   interface Window {
-    dataLayer?: Record<string, unknown>[];
+    // gtag()の標準実装(lib/consent.ts)はdataLayer.push(arguments)の形で
+    // 配列そのものをpushするため、要素型はRecord<string, unknown>ではなくunknownとする。
+    dataLayer?: unknown[];
   }
 }
 
