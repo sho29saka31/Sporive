@@ -64,13 +64,12 @@
 | グラフ | [Recharts](https://recharts.org/) | 進捗・管理画面のダッシュボード表示 |
 | ホスティング | [Vercel](https://vercel.com/) | 無料プランで運用 |
 
-技術選定の詳細・比較検討は [docs/development-plan.md §2](docs/development-plan.md) を参照してください。
+技術選定の詳細・比較検討は [GitHub Wiki: Development Plan](https://github.com/sho29saka31/Sporive/wiki/Development-Plan) を参照してください。
 
 ## ディレクトリ構成
 
 ```
 sporive/
-├── docs/                    # 要件定義書・開発プラン・セットアップ手順
 ├── supabase/migrations/     # SQLマイグレーション（スキーマ管理）
 ├── public/                  # PWAマニフェスト・アイコン・Service Worker
 └── src/
@@ -92,21 +91,23 @@ sporive/
 
 ## ドキュメント
 
+詳細ドキュメントは [GitHub Wiki](https://github.com/sho29saka31/Sporive/wiki) に移行しました。
+
 | ドキュメント | 内容 |
 |---|---|
-| [docs/requirements.md](docs/requirements.md) | 要件定義書（仕様の一次情報） |
-| [docs/development-plan.md](docs/development-plan.md) | フェーズ分割された開発プラン・実装時の判断メモ |
-| [docs/setup.md](docs/setup.md) | Supabase / Google Cloud 等、外部サービスのセットアップ手順 |
+| [Requirements](https://github.com/sho29saka31/Sporive/wiki/Requirements) | 要件定義書（仕様の一次情報） |
+| [Development Plan](https://github.com/sho29saka31/Sporive/wiki/Development-Plan) | フェーズ分割された開発プラン・実装時の判断メモ |
+| [Setup](https://github.com/sho29saka31/Sporive/wiki/Setup) | Supabase / Google Cloud 等、外部サービスのセットアップ手順 |
 
 ## 開発
 
 ```bash
 npm install
-cp .env.local.example .env.local   # Supabase等の値を設定（docs/setup.md 参照）
+cp .env.local.example .env.local   # Supabase等の値を設定（Wiki: Setup 参照）
 npm run dev    # http://localhost:3000
 ```
 
-動作にはSupabase / Google Cloud のセットアップが必要です。手順は [docs/setup.md](docs/setup.md) を参照してください。
+動作にはSupabase / Google Cloud のセットアップが必要です。手順は [Wiki: Setup](https://github.com/sho29saka31/Sporive/wiki/Setup) を参照してください。
 
 利用者画面はスマホ専用のため、ブラウザの開発者ツールでデバイスエミュレーション（スマホUA）を有効にして確認してください。管理者画面（`/admin`）はPC・タブレット表示で確認してください。
 

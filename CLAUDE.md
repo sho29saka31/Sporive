@@ -9,9 +9,11 @@ AIパーソナライズトレーニング計画を提案するPWA。スマホ専
 
 ## 必読ドキュメント
 
-- `docs/requirements.md` — 要件定義書（仕様の一次情報。§15更新履歴が最新の決定）
-- `docs/development-plan.md` — フェーズ分割された開発プラン。実装はこのフェーズ順に進める
-- `docs/setup.md` — 外部サービス（Supabase / Google Cloud / Turnstile / Resend）のセットアップ手順（ユーザー作業）
+要件定義書・開発プラン・セットアップ手順は [GitHub Wiki](https://github.com/sho29saka31/Sporive/wiki) に移行済み（リポジトリ内には存在しない）。
+
+- [Requirements](https://github.com/sho29saka31/Sporive/wiki/Requirements) — 要件定義書（仕様の一次情報。更新履歴が最新の決定）
+- [Development Plan](https://github.com/sho29saka31/Sporive/wiki/Development-Plan) — フェーズ分割された開発プラン。実装はこのフェーズ順に進める
+- [Setup](https://github.com/sho29saka31/Sporive/wiki/Setup) — 外部サービス（Supabase / Google Cloud / Turnstile / Resend）のセットアップ手順（ユーザー作業）
 
 ## 重要な決定事項
 
@@ -29,7 +31,5 @@ AIパーソナライズトレーニング計画を提案するPWA。スマホ専
 
 ## プロジェクトスキル（.claude/skills/）
 
-- `update-teigisho` — 要件定義書（docs/requirements.md）の更新。使用時は必ず§15更新履歴に追記する
-- `update-md` — 既存mdファイルの更新。対象が要件定義書の場合は update-teigisho の手順に従う
-- `check-plan` — 開発プランの各Phaseに対する進捗状況の確認・表示（表示のみ、変更なし）
+- `update-md` — 既存mdファイル（README.md・CLAUDE.md等）の更新
 - `deploy-merge` — Claude が作成した PR のマージ。CI・コンフリクト等のマージ前チェックを行い、マージ後は Vercel デプロイ状態を確認
