@@ -37,10 +37,8 @@ Sporiveの開発・運用に必要な、外部サービス側の設定手順を�
 ## 3. Google Cloud Console の設定
 
 1. Google Cloud Console でプロジェクトを作成（または既存を利用）
-2. `API とサービス → 有効な API` で **Google Calendar API** を有効化
-3. `API とサービス → OAuth 同意画面` を設定
+2. `API とサービス → OAuth 同意画面` を設定
    - User Type：外部（External）
-   - 公開ステータス：**テスト中（Testing）のままでOK**（試験運用はテストユーザーのみで運用するため、Google審査は不要）
    - **アプリのホームページ**：`https://sporive.vercel.app`
    - **プライバシーポリシーへのリンク**：`https://sporive.vercel.app/privacy`
    - **利用規約へのリンク**：`https://sporive.vercel.app/terms`
@@ -48,9 +46,8 @@ Sporiveの開発・運用に必要な、外部サービス側の設定手順を�
      - `.../auth/userinfo.email`
      - `.../auth/userinfo.profile`
      - `openid`
-     - `https://www.googleapis.com/auth/calendar`（検索欄に「calendar」と入力して探す。フルアクセス版を選ぶ。制限付きスコープの扱いになるが、テスト中ステータスなら審査不要）
-   - テストユーザーに自分（と試験運用の協力者）のGoogleアカウントを追加
-4. `API とサービス → 認証情報` で OAuth クライアントID（ウェブアプリケーション）を作成
+     - いずれもGoogleの分類上「非センシティブ」のため、公開ステータスをテスト中・本番のどちらにしてもGoogleの審査は不要
+3. `API とサービス → 認証情報` で OAuth クライアントID（ウェブアプリケーション）を作成
    - **承認済みのJavaScript生成元**：
      ```
      https://sporive.vercel.app
@@ -82,7 +79,7 @@ Vercel にデプロイする場合は、Vercel プロジェクトの `Settings �
 
 ## 6. 動作確認の流れ
 
-1. `/signup` にアクセスし「Googleで始める」→ Google の同意画面（カレンダーへのアクセス許可を含む）→ 自動的に `/signup/set-password` へ
+1. `/signup` にアクセスし「Googleで始める」→ Google の同意画面 → 自動的に `/signup/set-password` へ
 2. パスワードを設定（8文字以上、英大文字・小文字・数字・記号をそれぞれ1文字以上含む）→ `/onboarding/profile` で表示名・生年・目標を登録 → `/home` へ
 3. 一度ログアウトし、`/login` から「Googleでログイン」または、設定したメール＋パスワードでログインできることを確認
 
@@ -91,10 +88,6 @@ Vercel にデプロイする場合は、Vercel プロジェクトの `Settings �
 - **Supabaseのダッシュボード自体が開けない／ログイン状態がおかしい**：ブラウザのCookieだけでなくlocalStorageにセッション情報が残っていることが多い。ブラウザの「サイトデータを削除（Clear site data）」で一括削除するか、シークレット/プライベートウィンドウで開く
 - **Google同意後にlocalhostへ飛ばされて進めない**：上記「2-6. URL Configuration」のSite URL / Redirect URLsが未設定・誤りの可能性が高い
 - **`weak_password` エラー**：Supabaseの Password Requirements とアプリ側のバリデーションが一致していない可能性がある（現在は一致させてある）
-
-### 補足
-
-- カレンダーの `auth/calendar` スコープは Google 上「制限付きスコープ」だが、OAuth同意画面が **テスト中** のままであれば、テストユーザー登録された100アカウントまでは審査なしで利用できる。一般公開する場合はGoogleの審査（CASA）が必要になる可能性があり、試験運用の規模によっては要件定義書 第14章「今後の検討事項」に追記する
 
 ---
 

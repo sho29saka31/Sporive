@@ -6,12 +6,6 @@ import type { PlanItemDraft } from "@/lib/gemini";
 
 export const metadata: Metadata = { title: "スケジュール編集" };
 
-// このページから呼ばれるsaveTrainingPlan（Server Action）は、保存後に
-// syncPlanToCalendar（アクセストークン取得＋既存イベント削除＋新規イベント作成で
-// 最大十数回の逐次外部HTTPリクエスト）をafter()内で実行することがあり、
-// Vercel無料プランの既定タイムアウト（10秒）では不足しうる。
-// Server Actionのmaxduration設定は呼び出し元のpage.tsx/layout.tsxからのみ
-// 有効なため（actions.ts等の"use server"ファイルへの直接指定は無効）、ここで指定する
 export const maxDuration = 45;
 
 /** スケジュール編集画面：AI提案 or 手動でのトレーニング計画作成・編集（requirements.md §5, §6, §9-2） */

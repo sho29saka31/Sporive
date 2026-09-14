@@ -233,13 +233,15 @@ Next.js プロジェクトの土台と、全画面共通の骨格を作る。
 
 **ユーザー作業**：VAPID鍵の生成（コマンド提供）、Supabase VaultへCRON_SECRETの登録（`select vault.create_secret(...)`）
 
-### 📅 Phase 6：Google カレンダー連携（デモ版・最後）✅完了
+### 📅 Phase 6：Google カレンダー連携（デモ版・最後）✅完了 → 🗑️ 2026-09-14廃止
 
 - OAuth refresh token の保存（Phase 1 で取得済みの許可を利用）
 - freebusy API で空き時間を取得し、AI提案のプロンプトに反映
 - 計画確定時にトレーニング予定をカレンダーへ自動追加
 
 **ユーザー作業**：Google Cloud Console で Calendar API 有効化
+
+> **2026-09-14廃止**：未検証のOAuthアプリが制限付きスコープ（`.../auth/calendar`）を要求していたため、Google Advanced Protection Program加入ユーザーがGoogleサインイン自体をブロックされる実障害（エラー400: policy_enforced）が発生した。カレンダー連携機能を全廃し、週間予定の確認は既存のスケジュール画面（`/schedule`）でのアプリ内表示に一本化した。詳細は要件定義書 第15章の該当エントリを参照。
 
 ---
 

@@ -41,26 +41,6 @@ export interface Database {
         }>;
         Relationships: [];
       };
-      calendar_tokens: {
-        Row: {
-          user_id: string;
-          refresh_token: string;
-          scope: string;
-          updated_at: string;
-        };
-        Insert: {
-          user_id: string;
-          refresh_token: string;
-          scope: string;
-          updated_at?: string;
-        };
-        Update: Partial<{
-          refresh_token: string;
-          scope: string;
-          updated_at: string;
-        }>;
-        Relationships: [];
-      };
       training_plans: {
         Row: {
           id: string;
