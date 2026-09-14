@@ -4,7 +4,7 @@
 
 **AIがパーソナライズしたトレーニング計画を提案する、スマホ専用のフィットネスPWA。**
 
-若者からシニアまで幅広い層を対象に、Google Gemini APIによるAI提案・進捗記録・Web Push通知・Googleカレンダー連携・負債管理（未達成分のリカバリー）など、継続的なトレーニング習慣を支える機能を、Next.js（フロント＋API）と Supabase（DB＋認証）を中心とした構成で、**すべて無料プランの範囲内**で実現しています。
+若者からシニアまで幅広い層を対象に、Google Gemini APIによるAI提案・進捗記録・Web Push通知・負債管理（未達成分のリカバリー）など、継続的なトレーニング習慣を支える機能を、Next.js（フロント＋API）と Supabase（DB＋認証）を中心とした構成で、**すべて無料プランの範囲内**で実現しています。
 
 [![Next.js](https://img.shields.io/badge/Next.js-16-000000?logo=nextdotjs&logoColor=white)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
@@ -36,9 +36,9 @@
 
 ### 利用者向け
 
-- 🤖 **AIパーソナライズ提案** — 目標・希望頻度・カレンダーの空き時間から、Gemini APIが週間トレーニング計画をJSON生成。年齢層に応じて強度を調整（シニアは低強度中心）
+- 🤖 **AIパーソナライズ提案** — 目標・希望頻度から、Gemini APIが週間トレーニング計画をJSON生成。年齢層に応じて強度を調整（シニアは低強度中心）
 - ✅ **運動強度の妥当性検証** — AI提案・手動計画の両方に、年齢層別上限・週あたり増加率上限のルールベースチェックを適用し、判定理由を明示
-- 📅 **スケジュール管理・カレンダー連携** — 週間予定の一覧・完了状態表示、Googleカレンダーの空き時間を考慮した提案と、確定後の自動追加
+- 📅 **スケジュール管理** — 週間予定の一覧・完了状態表示
 - 📊 **進捗記録** — セット数・重量・回数・トレーニング時間のログとグラフ表示
 - 🔥 **負債管理・連続達成記録** — 未達成分を「負債」として翌日に補填、AIによるリカバリー提案、ストリーク（連続達成日数）の表示
 - 🔔 **通知（Web Push）** — 当日予定・負債リマインダー・再エンゲージメント（3日以上未記録）・週次レポート（Gemini生成）を種別ごとに時刻・曜日単位でカスタマイズ可能。非通知時間帯・非通知曜日にも対応
@@ -48,7 +48,7 @@
 ### 管理者向け（PC・タブレット専用）
 
 - 📈 **アナリティクスダッシュボード** — DAU/WAU・リテンション、達成率・負債発生率・負債解消率、AI提案の分析（人気メニューなど）
-- ⚙️ **高度な設定**（`is_super_admin`限定） — サイト機能（AI提案・通知・カレンダー連携・負債管理など）の一括ON/OFFフラグ、緊急メンテナンスモード（お知らせの作成・管理はadacの管理画面に統合済み）
+- ⚙️ **高度な設定**（`is_super_admin`限定） — サイト機能（AI提案・通知・負債管理など）の一括ON/OFFフラグ、緊急メンテナンスモード（お知らせの作成・管理はadacの管理画面に統合済み）
 - 🛡 **定期メンテナンスモード** — 深夜帯に自動でクリーンアップジョブを実行し、その間は書き込みを停止
 
 ## 技術スタック
@@ -61,7 +61,6 @@
 | データベース / 認証 | [Supabase](https://supabase.com/)（PostgreSQL + Auth） | 全テーブルでRLS（行レベルセキュリティ）を有効化 |
 | AI | [Google Gemini API](https://ai.google.dev/) | 構造化出力（JSON）でトレーニング計画・週次レポートを生成 |
 | 通知 | Web Push（VAPID）+ Supabase pg_cron / pg_net | 10分間隔でSupabase内部から送信APIを呼び出し |
-| カレンダー連携 | Google Calendar API | freebusy取得・イベント自動作成 |
 | グラフ | [Recharts](https://recharts.org/) | 進捗・管理画面のダッシュボード表示 |
 | ホスティング | [Vercel](https://vercel.com/) | 無料プランで運用 |
 
@@ -79,16 +78,16 @@ sporive/
     │   ├── (auth)/          # ログイン・サインアップ・MFA・パスワード設定
     │   ├── (user)/          # 利用者画面（スマホ専用）
     │   │   ├── home/        # 今日のトレーニング実行
-    │   │   ├── schedule/    # 週間予定・カレンダー連携
+    │   │   ├── schedule/    # 週間予定
     │   │   ├── progress/    # 進捗ログ・ストリーク
     │   │   ├── debts/       # 負債管理
     │   │   ├── menu/        # その他機能一覧
     │   │   └── settings/    # 通知・アカウント設定
     │   ├── admin/           # 管理者画面（PC・タブレット専用）
     │   │   └── settings/    # 高度な設定（super-admin限定）
-    │   └── api/             # Route Handlers（AI提案・通知・カレンダー等）
+    │   └── api/             # Route Handlers（AI提案・通知等）
     ├── components/          # 共通UI
-    └── lib/                 # Supabase / Gemini / Push / Calendar 連携ロジック
+    └── lib/                 # Supabase / Gemini / Push 連携ロジック
 ```
 
 ## ドキュメント

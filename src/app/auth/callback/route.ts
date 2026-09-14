@@ -13,9 +13,6 @@ import { createClient } from "@/lib/supabase/server";
  *
  * ここはmiddlewareの認証画面リダイレクト判定の対象外のため、ログイン中の
  * ブラウザでメールリンクを開いても code が握りつぶされずに処理される。
- *
- * Google OAuthの場合はCalendar の provider refresh token が発行されていれば
- * calendar_tokens に保存する（Phase 6 で利用。再同意を避けるためここで確保しておく）。
  */
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
@@ -40,22 +37,6 @@ export async function GET(request: Request) {
 
   if (next) {
     return NextResponse.redirect(`${origin}${next}`);
-  }
-
-  const providerRefreshToken = (
-    data.session as unknown as { provider_refresh_token?: string }
-  ).provider_refresh_token;
-
-  if (providerRefreshToken) {
-    const { error: tokenError } = await supabase.from("calendar_tokens").upsert({
-      user_id: data.session.user.id,
-      refresh_token: providerRefreshToken,
-      scope: "https://www.googleapis.com/auth/calendar",
-      updated_at: new Date().toISOString(),
-    });
-    if (tokenError) {
-      console.error("Failed to save calendar refresh token", tokenError);
-    }
   }
 
   return NextResponse.redirect(`${origin}/home`);

@@ -179,19 +179,11 @@ export async function generateWeeklyPlan(params: {
   goal: string;
   gender?: GenderType | null;
   weeklyFrequency: number;
-  /** Googleカレンダーの忙しい時間帯の要約（Phase 6。連携済みの場合のみ） */
-  calendarContext?: string | null;
   /** 今回のAI提案に対する利用者からの自由記述の要望（任意） */
   requestText?: string | null;
 }): Promise<WeeklyPlanDraft> {
   const ai = getClient();
   const profileContext = buildProfileContext(params);
-
-  const calendarSection = params.calendarContext
-    ? "\n\n今週のGoogleカレンダーに登録されている予定（忙しい時間帯）:\n" +
-      params.calendarContext +
-      "\n予定が多く忙しい日はできるだけ避け、予定の少ない日にトレーニングを配置してください。"
-    : "";
 
   const requestSection = params.requestText
     ? "\n\n利用者からの今回の要望:\n" +
@@ -215,7 +207,6 @@ export async function generateWeeklyPlan(params: {
               "（有酸素運動など重量が不要な種目は weightKg を省略してよい）。" +
               "性別の情報がある場合は、一般的な体力特性を踏まえた種目選定・強度設定の参考にしてください。\n\n" +
               profileContext +
-              calendarSection +
               requestSection,
           },
         ],
