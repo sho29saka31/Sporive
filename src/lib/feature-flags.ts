@@ -16,7 +16,6 @@ export const FEATURE_FLAG_KEYS = [
   "intensity_check",
   "new_signup",
   "notifications",
-  "calendar_integration",
   "emergency_maintenance",
   "debt_management",
 ] as const;

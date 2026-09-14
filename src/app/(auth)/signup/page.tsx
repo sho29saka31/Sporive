@@ -30,7 +30,7 @@ export const metadata: Metadata = {
 
 /**
  * アカウント作成（requirements.md §4）。
- * Google OAuth のみで開始し、同意画面でカレンダーへのアクセス許可も求める。
+ * Google OAuth のみで開始する。
  * OAuth後のパスワード設定は /signup/set-password（middlewareが自動誘導）。
  */
 export default async function SignupPage() {
@@ -58,10 +58,10 @@ export default async function SignupPage() {
       <div>
         <h2 className="text-lg font-bold text-navy-800">新規登録</h2>
         <p className="mt-1 text-sm text-navy-400">
-          Googleアカウントで登録します。カレンダーへのアクセス許可もあわせて求められます。
+          Googleアカウントで登録します。
         </p>
       </div>
-      <GoogleAuthButton label="Googleで始める" consentPrompt />
+      <GoogleAuthButton label="Googleで始める" />
       <p className="text-center text-xs text-navy-300">
         登録することで、
         <Link href="https://service.saka2931.jp/terms" className="underline">

@@ -11,7 +11,7 @@ const SITE_URL = "https://sporive.saka2931.jp/";
 
 const TITLE = "Sporive — AIパーソナライズ・トレーニング計画アプリ";
 const DESCRIPTION =
-  "Sporiveは、あなたの目標・年齢・体力に合わせてAIが週間トレーニング計画を提案するフィットネスPWAです。進捗記録、達成通知、Googleカレンダー連携で、無理なく続けられるトレーニング習慣をサポートします。";
+  "Sporiveは、あなたの目標・年齢・体力に合わせてAIが週間トレーニング計画を提案するフィットネスPWAです。進捗記録・達成通知・週間スケジュール表示で、無理なく続けられるトレーニング習慣をサポートします。";
 
 export const metadata: Metadata = {
   title: TITLE,
@@ -50,9 +50,9 @@ const FEATURES = [
       "その日のトレーニング予定を指定した時刻にプッシュ通知でお知らせします。やり残しがあるときは、リマインドで取り返しをサポートします。",
   },
   {
-    title: "Googleカレンダー連携",
+    title: "週間スケジュール表示",
     description:
-      "カレンダーの予定を考慮し、空いている日を選んでAIが日程を提案します。確定した計画は自動でGoogleカレンダーに追加されます。",
+      "確定したトレーニング計画を曜日ごとに一覧表示。今日やるべきメニューがひと目でわかります。",
   },
   {
     title: "負債管理・ストリーク",
@@ -155,7 +155,7 @@ export default async function LandingPage() {
           </h1>
           <p className="mx-auto mt-4 max-w-2xl leading-relaxed text-navy-100">
             Sporive（スポライブ）は、目標・年齢・体力に合わせてAIが週間トレーニング計画を作成するフィットネスPWAです。
-            記録・通知・カレンダー連携で、無理なく続けられるトレーニング習慣をサポートします。
+            記録・通知・週間スケジュール表示で、無理なく続けられるトレーニング習慣をサポートします。
           </p>
           {isLockdown ? (
             <div className="mt-8 rounded-xl bg-white/10 px-6 py-4 text-sm leading-relaxed text-white">

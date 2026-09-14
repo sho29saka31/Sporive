@@ -3,19 +3,8 @@
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
-/**
- * Google OAuth ボタン。
- * カレンダー読み書きスコープを常に要求する（requirements.md §4, §6-2）。
- * consentPrompt=true の場合、初回サインアップ想定で必ず同意画面を表示させる
- * （オフラインアクセス＝refresh tokenの発行に必要）。
- */
-export default function GoogleAuthButton({
-  label,
-  consentPrompt = false,
-}: {
-  label: string;
-  consentPrompt?: boolean;
-}) {
+/** Google OAuth ボタン。基本的なプロフィール情報のみを要求する。 */
+export default function GoogleAuthButton({ label }: { label: string }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -29,11 +18,7 @@ export default function GoogleAuthButton({
         provider: "google",
         options: {
           redirectTo: `${window.location.origin}/auth/callback`,
-          scopes: "https://www.googleapis.com/auth/calendar",
-          queryParams: {
-            access_type: "offline",
-            prompt: consentPrompt ? "consent" : "select_account",
-          },
+          queryParams: { prompt: "select_account" },
         },
       });
 

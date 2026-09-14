@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { generateWeeklyPlan } from "@/lib/gemini";
-import { getWeekBusySummary } from "@/lib/calendar";
-import { getCurrentWeekStartDate } from "@/lib/week";
 import { getFeatureFlags } from "@/lib/feature-flags";
 
 // Vercel無料プランの既定タイムアウト（10秒）ではGeminiの構造化JSON生成が
@@ -23,11 +21,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "認証が必要です。" }, { status: 401 });
   }
 
-  const flags = await getFeatureFlags([
-    "ai_master",
-    "ai_weekly_proposal",
-    "calendar_integration",
-  ]);
+  const flags = await getFeatureFlags(["ai_master", "ai_weekly_proposal"]);
   if (!flags.ai_master || !flags.ai_weekly_proposal) {
     return NextResponse.json(
       { error: "現在AI提案機能は一時停止中です。時間をおいて再度お試しください。" },
@@ -72,34 +66,12 @@ export async function POST(request: Request) {
   }
   const requestText = rawRequestText || null;
 
-  // カレンダー連携済みなら今週の忙しい時間帯を取得してプロンプトに反映する。
-  // 取得に失敗しても提案自体は続行する（連携は補助情報のため）。
-  let calendarContext: string | null = null;
-  const { data: calendarToken } = flags.calendar_integration
-    ? await supabase
-        .from("calendar_tokens")
-        .select("refresh_token")
-        .eq("user_id", user.id)
-        .maybeSingle()
-    : { data: null };
-  if (calendarToken) {
-    try {
-      calendarContext = await getWeekBusySummary(
-        calendarToken.refresh_token,
-        getCurrentWeekStartDate()
-      );
-    } catch (error) {
-      console.error("Calendar freebusy fetch failed", error);
-    }
-  }
-
   try {
     const plan = await generateWeeklyPlan({
       birthYear: profile.birth_year,
       goal: profile.goal,
       gender: profile.gender,
       weeklyFrequency,
-      calendarContext,
       requestText,
     });
     return NextResponse.json({ plan });
