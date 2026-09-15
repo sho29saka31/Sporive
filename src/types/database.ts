@@ -330,6 +330,14 @@ export interface Database {
         };
         Returns: { plan_id: string | null; conflict: boolean }[];
       };
+      check_and_log_ai_request: {
+        Args: {
+          p_endpoint: string;
+          p_max_requests?: number;
+          p_window_minutes?: number;
+        };
+        Returns: boolean;
+      };
     };
   };
 }

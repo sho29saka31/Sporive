@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { generateWeeklyPlan } from "@/lib/gemini";
 import { getFeatureFlags } from "@/lib/feature-flags";
+import { checkAiRateLimit } from "@/lib/ai-rate-limit";
 
 // Vercel無料プランの既定タイムアウト（10秒）ではGeminiの構造化JSON生成が
 // 間に合わないことがあり、想定済みのエラーハンドリング（try/catch）を経由せず
@@ -19,6 +20,13 @@ export async function POST(request: Request) {
 
   if (!user) {
     return NextResponse.json({ error: "認証が必要です。" }, { status: 401 });
+  }
+
+  if (!(await checkAiRateLimit(supabase, "propose-plan"))) {
+    return NextResponse.json(
+      { error: "AI機能の利用回数が上限に達しました。しばらく時間をおいて再度お試しください。" },
+      { status: 429 }
+    );
   }
 
   const flags = await getFeatureFlags(["ai_master", "ai_weekly_proposal"]);
