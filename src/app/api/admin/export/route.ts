@@ -1,6 +1,6 @@
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getAdminStats, resolveDateRange } from "@/lib/admin-stats";
+import { requireAdminApiSession, AdminAuthError } from "@/lib/admin-auth";
 
 /**
  * 管理者向けデータエクスポート（CSV）。
@@ -48,21 +48,13 @@ function csvResponse(filename: string, csv: string): Response {
 }
 
 export async function GET(request: Request) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return new Response("unauthorized", { status: 401 });
-  }
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("is_admin, is_super_admin")
-    .eq("id", user.id)
-    .maybeSingle();
-  // is_super_admin は is_admin の上位権限（requirements.md §10-2）のため許可する
-  if (!profile?.is_admin && !profile?.is_super_admin) {
-    return new Response("forbidden", { status: 403 });
+  try {
+    await requireAdminApiSession();
+  } catch (err) {
+    if (err instanceof AdminAuthError) {
+      return new Response(err.message, { status: err.status });
+    }
+    return new Response("internal_error", { status: 500 });
   }
 
   const { searchParams } = new URL(request.url);
