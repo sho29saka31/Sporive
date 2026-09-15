@@ -2,8 +2,11 @@
 
 import { useActionState } from "react";
 import { updateProfile, type ActionState } from "@/app/(user)/settings/account/actions";
+import { getCurrentJstYear } from "@/lib/week";
 
-const CURRENT_YEAR = new Date().getFullYear();
+// サーバー側の検証(updateProfile)とJST基準で完全に一致させ、UTC大晦日の
+// 数時間だけ許容範囲がズレる不整合を避ける(コード監査で発見)
+const CURRENT_YEAR = getCurrentJstYear();
 const MIN_AGE = 13;
 
 const GOAL_MAX_LENGTH = 500;
