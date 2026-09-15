@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import Captcha, { isCaptchaEnabled, type CaptchaHandle } from "@/components/auth/Captcha";
 
 /** メールでログインリンクを送るフォーム（パスワードレスログイン） */
 export default function MagicLinkForm() {
@@ -10,9 +11,15 @@ export default function MagicLinkForm() {
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [captchaToken, setCaptchaToken] = useState("");
+  const captchaRef = useRef<CaptchaHandle>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (isCaptchaEnabled() && !captchaToken) {
+      setError("認証チェックを完了してください。");
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -21,8 +28,11 @@ export default function MagicLinkForm() {
         email,
         options: {
           emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent("/home")}`,
+          captchaToken,
         },
       });
+      captchaRef.current?.reset();
+      setCaptchaToken("");
       if (error) throw error;
       setSent(true);
     } catch {
@@ -63,10 +73,11 @@ export default function MagicLinkForm() {
         onChange={(e) => setEmail(e.target.value)}
         className="rounded-lg border border-navy-200 px-3 py-2 text-sm focus:border-navy-500 focus:outline-none"
       />
+      <Captcha ref={captchaRef} onVerify={setCaptchaToken} onExpire={() => setCaptchaToken("")} />
       {error && <p className="text-xs text-accent-coral">{error}</p>}
       <button
         type="submit"
-        disabled={loading}
+        disabled={loading || (isCaptchaEnabled() && !captchaToken)}
         className="rounded-lg border border-navy-200 px-4 py-2 text-xs font-medium text-navy-600 transition-colors hover:bg-navy-50 disabled:opacity-60"
       >
         {loading ? "送信中..." : "ログインリンクを送信"}

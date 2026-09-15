@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import Captcha, { isCaptchaEnabled, type CaptchaHandle } from "@/components/auth/Captcha";
 
 /** パスワード再設定メールの送信フォーム（requirements.md §4） */
 export default function ResetPasswordForm() {
@@ -9,9 +10,15 @@ export default function ResetPasswordForm() {
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [captchaToken, setCaptchaToken] = useState("");
+  const captchaRef = useRef<CaptchaHandle>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (isCaptchaEnabled() && !captchaToken) {
+      setError("認証チェックを完了してください。");
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -20,7 +27,10 @@ export default function ResetPasswordForm() {
         redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(
           "/signup/set-password?reason=reset"
         )}`,
+        captchaToken,
       });
+      captchaRef.current?.reset();
+      setCaptchaToken("");
       if (error) throw error;
       setSent(true);
     } catch {
@@ -54,10 +64,11 @@ export default function ResetPasswordForm() {
           className="mt-1 w-full rounded-lg border border-navy-200 px-3 py-2 text-sm focus:border-navy-500 focus:outline-none"
         />
       </div>
+      <Captcha ref={captchaRef} onVerify={setCaptchaToken} onExpire={() => setCaptchaToken("")} />
       {error && <p className="text-xs text-accent-coral">{error}</p>}
       <button
         type="submit"
-        disabled={loading}
+        disabled={loading || (isCaptchaEnabled() && !captchaToken)}
         className="mt-1 rounded-lg bg-navy-700 px-4 py-3 text-sm font-medium text-white transition-colors hover:bg-navy-600 disabled:opacity-60"
       >
         {loading ? "送信中..." : "パスワード再設定メールを送信"}
