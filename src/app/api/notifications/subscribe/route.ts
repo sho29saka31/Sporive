@@ -73,13 +73,24 @@ export async function POST(request: Request) {
   if (error) {
     // 家族共有端末等で、同じendpoint（ブラウザ購読）を既に別ユーザーが
     // 所有している場合、UPDATEポリシー（0021マイグレーション、
-    // auth.uid() = user_id）に阻まれてここに来る。この場合、ブラウザ側の
-    // endpointは端末側の事情で再取得が難しいため、拒否すると現在の利用者は
-    // 通知を有効化する手段がなくなってしまう。所有者の付け替えとして、
-    // service_roleで明示的に上書きする（前の所有者はこの端末を共有している
-    // 別アカウントであり、以後この端末宛の通知は現在ログイン中の利用者のもの
-    // として扱われる）
+    // auth.uid() = user_id）に阻まれてここに来る。
+    //
+    // endpointはリクエストボディ由来で完全にクライアント制御下にあるため、
+    // ここで無条件にservice_role（RLS完全バイパス）で上書きすると、他人の
+    // endpointを知り得た攻撃者がPOSTするだけでその購読の所有権を奪える
+    // (コード監査で発見)。対象行の現在の所有者を確認し、「行が存在しない」
+    // か「既に自分自身が所有者」の場合のみ付け替えを許可する。
     const admin = createAdminClient();
+    const { data: existing } = await admin
+      .from("push_subscriptions")
+      .select("user_id")
+      .eq("endpoint", endpoint)
+      .maybeSingle();
+
+    if (existing && existing.user_id !== user.id) {
+      return NextResponse.json({ error: "endpoint_owned_by_other_user" }, { status: 409 });
+    }
+
     const { error: reassignError } = await admin
       .from("push_subscriptions")
       .upsert(payload, { onConflict: "endpoint" });
