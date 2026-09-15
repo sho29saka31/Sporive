@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import PasswordField from "@/components/auth/PasswordField";
+import Captcha, { isCaptchaEnabled, type CaptchaHandle } from "@/components/auth/Captcha";
 
 /** メールアドレス＋パスワードでのログインフォーム（requirements.md §4） */
 export default function PasswordLoginForm() {
@@ -10,9 +11,15 @@ export default function PasswordLoginForm() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [captchaToken, setCaptchaToken] = useState("");
+  const captchaRef = useRef<CaptchaHandle>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (isCaptchaEnabled() && !captchaToken) {
+      setError("認証チェックを完了してください。");
+      return;
+    }
     setLoading(true);
     setError(null);
 
@@ -21,7 +28,10 @@ export default function PasswordLoginForm() {
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
+        options: { captchaToken },
       });
+      captchaRef.current?.reset();
+      setCaptchaToken("");
 
       if (error) {
         setError("メールアドレスまたはパスワードが正しくありません。");
@@ -60,10 +70,11 @@ export default function PasswordLoginForm() {
         onChange={setPassword}
         autoComplete="current-password"
       />
+      <Captcha ref={captchaRef} onVerify={setCaptchaToken} onExpire={() => setCaptchaToken("")} />
       {error && <p className="text-xs text-accent-coral">{error}</p>}
       <button
         type="submit"
-        disabled={loading}
+        disabled={loading || (isCaptchaEnabled() && !captchaToken)}
         className="mt-1 rounded-lg bg-navy-700 px-4 py-3 text-sm font-medium text-white transition-colors hover:bg-navy-600 disabled:opacity-60"
       >
         {loading ? "ログイン中..." : "ログイン"}
