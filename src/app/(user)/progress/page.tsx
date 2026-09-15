@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import ProgressCharts from "@/components/progress/ProgressChartsLoader";
 import type { DailyProgressPoint } from "@/components/progress/ProgressCharts";
-import { addDays, getTodayDate } from "@/lib/week";
+import { addDays, getCurrentWeekStartDate, getTodayDate } from "@/lib/week";
 
 export const metadata: Metadata = { title: "進捗" };
 
@@ -81,9 +81,15 @@ export default async function ProgressPage() {
     }))
     .sort((a, b) => a.date.localeCompare(b.date));
 
-  const distinctDaysLast7 = new Set(
+  // ホーム・スケジュール画面の「今週」は日曜始まりのカレンダー週で統一されて
+  // いるが、この指標だけは「今日から遡って7日間」のローリング窓になっており、
+  // 例えば日曜(週の初日)にこの画面を開くと、まだ今週は0日しか経過していない
+  // にもかかわらず先週後半の実績が「今週」としてカウントされてしまう不一致が
+  // あった(コード監査で発見)。他画面と同じ日曜始まりの週で計算する
+  const currentWeekStart = getCurrentWeekStartDate();
+  const distinctDaysThisWeek = new Set(
     (logs ?? [])
-      .filter((log) => log.performed_on >= daysAgo(6))
+      .filter((log) => log.performed_on >= currentWeekStart)
       .map((log) => log.performed_on)
   ).size;
 
@@ -111,7 +117,7 @@ export default async function ProgressPage() {
         <div className="rounded-xl bg-white p-4 shadow-sm">
           <p className="text-xs text-navy-400">今週のトレーニング日数</p>
           <p className="mt-1 text-2xl font-bold text-navy-800">
-            {distinctDaysLast7}
+            {distinctDaysThisWeek}
             <span className="text-sm font-normal text-navy-400">日</span>
           </p>
         </div>

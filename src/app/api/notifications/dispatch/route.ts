@@ -291,12 +291,20 @@ export async function POST(request: Request) {
           }
 
           if (profile) {
-            const weekAgo = addDays(today, -6);
+            // 週次レポートは日曜(WEEKLY_REPORT_DAY_OF_WEEK=0)固定で発火し、
+            // アプリの「週」は日曜始まりのため、「先週」はtoday-7(先週の日曜)
+            // からtoday-1(昨日、先週の土曜)までの7日間を指す。以前は
+            // 下限がtoday-6・上限なしになっており、先週の日曜(週の初日)が
+            // 集計から漏れ、代わりに今日(新しい週の当日分、まだ始まったばかり)
+            // が紛れ込む1日分のズレがあった(コード監査で発見)。
+            const weekStart = addDays(today, -7);
+            const weekEnd = addDays(today, -1);
             const { data: weekLogs, error: weekLogsError } = await admin
               .from("workout_logs")
               .select("performed_on, sets_done")
               .eq("user_id", target.user_id)
-              .gte("performed_on", weekAgo);
+              .gte("performed_on", weekStart)
+              .lte("performed_on", weekEnd);
 
             if (weekLogsError) {
               // 取得失敗時に「実施日数0・合計0セット」という事実と異なる

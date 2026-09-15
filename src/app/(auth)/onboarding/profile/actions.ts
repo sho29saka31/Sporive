@@ -4,9 +4,9 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { summarizeGoal } from "@/lib/gemini";
 import { getFeatureFlags } from "@/lib/feature-flags";
+import { getCurrentJstYear } from "@/lib/week";
 import type { GenderType } from "@/types/database";
 
-const CURRENT_YEAR = new Date().getFullYear();
 const MIN_AGE = 13;
 const GOAL_MAX_LENGTH = 500;
 const GENDER_TYPES: readonly GenderType[] = ["male", "female", "other"];
@@ -28,11 +28,17 @@ export async function createProfile(
   const goalInput = String(formData.get("goal") ?? "").trim();
   const genderInput = String(formData.get("gender") ?? "");
 
+  // new Date().getFullYear()はサーバーのローカル(Vercelは既定でUTC)基準の年
+  // になり、UTCの大晦日15:00〜23:59(JSTでは既に1月1日)の間、生年の許容範囲が
+  // 1年分ズレる。また、モジュールトップレベルで一度だけ評価すると、サーバー
+  // レス関数がウォームのまま年をまたいだ場合も古い年で比較され続けてしまう
+  // (コード監査で発見)。リクエストごとにJST基準で計算する
+  const currentYear = getCurrentJstYear();
   if (
     !displayName ||
     !Number.isInteger(birthYear) ||
-    birthYear < CURRENT_YEAR - 100 ||
-    birthYear > CURRENT_YEAR - MIN_AGE ||
+    birthYear < currentYear - 100 ||
+    birthYear > currentYear - MIN_AGE ||
     !goalInput ||
     goalInput.length > GOAL_MAX_LENGTH ||
     (genderInput && !isGenderType(genderInput))
