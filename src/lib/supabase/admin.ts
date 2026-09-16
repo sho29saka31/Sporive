@@ -11,7 +11,7 @@ export function createAdminClient() {
     throw new Error("SUPABASE_SERVICE_ROLE_KEY が設定されていません。");
   }
 
-  return createSupabaseClient<Database>(
+  return createSupabaseClient<Database, "sporive">(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     serviceRoleKey,
     {
