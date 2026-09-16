@@ -71,7 +71,7 @@ export function resolveDateRange(
 }
 
 export async function getAdminStats(
-  admin: SupabaseClient<Database>,
+  admin: SupabaseClient<Database, "sporive">,
   range: DateRange
 ): Promise<AdminStats> {
   const { from, to } = range;

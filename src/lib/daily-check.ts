@@ -17,7 +17,7 @@ import {
  * 同じ日に複数回呼ばれても二重登録しないよう冪等に作る。
  */
 export async function processDailyCheck(
-  admin: SupabaseClient<Database>,
+  admin: SupabaseClient<Database, "sporive">,
   options: { debtManagementEnabled: boolean }
 ): Promise<{ debtsCreated: number; streaksUpdated: number }> {
   const yesterday = getYesterdayDate();

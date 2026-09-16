@@ -12,16 +12,18 @@ const MENU = [
     description: "表示名・生年・性別・目標",
   },
   {
-    href: "/settings/account/security",
-    title: "セキュリティ",
-    description: "メールアドレス・パスワード・セッション・アカウント削除",
-  },
-  {
     href: "/settings/account/notifications",
     title: "通知",
     description: "プッシュ通知の購読・当日予定通知・負債リマインダー",
   },
 ];
+
+/**
+ * ログイン・メールアドレス・パスワード・MFA・パスキー・デバイス管理・
+ * アカウント削除はauth.saka2931.jpに一元化されているため、Sporive自身の
+ * メニューには含めず、authアプリのアカウント設定ハブへのリンクのみ提供する。
+ */
+const AUTH_APP_ACCOUNT_URL = "https://auth.saka2931.jp/account";
 
 /** アカウント設定のハブ。各設定ページへの入口（requirements.md §4） */
 export default async function AccountSettingsPage() {
@@ -93,6 +95,30 @@ export default async function AccountSettingsPage() {
             </svg>
           </Link>
         ))}
+        <a
+          href={AUTH_APP_ACCOUNT_URL}
+          className="flex items-center justify-between rounded-xl bg-white p-4 shadow-sm transition-colors hover:bg-navy-50"
+        >
+          <div>
+            <p className="text-sm font-bold text-navy-800">アカウント</p>
+            <p className="mt-0.5 text-xs text-navy-400">
+              メールアドレス・パスワード・二段階認証・パスキー・デバイス管理・アカウント削除
+            </p>
+          </div>
+          <svg
+            className="h-4 w-4 shrink-0 text-navy-300"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+            <polyline points="15 3 21 3 21 9" />
+            <line x1="10" y1="14" x2="21" y2="3" />
+          </svg>
+        </a>
       </div>
 
       <div className="mt-6">
