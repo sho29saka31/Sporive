@@ -340,4 +340,47 @@ export interface Database {
       };
     };
   };
+  // authアプリ（saka2931-serviceプロジェクト共有）が所有するスキーマ。
+  // PushCleanupWatcherがこの端末のセッション行を登録・監視するためだけに参照する
+  // （display_name等の他テーブルへは直接アクセスしない。GET/PATCH /api/profile経由）。
+  auth_app: {
+    Tables: {
+      sessions: {
+        Row: {
+          id: string;
+          user_id: string;
+          app: "sporive" | "legal_life";
+          browser: string | null;
+          os: string | null;
+          device: string | null;
+          location: string | null;
+          login_at: string;
+          last_active: string;
+          should_logout: boolean;
+        };
+        Insert: {
+          id: string;
+          user_id: string;
+          app: "sporive" | "legal_life";
+          browser?: string | null;
+          os?: string | null;
+          device?: string | null;
+          location?: string | null;
+          last_active?: string;
+          should_logout?: boolean;
+        };
+        Update: Partial<{
+          browser: string | null;
+          os: string | null;
+          device: string | null;
+          location: string | null;
+          last_active: string;
+          should_logout: boolean;
+        }>;
+        Relationships: [];
+      };
+    };
+    Views: Record<string, never>;
+    Functions: Record<string, never>;
+  };
 }

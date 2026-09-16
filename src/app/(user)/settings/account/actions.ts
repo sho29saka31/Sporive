@@ -2,109 +2,46 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { isAuthWeakPasswordError } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { describeWeakPasswordError, validatePassword } from "@/lib/password";
-import { getOrigin } from "@/lib/origin";
+import { updateDisplayName } from "@/lib/authApp";
 import { summarizeGoal } from "@/lib/gemini";
 import { getFeatureFlags } from "@/lib/feature-flags";
 import { getCurrentJstYear } from "@/lib/week";
 import type { GenderType } from "@/types/database";
 
+/**
+ * ログイン・パスワード変更・メールアドレス変更・MFA・パスキー・アカウント削除・
+ * 全デバイスからのログアウトは auth.saka2931.jp に一元化されているため、
+ * Sporive自身はそれらのServer Actionを持たない
+ * (旧 signOutEverywhere/deleteAccount/updateEmail/changePassword はここから削除済み)。
+ */
 export async function signOut() {
   const supabase = await createClient();
   await supabase.auth.signOut();
-  redirect("/login");
-}
-
-/**
- * このアカウントの全セッションを失効させる（他デバイスも含む）。
- * スマホ紛失・不正ログインへの自衛手段のため、失効と同時に全端末のPush購読も
- * 削除する（そうしないと、セッションを切ってもプッシュ通知だけは紛失端末に
- * 届き続けてしまう）
- */
-export async function signOutEverywhere() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (user) {
-    const { error } = await supabase
-      .from("push_subscriptions")
-      .delete()
-      .eq("user_id", user.id);
-    // セッション失効自体は自衛手段としてより優先度が高いため、この削除が
-    // 失敗してもサインアウト自体は続行する。ただし失敗を握りつぶさず、
-    // 紛失端末への通知が止まっていない可能性があることをログに残す
-    if (error) {
-      console.error("Failed to delete push subscriptions on sign-out-everywhere", error);
-    }
-  }
-  await supabase.auth.signOut({ scope: "global" });
-  redirect("/login");
-}
-
-/**
- * アカウントを完全に削除する。auth.usersの行を削除すると、
- * profiles等の関連テーブルはON DELETE CASCADEで連動して削除される。
- * service_roleキーが必要な管理者操作のため、必ずServer Actionからのみ呼び出すこと。
- *
- * 削除を先に行い、成功した場合のみセッションを失効させる。
- * 逆順（先にsignOut）だと、削除がDBエラー等で失敗した際にアカウントは
- * 残ったままセッションだけ失われ、この画面自体からログインし直さないと
- * リトライできない状態になってしまうため
- */
-export async function deleteAccount(): Promise<{ error?: string }> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return { error: "認証が必要です。再度ログインしてください。" };
-  }
-
-  const userId = user.id;
-
-  const admin = createAdminClient();
-  const { error } = await admin.auth.admin.deleteUser(userId);
-
-  if (error) {
-    return {
-      error: "アカウントの削除に失敗しました。時間をおいて再度お試しください。",
-    };
-  }
-
-  // アカウントは既に削除済みのため、ここでの失敗は無視してよい
-  // （発行済みJWTは有効期限切れで自然に失効し、削除済みユーザーとしてどのみち機能しない）
-  await supabase.auth.signOut({ scope: "global" }).catch(() => {});
-
-  return {};
+  redirect("https://auth.saka2931.jp/login");
 }
 
 export type ActionState = {
   error?: string;
   success?: string;
-  /** 現在のパスワード入力が必要な場合にtrue（既存パスワードありのアカウント） */
-  needsCurrentPassword?: boolean;
-  /**
-   * Supabase側の「安全なパスワード変更」設定により、セッションが最近の
-   * ログイン（24時間以内）とみなされず再認証が必要な場合にtrue。
-   * 確認コードをメールへ送信済みで、入力欄を表示する必要があることを示す。
-   */
-  needsReauthOtp?: boolean;
 } | null;
 
 const MIN_AGE = 13;
 const GOAL_MAX_LENGTH = 500;
+const DISPLAY_NAME_MAX_LENGTH = 100;
 const GENDER_TYPES: readonly GenderType[] = ["male", "female", "other"];
 
 function isGenderType(value: string): value is GenderType {
   return (GENDER_TYPES as readonly string[]).includes(value);
 }
 
-/** プロフィール（表示名・生年・目標・性別）の更新 */
+/**
+ * プロフィール（表示名・生年・目標・性別）の更新。
+ * 表示名はSporive固有のデータではなく全サービス共通のため、authアプリの
+ * `user_profiles`が所有する。このServer Actionからはauthアプリの
+ * `PATCH /api/profile`経由でのみ書き込み、Sporive自身の`profiles`テーブルには
+ * 生年・目標・性別（Sporive固有データ）のみを保存する。
+ */
 export async function updateProfile(
   _prevState: ActionState,
   formData: FormData
@@ -116,6 +53,9 @@ export async function updateProfile(
 
   if (!displayName) {
     return { error: "表示名を入力してください。" };
+  }
+  if (displayName.length > DISPLAY_NAME_MAX_LENGTH) {
+    return { error: `表示名は${DISPLAY_NAME_MAX_LENGTH}文字以内で入力してください。` };
   }
   // new Date().getFullYear()はサーバーのローカル(Vercelは既定でUTC)基準の年
   // になり、UTCの大晦日15:00〜23:59(JSTでは既に1月1日)の間、生年の許容範囲が
@@ -146,7 +86,7 @@ export async function updateProfile(
   } = await supabase.auth.getUser();
 
   if (!user) {
-    redirect("/login");
+    redirect("https://auth.saka2931.jp/login");
   }
 
   // Gemini APIで要望を簡潔な文章に整形する。API障害時・機能フラグ停止時も
@@ -161,200 +101,22 @@ export async function updateProfile(
     }
   }
 
-  const { error } = await supabase
-    .from("profiles")
-    .update({
-      display_name: displayName,
-      birth_year: birthYear,
-      goal,
-      gender: genderInput ? (genderInput as GenderType) : null,
-    })
-    .eq("id", user.id);
+  const [{ error }, displayNameOk] = await Promise.all([
+    supabase
+      .from("profiles")
+      .update({
+        birth_year: birthYear,
+        goal,
+        gender: genderInput ? (genderInput as GenderType) : null,
+      })
+      .eq("id", user.id),
+    updateDisplayName(displayName),
+  ]);
 
-  if (error) {
+  if (error || !displayNameOk) {
     return { error: "プロフィールの更新に失敗しました。" };
   }
 
   revalidatePath("/settings/account/profile");
   return { success: "プロフィールを更新しました。" };
-}
-
-/**
- * メールアドレスの変更。
- * Supabase側の「安全なメール変更」設定が有効なため、旧メールアドレス・
- * 新メールアドレスの両方に確認メールが送信され、両方のリンクをクリックする
- * まで変更は反映されない（無効な場合は新メールアドレスのみで完了する）。
- */
-export async function updateEmail(
-  prevState: ActionState,
-  formData: FormData
-): Promise<ActionState> {
-  const email = String(formData.get("email") ?? "").trim();
-  const nonce = String(formData.get("nonce") ?? "").trim();
-  const wasAwaitingReauthOtp = prevState?.needsReauthOtp === true;
-
-  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    return { error: "有効なメールアドレスを入力してください。" };
-  }
-
-  const supabase = await createClient();
-  const { error } = await supabase.auth.updateUser(
-    { email, ...(nonce ? { nonce } : {}) },
-    {
-      emailRedirectTo: `${await getOrigin()}/auth/callback?next=${encodeURIComponent(
-        "/settings/account/security?email_changed=1"
-      )}`,
-    }
-  );
-
-  if (error) {
-    if (error.code === "reauthentication_needed") {
-      // 安全なメール変更：セッションが「最近のログイン」とみなされないため、
-      // 登録済みのメールアドレスへ確認コードを送り、入力を求める。
-      const { error: reauthError } = await supabase.auth.reauthenticate();
-      if (reauthError) {
-        return {
-          error: "確認コードの送信に失敗しました。時間をおいて再度お試しください。",
-        };
-      }
-      return {
-        needsReauthOtp: true,
-        error: wasAwaitingReauthOtp
-          ? "確認コードが正しくないか、有効期限が切れています。新しいコードを送信しました。"
-          : "セキュリティのため、現在のメールアドレスに確認コードを送信しました。コードを入力してください。",
-      };
-    }
-    if (error.code === "email_exists") {
-      return { error: "このメールアドレスは既に使用されています。" };
-    }
-    if (error.code === "email_address_invalid") {
-      return { error: "有効なメールアドレスを入力してください。" };
-    }
-    return {
-      error: "メールアドレスの変更に失敗しました。時間をおいて再度お試しください。",
-    };
-  }
-
-  return {
-    success:
-      "確認メールを送信しました。現在のメールアドレス・新しいメールアドレスの両方に届くメール内のリンクをそれぞれクリックし、変更を完了してください。",
-  };
-}
-
-/**
- * パスワードの変更（未設定の場合は新規設定）。
- *
- * アカウント種別（OAuthのみ／既存パスワードあり）を user_metadata では確実に判定できない
- * （Supabaseダッシュボードやメールで作成したアカウントは password_set フラグが立たない）ため、
- * 適応的に処理する：
- *   1. まず current_password なしで updateUser を試す（OAuthのみのアカウントはこれで成功）
- *   2. current_password_required が返ったら「既にパスワードあり」と判明するので、
- *      needsCurrentPassword を返してUIに現在のパスワード入力欄を出させ、再送信時に検証する
- * これにより、ダッシュボード作成アカウントでもサイト画面からパスワードを変更できる。
- */
-export async function changePassword(
-  prevState: ActionState,
-  formData: FormData
-): Promise<ActionState> {
-  const currentPassword = String(formData.get("current_password") ?? "");
-  const newPassword = String(formData.get("new_password") ?? "");
-  const confirmPassword = String(formData.get("confirm_password") ?? "");
-  const nonce = String(formData.get("nonce") ?? "").trim();
-  const wasAwaitingReauthOtp = prevState?.needsReauthOtp === true;
-
-  const validationError = validatePassword(newPassword);
-  if (validationError) {
-    return {
-      error: validationError,
-      needsCurrentPassword: prevState?.needsCurrentPassword,
-      needsReauthOtp: wasAwaitingReauthOtp,
-    };
-  }
-  if (newPassword !== confirmPassword) {
-    return {
-      error: "新しいパスワードが一致しません。",
-      needsCurrentPassword: prevState?.needsCurrentPassword,
-      needsReauthOtp: wasAwaitingReauthOtp,
-    };
-  }
-
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user || !user.email) {
-    redirect("/login");
-  }
-
-  const { error } = await supabase.auth.updateUser({
-    password: newPassword,
-    ...(currentPassword ? { current_password: currentPassword } : {}),
-    ...(nonce ? { nonce } : {}),
-    data: { password_set: true },
-  });
-
-  if (error) {
-    if (error.code === "reauthentication_needed") {
-      // 安全なパスワード変更：セッションが「最近のログイン」(24時間以内)と
-      // みなされないため、current_passwordの検証とは別に、登録済みの
-      // メールアドレスへ確認コードを送り、入力を求める。
-      const { error: reauthError } = await supabase.auth.reauthenticate();
-      if (reauthError) {
-        return {
-          error: "確認コードの送信に失敗しました。時間をおいて再度お試しください。",
-          needsCurrentPassword: Boolean(currentPassword),
-        };
-      }
-      return {
-        needsCurrentPassword: Boolean(currentPassword),
-        needsReauthOtp: true,
-        error: wasAwaitingReauthOtp
-          ? "確認コードが正しくないか、有効期限が切れています。新しいコードを送信しました。"
-          : "セキュリティのため、登録済みのメールアドレスに確認コードを送信しました。コードを入力してください。",
-      };
-    }
-    if (error.code === "weak_password") {
-      const reasons = isAuthWeakPasswordError(error) ? error.reasons : undefined;
-      return {
-        error: describeWeakPasswordError(reasons),
-        needsCurrentPassword: Boolean(currentPassword),
-        needsReauthOtp: wasAwaitingReauthOtp,
-      };
-    }
-    if (error.code === "current_password_required") {
-      // 既存パスワードありのアカウント。現在のパスワード入力欄を出して再試行させる。
-      return {
-        needsCurrentPassword: true,
-        error:
-          "このアカウントには既にパスワードが設定されています。現在のパスワードを入力して変更してください。",
-      };
-    }
-    if (error.code === "same_password") {
-      return {
-        needsCurrentPassword: Boolean(currentPassword),
-        needsReauthOtp: wasAwaitingReauthOtp,
-        error: "新しいパスワードは現在のパスワードと異なるものにしてください。",
-      };
-    }
-    if (
-      currentPassword &&
-      (error.code === "current_password_invalid" ||
-        error.code === "invalid_credentials")
-    ) {
-      return {
-        needsCurrentPassword: true,
-        needsReauthOtp: wasAwaitingReauthOtp,
-        error: "現在のパスワードが正しくありません。",
-      };
-    }
-    return {
-      error: "パスワードの変更に失敗しました。時間をおいて再度お試しください。",
-      needsCurrentPassword: Boolean(currentPassword),
-      needsReauthOtp: wasAwaitingReauthOtp,
-    };
-  }
-
-  revalidatePath("/settings/account/security");
-  return { success: "パスワードを変更しました。" };
 }

@@ -4,29 +4,8 @@ import type { Database } from "@/types/database";
 import { getJstMinutesOfDay } from "@/lib/week";
 import { isMaintenanceLockdownTime } from "@/lib/maintenance";
 import { isEmergencyMaintenanceActive } from "@/lib/feature-flags";
+import { buildAuthAppUrl } from "@/lib/authApp";
 
-const PUBLIC_PATHS = ["/login", "/signup", "/reset-password"];
-/** MFA（TOTP）を有効にしている利用者が、ログイン後に認証コード入力を求められる画面 */
-const MFA_CHALLENGE_PATH = "/mfa-challenge";
-/**
- * パスワード未設定（Googleログインのみ）の利用者が、ログイン後に必ず
- * 通過させられるパスワード設定画面。/mfa-challenge と同様、ログインフローを
- * 完走するために必須の画面のため、メンテナンス系の除外リストに含める必要がある
- */
-const SET_PASSWORD_PATH = "/signup/set-password";
-/**
- * メンテナンス中でもログインフローを完走できなければならない画面群
- * （定期・緊急メンテナンス両方の除外リストで共通して使う）。
- * /reset-password（パスワード再設定メールの送信フォーム）は、セッション切れ・
- * パスワード未設定の管理者・super-adminが自力でログインし直すための
- * 唯一の入口になりうるため、他のログインフロー画面と同様に除外する
- */
-const LOGIN_FLOW_PATHS = [
-  "/login",
-  "/reset-password",
-  MFA_CHALLENGE_PATH,
-  SET_PASSWORD_PATH,
-];
 // 未ログインでも常に表示する静的ページ（トップの機能紹介・規約類）。
 // ログイン済みでもリダイレクトせずそのまま表示する（Google審査用の公開ページ）。
 const STATIC_PATHS = ["/", "/privacy", "/terms"];
@@ -60,36 +39,19 @@ function applyMobilePreviewParam(
 
 /**
  * 認証セッションの更新とルートガードを行う。
- * - 未ログイン：利用者画面（(user)グループ）へのアクセスを /login へリダイレクト
- * - ログイン済みだがメール/パスワード未設定：/signup/set-password へ誘導
- * - プロフィール未登録：/onboarding/profile へ誘導
+ * ログイン・サインアップ・パスワードリセット・MFA等はすべて `auth.saka2931.jp`
+ * に一元化されているため、Sporive自身が持つのは以下のみ：
+ * - 未ログイン／MFA未完了：authアプリへ `return_to` 付きでリダイレクト
+ * - プロフィール未登録：/onboarding/profile へ誘導（Sporive固有データのためローカルに残す）
  */
 export async function updateSession(request: NextRequest) {
-  // Supabase Authのメールリンク（PKCE）は `?code=...` を付けてリダイレクトしてくる。
-  // Dashboard の Redirect URLs 許可リスト外だった場合は Site URL（トップページ等）へ
-  // フォールバックするため、どのパスに code が落ちても /auth/callback で確実に
-  // 交換処理できるよう、ここで一括転送する。
-  const { pathname: requestPath, searchParams: requestParams } =
-    request.nextUrl;
-  if (requestParams.has("code") && !requestPath.startsWith("/auth/")) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/auth/callback";
-    return NextResponse.redirect(url);
-  }
+  const { pathname: requestPath } = request.nextUrl;
 
-  // 定期メンテナンスタイム（§8-3）：トップページ・管理者画面・APIルート・
-  // ログインフロー（/login・/auth/・/mfa-challenge・/signup/set-password）
-  // 以外へのアクセスは、認証状態にかかわらずトップページへ戻す。
-  // ログインフローを除外しないと、セッション切れ・パスワード未設定
-  // （Googleログインのみ）の管理者が/adminへ入り直そうとした際、
-  // ログイン完走に必要な画面のどこかでここに弾かれてしまい、
-  // 要件定義書§8-3の「管理者画面はメンテナンスタイム中も通常通り動作する」を
-  // 満たせなくなる
+  // 定期メンテナンスタイム（§8-3）：トップページ・管理者画面・APIルート以外への
+  // アクセスは、認証状態にかかわらずトップページへ戻す。
   if (
     isMaintenanceLockdownTime(getJstMinutesOfDay()) &&
     !STATIC_PATHS.includes(requestPath) &&
-    !LOGIN_FLOW_PATHS.includes(requestPath) &&
-    !requestPath.startsWith("/auth/") &&
     !requestPath.startsWith("/admin") &&
     !requestPath.startsWith("/api/")
   ) {
@@ -102,12 +64,12 @@ export async function updateSession(request: NextRequest) {
 
   let supabaseResponse = NextResponse.next({ request });
 
-  const supabase = createServerClient<Database>(
+  const supabase = createServerClient<Database, "sporive">(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       db: { schema: "sporive" },
-      // legal-life（*.saka2931.jp）とセッションCookieを共有し、SSOを実現する
+      // legal-life・auth（*.saka2931.jp）とセッションCookieを共有し、SSOを実現する
       cookieOptions: {
         domain: ".saka2931.jp",
         path: "/",
@@ -132,16 +94,9 @@ export async function updateSession(request: NextRequest) {
   );
 
   // 緊急メンテナンスモード（要件定義書 §8-3, §10-3）：super-adminが機能フラグで
-  // 任意のタイミングで即座に全サイトを止められる。定期メンテナンスとは異なり
-  // 時間経過での自動解除がないため、ログインフロー（/login・/auth/・
-  // /mfa-challenge・/signup/set-password）だけは除外する。これらを除外しないと、
-  // セッション切れ・パスワード未設定（Googleログインのみ）・MFA有効な
-  // super-adminが誰もログインできなくなり、解除する手段がなくなってサイトが
-  // 恒久的にロックされてしまうため
+  // 任意のタイミングで即座に全サイトを止められる。
   if (
     !STATIC_PATHS.includes(requestPath) &&
-    !LOGIN_FLOW_PATHS.includes(requestPath) &&
-    !requestPath.startsWith("/auth/") &&
     !requestPath.startsWith("/admin") &&
     !requestPath.startsWith("/api/") &&
     (await isEmergencyMaintenanceActive())
@@ -158,113 +113,35 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const { pathname } = request.nextUrl;
-  const isPublicPath = PUBLIC_PATHS.includes(pathname);
-  // /auth/callback（code交換）と /auth/confirm（token_hash検証）は
-  // ルートガードの対象外（セッション確立前のエンドポイントのため）
-  const isAuthCallback = pathname.startsWith("/auth/");
   const isOnboardingPath = pathname.startsWith("/onboarding");
   const isAdminPath = pathname.startsWith("/admin");
   const isApiPath = pathname.startsWith("/api/");
-  const isMfaChallengePath = pathname === MFA_CHALLENGE_PATH;
-  const isSetPasswordPath = pathname === SET_PASSWORD_PATH;
 
-  if (isAuthCallback || isApiPath || STATIC_PATHS.includes(pathname)) {
+  if (isApiPath || STATIC_PATHS.includes(pathname)) {
     return applyMobilePreviewParam(request, supabaseResponse);
   }
 
   if (!user) {
-    if (isPublicPath) return applyMobilePreviewParam(request, supabaseResponse);
-    const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    return applyMobilePreviewParam(request, NextResponse.redirect(url));
+    return applyMobilePreviewParam(
+      request,
+      NextResponse.redirect(buildAuthAppUrl("/login", request))
+    );
   }
 
-  // MFA（TOTP、要件定義書 §4-1）：多要素認証を有効にしている利用者は、
-  // パスワード/Googleログイン直後の時点ではAAL1（第一要素のみ）のセッションになる。
-  // AAL2（第二要素）が必要なのに満たしていない場合は、認証コード入力画面以外への
-  // アクセスを許可しない
+  // MFA（TOTP）：多要素認証を有効にしている利用者はAAL2が必要。
+  // ログイン自体はauthアプリで完結するため通常ここに来ることはないが、
+  // 同一セッション（共有Cookie）でAAL状態が変化した場合の保険として維持する。
   const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
   const mfaPending =
     !!aal && aal.nextLevel === "aal2" && aal.currentLevel !== aal.nextLevel;
-  if (mfaPending && !isMfaChallengePath) {
-    const url = request.nextUrl.clone();
-    // 認証コード入力後に元々アクセスしようとしていたページへ戻せるよう、
-    // 管理者画面・パスワード再設定画面など/home以外を保持する
-    // （定期メンテナンス中に/adminへアクセスした管理者や、パスワードを
-    // 忘れてリセットリンクを踏んだMFA有効ユーザーが、MFA完了後に/homeへ
-    // 飛ばされて元のフローに戻れなくなる問題への対処）。
-    // /signup/set-passwordは?reason=resetの有無で表示文言・完了後の遷移先が
-    // 変わるため、パス名だけでなくクエリ文字列も保持する。
-    // /settings/account/securityも、メールアドレス変更確認リンク経由で
-    // ?email_changed=1付きでアクセスされることがあり、これを保持しないと
-    // MFA完了後に確認メッセージが表示されないまま/homeへ流れてしまう
-    const next =
-      isAdminPath || isSetPasswordPath || pathname === "/settings/account/security"
-        ? pathname + request.nextUrl.search
-        : null;
-    url.pathname = MFA_CHALLENGE_PATH;
-    url.search = "";
-    if (next) url.searchParams.set("next", next);
-    return applyMobilePreviewParam(request, NextResponse.redirect(url));
-  }
-  // AAL2達成済み（またはMFA未設定）で認証コード入力画面に来た場合は、
-  // nextパラメータがあればそこへ、なければホームへ。
-  // 直接ブックマーク・戻るボタン等でアクセスされたケースも想定
-  if (!mfaPending && isMfaChallengePath) {
-    const nextRaw = request.nextUrl.searchParams.get("next");
-    const [nextPath, nextQuery] = nextRaw?.split("?") ?? [null, undefined];
-    const url = request.nextUrl.clone();
-    if (
-      nextPath &&
-      (nextPath.startsWith("/admin") ||
-        nextPath === SET_PASSWORD_PATH ||
-        nextPath === "/settings/account/security")
-    ) {
-      url.pathname = nextPath;
-      url.search = nextQuery ? `?${nextQuery}` : "";
-    } else {
-      url.pathname = "/home";
-      url.search = "";
-    }
-    return applyMobilePreviewParam(request, NextResponse.redirect(url));
+  if (mfaPending) {
+    return applyMobilePreviewParam(
+      request,
+      NextResponse.redirect(buildAuthAppUrl("/mfa-challenge", request))
+    );
   }
 
-  // ログイン済みユーザーが認証画面に来た場合はホームへ。
-  // ただし /login?error=...（認証リンクが無効だった場合のエラー表示）は
-  // リダイレクトせず、エラーメッセージをユーザーに見せる。
-  const hasAuthFlowParam = request.nextUrl.searchParams.has("error");
-  if (isPublicPath && !(pathname === "/login" && hasAuthFlowParam)) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/home";
-    return applyMobilePreviewParam(request, NextResponse.redirect(url));
-  }
-
-  // Supabaseの identities は OAuth 以外の登録方法では更新されないため、
-  // updateUser({ password }) 実行時に user_metadata へ明示的に立てるフラグで判定する。
-  // 通常のアプリフローではMFA設定はパスワード設定済みのアカウントでしか行えないため
-  // 両条件が同時に成立することはないが、Supabase側で直接MFA因子が追加された等の
-  // 想定外のケースで両方の条件が真になった場合、/mfa-challenge と /signup/set-password
-  // の間で無限リダイレクトになってしまう。MFA認証（本人確認）を優先させるため、
-  // /mfa-challengeにいる間はこの判定をスキップする
-  const hasPassword = user.user_metadata?.password_set === true;
-  if (!hasPassword && !isSetPasswordPath && !isMfaChallengePath) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/signup/set-password";
-    return applyMobilePreviewParam(request, NextResponse.redirect(url));
-  }
-
-  // /signup/set-password は新規ユーザーのパスワード初回設定だけでなく、
-  // 既存ユーザーがパスワードを忘れた際の再設定（?reason=reset）にも使われる
-  // （その場合はhasPasswordが既にtrueのため214行目のガードでは弾かれない）。
-  // お知らせブロック等でこの画面を塞ぐと、再設定中の利用者が新しいパスワードを
-  // 設定できなくなるため、/mfa-challengeと同様に除外する
-  if (
-    hasPassword &&
-    !isOnboardingPath &&
-    !isAdminPath &&
-    !isMfaChallengePath &&
-    !isSetPasswordPath
-  ) {
+  if (!isOnboardingPath && !isAdminPath) {
     // プロフィール登録済みの確認は毎リクエストのDB往復になるため、
     // 一度確認できたらセッションCookieに記録して以降はスキップする（読み込み速度対策）。
     // 値にuser.idを入れることで、同じブラウザでの別アカウント切り替えにも対応する。
