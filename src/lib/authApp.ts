@@ -20,6 +20,26 @@ export function buildAuthAppUrl(path: string, request: { nextUrl: URL }): URL {
 }
 
 /**
+ * トップページ等、NextRequestを持たないServer Componentからauthアプリの
+ * ログイン・サインアップ画面へ直接リンクするためのURLを組み立てる。
+ * `/login`・`/signup`はPhase Cで削除済みのため、`return_to`には「戻ってくる先」
+ * として存在しないパスではなく`/home`（ログイン後のユーザーホーム）を指定する。
+ */
+function buildAuthAppEntryUrl(path: "/login" | "/signup", returnToPath: string): string {
+  const url = new URL(path, AUTH_APP_URL);
+  url.searchParams.set("return_to", `https://sporive.saka2931.jp${returnToPath}`);
+  return url.toString();
+}
+
+export function buildLoginUrl(returnToPath: string = "/home"): string {
+  return buildAuthAppEntryUrl("/login", returnToPath);
+}
+
+export function buildSignupUrl(returnToPath: string = "/home"): string {
+  return buildAuthAppEntryUrl("/signup", returnToPath);
+}
+
+/**
  * 現在のリクエストのCookie（.saka2931.jpスコープの共有セッションCookieを含む）を
  * そのままauthアプリへのfetchに転送するためのヘッダー文字列を組み立てる。
  * サーバー間のfetchはブラウザのCORS制約を受けないため、authアプリ側の

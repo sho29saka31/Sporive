@@ -9,7 +9,7 @@ export default function robots(): MetadataRoute.Robots {
   return {
     rules: {
       userAgent: "*",
-      allow: ["/", "/terms", "/privacy", "/login", "/signup"],
+      allow: ["/", "/terms", "/privacy"],
       disallow: [
         "/home",
         "/schedule",
@@ -20,9 +20,6 @@ export default function robots(): MetadataRoute.Robots {
         "/admin",
         "/api",
         "/onboarding",
-        "/signup/set-password",
-        "/reset-password",
-        "/auth",
       ],
     },
     host: "https://sporive.saka2931.jp",

@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { buildLoginUrl } from "@/lib/authApp";
 
 export type NotificationActionState = {
   error?: string;
@@ -64,7 +65,7 @@ export async function saveNotificationSettings(
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) {
-    redirect("/login");
+    redirect(buildLoginUrl("/settings/account/notifications"));
   }
 
   const dailyReminderTimeValue = `${dailyReminderTime}:00`;
