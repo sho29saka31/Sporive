@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { buildLoginUrl } from "@/lib/authApp";
 import { summarizeGoal } from "@/lib/gemini";
 import { getFeatureFlags } from "@/lib/feature-flags";
 import { getCurrentJstYear } from "@/lib/week";
@@ -52,7 +53,7 @@ export async function createProfile(
   } = await supabase.auth.getUser();
 
   if (!user) {
-    redirect("/login");
+    redirect(buildLoginUrl("/onboarding/profile"));
   }
 
   const flags = await getFeatureFlags([

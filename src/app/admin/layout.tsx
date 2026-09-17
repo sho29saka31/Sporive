@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/server";
+import { buildLoginUrl } from "@/lib/authApp";
 import { isSmartphone } from "@/lib/device";
 
 export const metadata: Metadata = { title: "Sporive 管理" };
@@ -26,7 +27,7 @@ export default async function AdminLayout({
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) {
-    redirect("/login");
+    redirect(buildLoginUrl("/admin"));
   }
 
   const { data: profile } = await supabase
