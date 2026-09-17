@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { buildLoginUrl } from "@/lib/authApp";
 
 export const metadata: Metadata = { title: "高度な設定" };
 
@@ -21,7 +22,7 @@ export default async function AdminSettingsLayout({
   } = await supabase.auth.getUser();
 
   if (!user) {
-    redirect("/login");
+    redirect(buildLoginUrl("/admin/settings"));
   }
 
   const { data: profile } = await supabase

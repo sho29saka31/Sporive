@@ -5,6 +5,7 @@ import { headers, cookies } from "next/headers";
 import QRCode from "qrcode";
 import { isSmartphone } from "@/lib/device";
 import { isLockdownActive } from "@/lib/maintenance";
+import { buildLoginUrl, buildSignupUrl } from "@/lib/authApp";
 import MaintenanceNoticeBar from "@/components/MaintenanceNoticeBar";
 
 const SITE_URL = "https://sporive.saka2931.jp/";
@@ -113,6 +114,8 @@ export default async function LandingPage() {
     (await cookies()).get("force-mobile-preview")?.value === "1";
   const canUseButtons = isSmartphone(userAgent) || forceMobilePreview;
   const isLockdown = await isLockdownActive();
+  const loginUrl = buildLoginUrl();
+  const signupUrl = buildSignupUrl();
 
   const qrDataUrl = canUseButtons
     ? null
@@ -136,7 +139,7 @@ export default async function LandingPage() {
           <Image src="/logo-wordmark.png" alt="Sporive" width={112} height={47} priority />
           {canUseButtons && !isLockdown && (
             <Link
-              href="/login"
+              href={loginUrl}
               className="rounded-lg bg-navy-700 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-navy-600"
             >
               ログイン / 新規登録
@@ -164,13 +167,13 @@ export default async function LandingPage() {
           ) : canUseButtons ? (
             <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <Link
-                href="/signup"
+                href={signupUrl}
                 className="w-full rounded-lg bg-accent-sky px-6 py-3 text-sm font-bold text-navy-900 transition-opacity hover:opacity-90 sm:w-auto"
               >
                 無料で始める
               </Link>
               <Link
-                href="/login"
+                href={loginUrl}
                 className="w-full rounded-lg border border-navy-100/40 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-navy-700 sm:w-auto"
               >
                 ログイン
@@ -258,7 +261,7 @@ export default async function LandingPage() {
             登録は無料です。Googleアカウントですぐに始められます。
           </p>
           <Link
-            href="/signup"
+            href={signupUrl}
             className="mt-6 inline-block rounded-lg bg-navy-700 px-8 py-3 text-sm font-bold text-white transition-colors hover:bg-navy-600"
           >
             無料で始める
@@ -299,7 +302,7 @@ export default async function LandingPage() {
               プライバシーポリシー
             </Link>
             {canUseButtons && !isLockdown && (
-              <Link href="/login" className="underline hover:text-navy-600">
+              <Link href={loginUrl} className="underline hover:text-navy-600">
                 ログイン
               </Link>
             )}
