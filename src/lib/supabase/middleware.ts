@@ -8,7 +8,7 @@ import { buildAuthAppUrl } from "@/lib/authApp";
 
 // 未ログインでも常に表示する静的ページ（トップの機能紹介・規約類）。
 // ログイン済みでもリダイレクトせずそのまま表示する（Google審査用の公開ページ）。
-const STATIC_PATHS = ["/", "/privacy", "/terms"];
+const STATIC_PATHS = ["/", "/privacy", "/terms", "/maintenance"];
 
 const MOBILE_PREVIEW_COOKIE = "force-mobile-preview";
 const MOBILE_PREVIEW_PARAM = "demo-mobile-admin";
@@ -48,7 +48,7 @@ export async function updateSession(request: NextRequest) {
   const { pathname: requestPath } = request.nextUrl;
 
   // 定期メンテナンスタイム（§8-3）：トップページ・管理者画面・APIルート以外への
-  // アクセスは、認証状態にかかわらずトップページへ戻す。
+  // アクセスは、認証状態にかかわらず/maintenance（メンテナンス表示）へ転送する。
   if (
     isMaintenanceLockdownTime(getJstMinutesOfDay()) &&
     !STATIC_PATHS.includes(requestPath) &&
@@ -56,9 +56,8 @@ export async function updateSession(request: NextRequest) {
     !requestPath.startsWith("/api/")
   ) {
     const url = request.nextUrl.clone();
-    url.pathname = "/";
+    url.pathname = "/maintenance";
     url.search = "";
-    url.searchParams.set("maintenance", "1");
     return NextResponse.redirect(url);
   }
 
@@ -102,9 +101,8 @@ export async function updateSession(request: NextRequest) {
     (await isEmergencyMaintenanceActive())
   ) {
     const url = request.nextUrl.clone();
-    url.pathname = "/";
+    url.pathname = "/maintenance";
     url.search = "";
-    url.searchParams.set("maintenance", "1");
     return NextResponse.redirect(url);
   }
 
