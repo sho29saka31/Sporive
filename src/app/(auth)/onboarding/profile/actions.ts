@@ -24,7 +24,6 @@ export async function createProfile(
   _prevState: OnboardingActionState,
   formData: FormData
 ): Promise<OnboardingActionState> {
-  const displayName = String(formData.get("display_name") ?? "").trim();
   const birthYear = Number(formData.get("birth_year"));
   const goalInput = String(formData.get("goal") ?? "").trim();
   const genderInput = String(formData.get("gender") ?? "");
@@ -36,7 +35,6 @@ export async function createProfile(
   // (コード監査で発見)。リクエストごとにJST基準で計算する
   const currentYear = getCurrentJstYear();
   if (
-    !displayName ||
     !Number.isInteger(birthYear) ||
     birthYear < currentYear - 100 ||
     birthYear > currentYear - MIN_AGE ||
@@ -80,7 +78,6 @@ export async function createProfile(
 
   const { error } = await supabase.from("profiles").insert({
     id: user.id,
-    display_name: displayName,
     birth_year: birthYear,
     goal,
     gender: genderInput ? (genderInput as GenderType) : null,

@@ -1,3 +1,4 @@
+import { getDisplayNameMap } from "@/lib/display-names";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getAdminStats, resolveDateRange } from "@/lib/admin-stats";
 import { requireAdminApiSession, AdminAuthError } from "@/lib/admin-auth";
@@ -67,15 +68,10 @@ export async function GET(request: Request) {
   const suffix = `${range.from}_${range.to}`;
 
   // user_id → 表示名の対応表（明細エクスポートで使用）
-  async function getDisplayNames(): Promise<Map<string, string>> {
-    const { data, error } = await admin.from("profiles").select("id, display_name");
-    if (error) {
-      // ここで握りつぶすと、失敗時に全行が「利用者」列＝UUIDのまま
-      // エクスポートされ、200 OKで返るため管理者が異常に気づけない
-      throw new Error("表示名の取得に失敗しました。");
-    }
-    return new Map((data ?? []).map((p) => [p.id, p.display_name]));
-  }
+  // 表示名はauthアプリが所有する(失敗時は握りつぶさず例外にする。握りつぶすと
+  // 全行が「利用者」列＝UUIDのままエクスポートされ、200 OKで返るため
+  // 管理者が異常に気づけない)
+  const getDisplayNames = () => getDisplayNameMap(admin);
 
   if (type === "summary") {
     const stats = await getAdminStats(admin, range);
