@@ -9,13 +9,14 @@ AIパーソナライズトレーニング計画を提案するPWA。スマホ専
 
 ## 必読ドキュメント
 
-リポジトリは非公開のため、これらのドキュメントはGitHub Wikiではなく**リポジトリ内の `docs/`** で管理する。
+リポジトリは非公開のため、これらのドキュメントはGitHub Wikiではなく**リポジトリ内の `docs/`** で管理する（目次: `docs/Home.md`）。
 
-- `docs/requirements.md` — 要件定義書（仕様の一次情報。§15更新履歴が最新の決定）
-- `docs/development-plan.md` — フェーズ分割された開発プラン。実装はこのフェーズ順に進める
-- `docs/setup.md` — 外部サービス（Supabase / Google Cloud / Turnstile / Resend）のセットアップ手順（ユーザー作業）
+- `docs/Requirements.md`（と `Requirements-*.md`）— 要件定義書（仕様の一次情報）。**最新の決定は `docs/CHANGELOG.md`**
+- `docs/Development-Plan.md`（と `Development-Plan-*.md`）— フェーズ分割された開発プラン・実装時の判断メモ
+- `docs/ARCHITECTURE.md` — 現在のシステム構成。`docs/ADR.md` — 設計判断
+- `docs/Setup.md` — 外部サービス（Supabase / Vercel / Gemini / Analytics）のセットアップ手順（ユーザー作業）。認証関連の設定は authリポジトリの `docs/Setup.md`
 
-※ 各ファイル冒頭の注記のとおり、2026-09-14以降の変更の一部は本文に未反映。
+※ ログイン・アカウント関連の仕様は `auth.saka2931.jp`（authリポジトリ）に移管済み。
 
 ## 重要な決定事項
 
@@ -28,12 +29,12 @@ AIパーソナライズトレーニング計画を提案するPWA。スマホ専
 
 ## 進め方
 
-- 未確定事項（要件定義書§14「今後の検討事項」）で判断が必要な場合はユーザー（Shoki）に確認する
+- 未確定事項（`docs/Requirements-Future-Work.md`「今後の検討事項」）で判断が必要な場合はユーザー（Shoki）に確認する
 - 各フェーズを1つの作業単位（ブランチ/PR）として完結させる
 
 ## プロジェクトスキル（.claude/skills/）
 
-- `update-teigisho` — 要件定義書（docs/requirements.md）の更新。使用時は必ず§15更新履歴に追記する
+- `update-teigisho` — 要件定義書（docs/Requirements*.md）の更新。使用時は必ず docs/CHANGELOG.md に追記する
 - `update-md` — 既存mdファイルの更新。対象が要件定義書の場合は update-teigisho の手順に従う
 - `check-plan` — 開発プランの各Phaseに対する進捗状況の確認・表示（表示のみ、変更なし）
 - `deploy-merge` — Claude が作成した PR のマージ。CI・コンフリクト等のマージ前チェックを行い、マージ後は Vercel デプロイ状態を確認
