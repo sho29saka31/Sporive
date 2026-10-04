@@ -6,12 +6,15 @@ export default function ErrorPage({
   title,
   desc,
   onRetry,
+  showStatusLink = false,
 }: {
   code: string;
   title: string;
   desc: string;
   /** 指定時、「再読み込みする」ボタンを追加表示する */
   onRetry?: () => void;
+  /** サーバー側の障害(500系・メンテナンス)の時だけ、稼働状況ページへの導線を出す */
+  showStatusLink?: boolean;
 }) {
   return (
     <div className="flex min-h-dvh items-center justify-center bg-navy-50 px-6 py-12 text-navy-800">
@@ -36,6 +39,14 @@ export default function ErrorPage({
             </button>
           )}
         </div>
+        {showStatusLink && (
+          <a
+            href="https://status.saka2931.jp"
+            className="mt-5 inline-block text-xs text-navy-400 underline hover:text-navy-600"
+          >
+            サービスの稼働状況を確認する
+          </a>
+        )}
       </div>
     </div>
   );

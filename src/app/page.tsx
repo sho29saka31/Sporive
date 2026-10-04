@@ -4,7 +4,6 @@ import Image from "next/image";
 import { headers, cookies } from "next/headers";
 import QRCode from "qrcode";
 import { isSmartphone } from "@/lib/device";
-import { isLockdownActive } from "@/lib/maintenance";
 import { buildLoginUrl, buildSignupUrl } from "@/lib/authApp";
 import MaintenanceNoticeBar from "@/components/MaintenanceNoticeBar";
 
@@ -103,8 +102,8 @@ const STRUCTURED_DATA = {
 
 /**
  * 公開ランディングページ（トップページ）。
- * サービスの機能紹介を掲載し、Google OAuth審査で求められるホームページとしても機能する。
- * 未ログインでも閲覧可能（middlewareのPUBLIC_PATHSに"/"を含める）。
+ * サービスの機能紹介を掲載する。未ログインでも閲覧可能（middlewareのSTATIC_PATHSに"/"を含める）。
+ * メンテナンス中は他ページ同様 /maintenance へ転送される。
  * 利用はスマホ専用のため、スマホ以外（?demo-mobile-adminによるプレビュー中を除く）では
  * ログイン・新規登録ボタンの代わりにQRコードを表示し、スマホでの利用を促す。
  */
@@ -113,7 +112,6 @@ export default async function LandingPage() {
   const forceMobilePreview =
     (await cookies()).get("force-mobile-preview")?.value === "1";
   const canUseButtons = isSmartphone(userAgent) || forceMobilePreview;
-  const isLockdown = await isLockdownActive();
   const loginUrl = buildLoginUrl();
   const signupUrl = buildSignupUrl();
 
@@ -131,13 +129,13 @@ export default async function LandingPage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(STRUCTURED_DATA) }}
       />
-      <MaintenanceNoticeBar suppress={isLockdown} />
+      <MaintenanceNoticeBar />
 
       {/* ヘッダー */}
       <header className="border-b border-navy-100">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
           <Image src="/logo-wordmark.png" alt="Sporive" width={112} height={47} priority />
-          {canUseButtons && !isLockdown && (
+          {canUseButtons && (
             <Link
               href={loginUrl}
               className="rounded-lg bg-navy-700 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-navy-600"
@@ -160,11 +158,7 @@ export default async function LandingPage() {
             Sporive（スポライブ）は、目標・年齢・体力に合わせてAIが週間トレーニング計画を作成するフィットネスPWAです。
             記録・通知・週間スケジュール表示で、無理なく続けられるトレーニング習慣をサポートします。
           </p>
-          {isLockdown ? (
-            <div className="mt-8 rounded-xl bg-white/10 px-6 py-4 text-sm leading-relaxed text-white">
-              ただいまサイトメンテナンス中です。しばらくしてから再度お試しください。
-            </div>
-          ) : canUseButtons ? (
+          {canUseButtons ? (
             <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <Link
                 href={signupUrl}
@@ -200,7 +194,7 @@ export default async function LandingPage() {
           <p className="mt-4 text-xs text-navy-200">
             スマートフォンでの利用のみ可能です。
           </p>
-          {!canUseButtons && !isLockdown && (
+          {!canUseButtons && (
             <p className="mt-1 text-[10px] text-navy-300">
               QRコードは株式会社デンソーウェーブの登録商標です。
             </p>
@@ -254,7 +248,7 @@ export default async function LandingPage() {
       </section>
 
       {/* CTA */}
-      {canUseButtons && !isLockdown && (
+      {canUseButtons && (
         <section className="mx-auto max-w-5xl px-6 py-16 text-center">
           <h2 className="text-2xl font-bold">今日からトレーニングを習慣に</h2>
           <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-navy-500">
@@ -301,7 +295,7 @@ export default async function LandingPage() {
             >
               プライバシーポリシー
             </Link>
-            {canUseButtons && !isLockdown && (
+            {canUseButtons && (
               <Link href={loginUrl} className="underline hover:text-navy-600">
                 ログイン
               </Link>
