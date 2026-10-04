@@ -43,7 +43,9 @@ Supabaseダッシュボード → 対象プロジェクト → **Authentication*
 4. Widget Mode は **Managed**（推奨）を選択
 5. 発行される **Site Key**（公開用）は authのVercel環境変数 `NEXT_PUBLIC_TURNSTILE_SITE_KEY`、**Secret Key**（秘匿）は Supabase Dashboard の CAPTCHA 設定に入力する（Sporiveの環境変数には設定しない）
 
-## 7-3. Resend（カスタムSMTP）
+## 7-3. Resend（カスタムSMTP）（設定済み）
+
+> **現行（2026-10-04）**：Supabase AuthのCustom SMTPはResendで設定済み。**Sender name は `auth` に統一**（認証メールは `saka2931-service` 共有のため全サービス共通）。**メール送信のレート制限（Authentication → Rate Limits）は未調整の可能性があり要確認**（既定値のままだと、再送・登録の集中時にResendの送信枠に余裕があってもSupabase側で429になる）。詳細は authリポジトリの `docs/Setup.md`。以下は当初の手順の記録。
 
 Supabase既定のメール送信は1時間あたり数通に制限されており本番運用に不向きなため、Resendに切り替え（無料枠：3,000通/月・100通/日）。
 
