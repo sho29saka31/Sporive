@@ -7,8 +7,11 @@ import { isEmergencyMaintenanceActive } from "@/lib/feature-flags";
 import { buildAuthAppUrl } from "@/lib/authApp";
 
 // 未ログインでも常に表示する静的ページ（トップの機能紹介・規約類）。
-// ログイン済みでもリダイレクトせずそのまま表示する（Google審査用の公開ページ）。
+// ログイン済みでもリダイレクトせずそのまま表示する。
 const STATIC_PATHS = ["/", "/privacy", "/terms", "/maintenance"];
+// メンテナンス中も表示を維持するパス。Google OAuthの審査対象はauthアプリに
+// 移ったため、トップ（/）はここに含めず、他ページ同様 /maintenance へ転送する。
+const MAINTENANCE_EXEMPT_PATHS = ["/privacy", "/terms", "/maintenance"];
 
 const MOBILE_PREVIEW_COOKIE = "force-mobile-preview";
 const MOBILE_PREVIEW_PARAM = "demo-mobile-admin";
@@ -47,11 +50,11 @@ function applyMobilePreviewParam(
 export async function updateSession(request: NextRequest) {
   const { pathname: requestPath } = request.nextUrl;
 
-  // 定期メンテナンスタイム（§8-3）：トップページ・管理者画面・APIルート以外への
+  // 定期メンテナンスタイム（§8-3）：規約類・管理者画面・APIルート以外への
   // アクセスは、認証状態にかかわらず/maintenance（メンテナンス表示）へ転送する。
   if (
     isMaintenanceLockdownTime(getJstMinutesOfDay()) &&
-    !STATIC_PATHS.includes(requestPath) &&
+    !MAINTENANCE_EXEMPT_PATHS.includes(requestPath) &&
     !requestPath.startsWith("/admin") &&
     !requestPath.startsWith("/api/")
   ) {
@@ -95,7 +98,7 @@ export async function updateSession(request: NextRequest) {
   // 緊急メンテナンスモード（要件定義書 §8-3, §10-3）：super-adminが機能フラグで
   // 任意のタイミングで即座に全サイトを止められる。
   if (
-    !STATIC_PATHS.includes(requestPath) &&
+    !MAINTENANCE_EXEMPT_PATHS.includes(requestPath) &&
     !requestPath.startsWith("/admin") &&
     !requestPath.startsWith("/api/") &&
     (await isEmergencyMaintenanceActive())

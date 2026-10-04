@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-/** 定期メンテナンス・緊急メンテナンスの両方で、トップページ以外のアクセスをここへ転送する */
+/** 定期メンテナンス・緊急メンテナンスの両方で、規約類以外のアクセス（トップページ含む）をここへ転送する */
 export default function MaintenancePage() {
   return (
     <ErrorPage
