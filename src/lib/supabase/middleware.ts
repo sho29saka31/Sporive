@@ -41,6 +41,18 @@ function applyMobilePreviewParam(
 }
 
 /**
+ * メンテナンス画面をURLを変えずに HTTP 503 + Retry-After で返す（rewrite）。
+ * 200のまま返すと外形監視（status）が「正常」と判定し、検索エンジンにも
+ * 通常ページとして索引される。復旧後は同じURLの再読み込みだけで元に戻る。
+ */
+function maintenanceResponse(request: NextRequest) {
+  const url = request.nextUrl.clone();
+  url.pathname = "/maintenance";
+  url.search = "";
+  return NextResponse.rewrite(url, { status: 503, headers: { "Retry-After": "600" } });
+}
+
+/**
  * 認証セッションの更新とルートガードを行う。
  * ログイン・サインアップ・パスワードリセット・MFA等はすべて `auth.saka2931.jp`
  * に一元化されているため、Sporive自身が持つのは以下のみ：
@@ -58,10 +70,7 @@ export async function updateSession(request: NextRequest) {
     !requestPath.startsWith("/admin") &&
     !requestPath.startsWith("/api/")
   ) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/maintenance";
-    url.search = "";
-    return NextResponse.redirect(url);
+    return maintenanceResponse(request);
   }
 
   let supabaseResponse = NextResponse.next({ request });
@@ -103,10 +112,7 @@ export async function updateSession(request: NextRequest) {
     !requestPath.startsWith("/api/") &&
     (await isEmergencyMaintenanceActive())
   ) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/maintenance";
-    url.search = "";
-    return NextResponse.redirect(url);
+    return maintenanceResponse(request);
   }
 
   const {
