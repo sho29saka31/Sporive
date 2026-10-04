@@ -41,6 +41,12 @@ export default function GlobalError({
               再読み込みする
             </button>
           </div>
+          <a
+            href="https://status.saka2931.jp"
+            className="mt-5 inline-block text-xs text-navy-400 underline hover:text-navy-600"
+          >
+            サービスの稼働状況を確認する
+          </a>
         </div>
       </body>
     </html>

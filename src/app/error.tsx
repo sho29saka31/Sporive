@@ -26,6 +26,7 @@ export default function Error({
         "申し訳ありませんが、処理中に問題が発生しました。\nお手数をおかけしますが、もう一度お試しいただくか、ホームに戻ってやり直してください。"
       }
       onRetry={reset}
+      showStatusLink
     />
   );
 }
