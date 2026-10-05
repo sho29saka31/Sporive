@@ -14,8 +14,10 @@
 alter table sporive.profiles alter column display_name drop not null;
 
 -- 2. 列を削除する(コードのデプロイ・データ移行後に実行)
--- insert into auth_app.user_profiles (id, display_name)
---   select id, display_name from sporive.profiles
---   where id not in (select id from auth_app.user_profiles)
---   on conflict (id) do nothing;
--- alter table sporive.profiles drop column display_name;
+-- 2026-10-05 に本番(saka2931-service)へ適用済み。authに名前が無かった3人をSporiveの名前で
+-- 移行(既存のauthの名前は上書きしない)したのち、列を削除した。
+insert into auth_app.user_profiles (id, display_name)
+  select id, display_name from sporive.profiles
+  where id not in (select id from auth_app.user_profiles)
+  on conflict (id) do nothing;
+alter table sporive.profiles drop column display_name;
