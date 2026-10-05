@@ -2,6 +2,9 @@
 
 要件定義書 §15 更新履歴・development-plan.md §7 実装時の判断メモ・本セッションでの作業を統合した変更履歴。日付は決定・実装が確定した日。
 
+## 2026-10-06（要件定義書・開発プランの内容レビュー）
+- 実装との食い違いを修正した。管理者判定は、カスタムアクセストークンフックのJWTクレームではなく `profiles` を都度参照する方式で、フックはアプリから参照されない（`Setup-Supabase.md` の「フックの有効化が必須」を「不要」に、`ENVIRONMENT.md` から該当項目を削除）。`/terms`・`/privacy` はserviceへのリダイレクトで、SEO対象の公開ページはトップのみ。端末一覧はauthの `/account/devices` で実装済み。Phase 10の定期メンテナンス記述は当時のものと明記した
+
 ## 2026-10-05（.env.local.exampleをGitHubから削除）
 - サンプルの環境変数ファイル `.env.local.example` を、GitHub上の全履歴から削除した（`git filter-repo` による履歴の書き換え。過去のコミットのSHAはすべて変わっている）。`.gitignore` で再追加を防ぎ、README・docsのセットアップ手順を `docs/ENVIRONMENT.md` の参照に変更した。履歴中に秘密の値（APIキー等）は含まれていなかった
 

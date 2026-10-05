@@ -3,7 +3,7 @@
 [Requirements](Requirements.md) の一部。SEO・アクセス解析(要件定義書 §13)。
 
 ## 13-1. 検索エンジン最適化（SEO）
-- 認証必須ページ（ログイン後のみアクセスするページ）は`robots: { index: false, follow: false }`でnoindex。公開ページ（トップ・利用規約・プライバシーポリシー・ログイン・新規登録）のみ検索エンジンに公開する
+- 認証必須ページ（ログイン後のみアクセスするページ）は`robots: { index: false, follow: false }`でnoindex。公開ページのみ検索エンジンに公開する（現行はトップ `/` のみ。利用規約・プライバシーポリシーは `service.saka2931.jp` へのリダイレクト、ログイン・新規登録は `auth.saka2931.jp` に移った）
 - `robots.txt`・`sitemap.xml`をNext.jsのMetadata Route機能で生成し、Search Consoleに送信する
 - 各公開ページにOGP・Twitter Card用の1200×630画像を自動生成する（アプリのアイコンデザインを反映）
 - トップページに構造化データ（JSON-LD、SoftwareApplication schema）を追加する

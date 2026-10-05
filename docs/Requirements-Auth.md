@@ -23,7 +23,7 @@
 - **カスタムSMTP**：Resendを採用。Supabase既定のメール送信は1時間あたり数通に制限されており本番運用に不向きなため（Resend無料枠：3,000通/月・100通/日）
 - **メールテンプレートの日本語化**：パスワード再設定・確認メール等をSupabase標準の英語から日本語に変更
 - **MFA（多要素認証）**：TOTP（認証アプリ）方式のみ採用。全プランで無料。電話番号によるAdvanced MFA Phoneは有料（$75/月〜＋SMS従量課金）のため不採用（**実装済み**：アカウント設定＞セキュリティ画面でQRコードを読み取って有効化。middlewareでAAL2未達の利用者を認証コード入力画面へ誘導）
-- **カスタムアクセストークンフック**：Postgres関数としてAuth Hookを実装し、JWTクレームに`is_admin`・`is_super_admin`を埋め込む。管理者判定のたびに発生していたDB往復を削減するとともに、[Requirements Admin](Requirements-Admin.md) の「高度な設定」のsuper-admin判定に用いる
-- **ログイン中の端末一覧・全ログアウト**：検証の結果、Supabase Authには一般利用者が自身のセッション一覧を取得できる公開APIが無いため、端末一覧の表示は見送る。全ログアウトは既存機能（本章）で対応済み
+- **カスタムアクセストークンフック**（当初の設計。**現行では未使用**）：Postgres関数としてAuth Hookを実装し、JWTクレームに`is_admin`・`is_super_admin`を埋め込む設計だった。現行は `sporive.profiles` をリクエストごとに読んで判定しており、権限の付与・削除は次のリクエストから反映される（[Architecture](ARCHITECTURE.md)）。関数 `0013_custom_access_token_hook.sql` はDBに残るが、アプリは参照しない
+- **ログイン中の端末一覧・全ログアウト**：検証の結果、Supabase Authには一般利用者が自身のセッション一覧を取得できる公開APIが無いため、当初は端末一覧の表示を見送った。**現行**：authアプリが `auth_app.sessions` で独自に管理し、`auth.saka2931.jp/account/devices` で一覧・強制ログアウトができる
 
 採用理由・意思決定の背景は [ADR](ADR.md) も参照。

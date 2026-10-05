@@ -15,7 +15,7 @@
 
 - **is_admin**：アナリティクスダッシュボード等、通常の管理者画面へのアクセス権
 - **is_super_admin**：上記に加え、10-3「高度な設定」へのアクセス権を持つ上位権限
-- カスタムアクセストークンフック（[Requirements Auth](Requirements-Auth.md) §4-1）でJWTクレームに両フラグを埋め込み、判定に用いる
+- 判定は `sporive.profiles` の両フラグをリクエストごとに読んで行う（当初設計のカスタムアクセストークンフックによるJWTクレームは現行では使わない。[Requirements Auth](Requirements-Auth.md) §4-1）
 
 ## 10-3. 高度な設定
 
