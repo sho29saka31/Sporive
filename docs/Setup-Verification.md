@@ -4,10 +4,10 @@
 
 ## 5. アプリ側の環境変数
 
-`.env.local.example` を `.env.local` にコピーし、Supabase の値を設定する。
+`.env.local` を作成し、Supabase の値を設定する（[ENVIRONMENT](ENVIRONMENT.md) 参照。サンプルファイルはGitHubに置かない方針）。
 
 ```bash
-cp .env.local.example .env.local
+touch .env.local
 ```
 
 Vercel にデプロイする場合は、Vercel プロジェクトの `Settings → Environment Variables` にも設定する（Production / Preview / Development すべてにチェック）。保存後は **Redeploy** が必要。

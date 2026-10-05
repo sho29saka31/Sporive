@@ -133,7 +133,7 @@ sporive/
 
 ```bash
 npm install
-cp .env.local.example .env.local   # Supabase等の値を設定（docs/ENVIRONMENT.md・docs/Setup.md 参照）
+touch .env.local   # Supabase等の値を設定（docs/ENVIRONMENT.md・docs/Setup.md 参照。サンプルファイルはGitHubに置かない方針）
 npm run dev    # http://localhost:3000
 ```
 

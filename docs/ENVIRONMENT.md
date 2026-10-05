@@ -1,6 +1,6 @@
 # Environment（Sporive）
 
-`.env.local.example`を`.env.local`にコピーして値を設定する。Vercelでは **Settings → Environment Variables** にProduction/Preview/Development全てへ設定する（設定後はRedeployが必要）。
+`.env.local` を作成して値を設定する（サンプルファイル `.env.local.example` はGitHubに置かない方針）。Vercelでは **Settings → Environment Variables** にProduction/Preview/Development全てへ設定する（設定後はRedeployが必要）。
 
 ログイン関連（Google OAuth・Turnstile・認証メール）の設定は **authリポジトリ側** で管理しており、Sporiveの環境変数には含まれない（`NEXT_PUBLIC_TURNSTILE_SITE_KEY`・Google関連の変数は削除済み）。
 
@@ -42,4 +42,4 @@ Authentication系の設定（Site URL / Redirect URLs / Providers / CAPTCHA / MF
 ## 補足
 
 - `NEXT_PUBLIC_INFRA_SUPABASE_*` は緊急メンテナンスの判定にも使う（`feature_flags` の `emergency_maintenance`）
-- `NODE_ENV` 以外にコードが参照する環境変数は上表のみ。新しい変数を追加したら `.env.local.example` と本表、Vercelの3環境の3か所を更新する
+- `NODE_ENV` 以外にコードが参照する環境変数は上表のみ。新しい変数を追加したら本表とVercelの3環境の2か所を更新する
