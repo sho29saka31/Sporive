@@ -72,7 +72,7 @@
 - **決定**：ログイン・サインアップ・パスワード再設定・MFA・パスキー・アカウント削除を auth リポジトリに集約し、Sporiveの該当画面・Route・コンポーネント・Turnstile依存を削除する。未ログインは `return_to` 付きで auth へ転送する。表示名は auth が所有し `GET/PATCH /api/profile` 経由で読み書きする。マジックリンクは廃止
 - **残したもの**：アプリ固有データ（生年・目標・性別・権限）と `/onboarding/profile`、プロフィール未登録の判定（`sporive-onboarded` Cookie）
 - **結果**：認証設定の影響範囲がauthアプリに限定された。代償として、Sporiveのログイン可否がauthの可用性に依存する。詳細は authリポジトリの `docs/ADR.md`
-- **未完了**：`sporive.profiles.display_name` 列は未削除（表示名が実際にauth経由で流れていることを確認した後にDROPする予定）
+- **完了（2026-10-05）**：authに名前が無かった3人をSporiveの名前で `auth_app.user_profiles` へ移行（既存のauthの名前は上書きしない）したのち、`sporive.profiles.display_name` 列を削除した。表示名の正はauthのみ
 
 ## ADR-010: 緊急メンテナンスはページ転送に加えてDB層（RLS）でも止める（2026-10-04）
 
