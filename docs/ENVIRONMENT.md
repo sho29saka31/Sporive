@@ -32,7 +32,6 @@
 
 Authentication系の設定（Site URL / Redirect URLs / Providers / CAPTCHA / MFA / SMTP / Email Templates）は **プロジェクト単位でauthアプリのために管理** している。Sporive単独で変更しないこと（変更手順は authリポジトリの `docs/Setup.md`）。Sporiveが依存するのは次の項目のみ。
 
-- Authentication → Hooks → Customize Access Token (JWT) Claims（`0013_custom_access_token_hook.sql`の関数。管理者判定に使用）
 - Authentication → Sessions（JWT有効期限・リフレッシュトークンローテーション）
 - Project Settings → Data API → Exposed schemas に `sporive`
 - Database → Vault（`cron_secret`）、Database → Cron Jobs（通知dispatch・クリーンアップ）

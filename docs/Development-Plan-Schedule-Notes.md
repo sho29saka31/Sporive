@@ -19,7 +19,7 @@ Phase 7以降（8月試験運用・追加計画フェーズ）は週単位のス
 - タイムゾーンは Asia/Tokyo を既定とし、通知時刻判定は `notification_settings.timezone` で将来拡張可能にした
 - Gemini のモデル名は`GEMINI_MODEL`環境変数で指定する。コード側にデフォルト値は持たせず、未設定時はエラーとする（特定モデルの混雑時に暗黙のフォールバックへ切り替わらないようにするため）
 - シニア判定の年齢閾値は65歳とした（要件定義書に明記がないため実装時に決定。低強度中心のAIプロンプトへの切り替えに使用）
-- Supabaseの`identities`はメール/パスワードをOAuth登録後に`updateUser`で後付けしても更新されないため、パスワード設定済みかどうかの判定は`user_metadata.password_set`フラグで行う（Phase 1実装時に判明した仕様）
+- Supabaseの`identities`はメール/パスワードをOAuth登録後に`updateUser`で後付けしても更新されないため、パスワード設定済みかどうかの判定は`user_metadata.password_set`フラグで行う（Phase 1実装時に判明した仕様。認証をauthアプリへ移管した現在、Sporiveのコードはこのフラグを参照しない）
 - `/api/*` はmiddlewareのルートガード対象外とし、認証チェックは各Route Handler自身に委ねる（middlewareでリダイレクトすると、APIの`fetch`呼び出しがJSONではなくHTMLリダイレクト応答を受け取ってしまうため）
 - pg_cronジョブ（Phase 5、`0009_notify_pg_cron.sql`）が10分おきにSupabase内部からdispatch APIを呼び出し、その都度実際にSELECTクエリが発行されるため、副次的にSupabase無料プランの自動一時停止（7日間アクティビティなしで発生）を防止できている
 - pg_net の `net.http_post` はデフォルトタイムアウトが2000msと短く、dispatch APIは対象利用者数分のDB問い合わせ・push送信を順に行うため超過しうる。`timeout_milliseconds := 15000` を明示指定して余裕を持たせている

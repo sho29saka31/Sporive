@@ -11,16 +11,16 @@
 - 非通知時間帯・非通知曜日の判定ロジックを `dispatch` に追加
 - 再エンゲージメント通知（3日以上未記録の判定）・週次レポート（Gemini呼び出し、日曜固定）を `dispatch` に追加
 - `notification_logs` の30日超過分・期限切れ`push_subscriptions`を削除する定期クリーンアップジョブ（pg_cron、SQLのみ、Vercel API非経由）
-- 定期メンテナンスモード：`middleware.ts`にJST 1:00〜2:30（お知らせバー）・2:30〜3:30（トップページ以外アクセス不可・ログイン不可、`/admin`配下は対象外）の時間帯判定を追加
+- 定期メンテナンスモード：`middleware.ts`にJST 1:00〜2:30（お知らせバー）・2:30〜3:30（当時はトップページ以外アクセス不可・ログイン不可、`/admin`配下は対象外。現行はトップも含めHTTP 503の`/maintenance`を返す）の時間帯判定を追加
 - `/settings/notifications` を「お知らせ」画面に改名し、通知履歴／お知らせタブの切替UIを追加
 
 ## 🔑 Phase 11：管理者権限の拡張・高度な設定 ✅完了
 
 [Requirements Admin](Requirements-Admin.md) §10-2〜10-3、[Requirements Auth](Requirements-Auth.md) §4-1（カスタムアクセストークンフック関連）に対応。
 
-- `profiles.is_super_admin` 追加、カスタムアクセストークンフック（Postgres関数のAuth Hook）でJWTに`is_admin`・`is_super_admin`を埋め込み
+- `profiles.is_super_admin` 追加、カスタムアクセストークンフック（Postgres関数のAuth Hook）でJWTに`is_admin`・`is_super_admin`を埋め込み（当時の実装。現行は `profiles` を都度参照する方式に変更済みで、フックはアプリから参照されない）
 - `feature_flags`・`site_announcements`・`announcement_reads` テーブルの作成（後に`saka2931-infra`側の`feature_flags`・`service_announcements`に統合）
-- 「高度な設定」ページを新設。`is_super_admin`のJWTクレームでガード
+- 「高度な設定」ページを新設。`is_super_admin`でガード（当時はJWTクレーム、現行は `profiles.is_super_admin` を都度参照）
   - 機能タブ：AI機能（マスター＋個別4機能）・運動強度チェック・新規ユーザー登録・通知機能全体・Googleカレンダー連携（後に廃止）・緊急メンテナンスモード・負債管理機能の各フラグと、各機能側でのフラグ参照実装
   - お知らせタブ：タイトル・本文・レベル（お知らせ/注意/警告）・影響範囲ページ／開けなくするページの入力フォーム。レベルごとに専用スタイルで表示するコンポーネント
 - 利用者側：お知らせバー（該当ページで警告時にブロック）、お知らせ履歴タブでの一覧・既読管理

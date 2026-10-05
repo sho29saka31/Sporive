@@ -41,4 +41,4 @@
      http://localhost:3000/auth/callback
      ```
      プレビュー環境（PRごとのVercel URL）でも試す場合は、そのURLも追加するか、`https://sporive-git-*-<チーム名>.vercel.app/**` のようなワイルドカードを追加する
-7. `Authentication → Hooks` で **Customize Access Token (JWT) Claims** を有効化し、`0013_custom_access_token_hook.sql`で作成される関数を選択する（**重要・これを忘れると管理者判定に使うJWTクレームが付与されず、管理者機能全体が動作しない**）
+7. （不要）`Authentication → Hooks` の Customize Access Token (JWT) Claims は設定しなくてよい。管理者判定は `sporive.profiles` をリクエストごとに読むため、JWTクレームは使わない（`0013_custom_access_token_hook.sql` の関数はDBに残るが、アプリは参照しない）
