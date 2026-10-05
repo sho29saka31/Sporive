@@ -2,6 +2,9 @@
 
 要件定義書 §15 更新履歴・development-plan.md §7 実装時の判断メモ・本セッションでの作業を統合した変更履歴。日付は決定・実装が確定した日。
 
+## 2026-10-05（.env.local.exampleをGitHubから削除）
+- サンプルの環境変数ファイル `.env.local.example` を、GitHub上の全履歴から削除した（`git filter-repo` による履歴の書き換え。過去のコミットのSHAはすべて変わっている）。`.gitignore` で再追加を防ぎ、README・docsのセットアップ手順を `docs/ENVIRONMENT.md` の参照に変更した。履歴中に秘密の値（APIキー等）は含まれていなかった
+
 ## 2026-10-05（ドキュメント監査）
 - READMEほかのメンテナンス記述を503の挙動に合わせた。`new_signup` フラグが止める範囲（初回プロフィール登録のみ）、管理者判定の方式（JWTクレームではなく `profiles` を都度参照）、`Development-Plan-Structure.md` の `profiles` 定義（表示名の削除・`goal` の型・`is_super_admin`）を実態に合わせた
 
