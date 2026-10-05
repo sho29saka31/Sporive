@@ -34,6 +34,7 @@
 - [x] Cloudflare Turnstile導入：authアプリの全ログイン経路に実装（Sporive側のTurnstile依存・環境変数は削除済み）
 - [x] パスキー・Google One Tap：authアプリで新規提供
 - [ ] Supabase Dashboard設定（JWT有効期限30分、リフレッシュトークンローテーション、Auth Rate Limits、メールテンプレート日本語化）：コード変更なしのユーザー作業。実施状況は未確認のため [Setup Security Hardening](Setup-Security-Hardening.md) と authリポジトリの `docs/Setup.md` で点検する
-- [ ] Resend導入・カスタムSMTP設定：同上（未確認）
+- [x] Resend導入・カスタムSMTP設定：設定済み（Sender nameは `auth`）。メール送信のレート制限（Supabase側）は未調整の可能性があり要確認
+- [ ] 漏洩パスワード保護（Leaked password protection）：有料プラン向けのため利用不可
 
 **ユーザー作業の詳細**：[Setup Security Hardening](Setup-Security-Hardening.md) を参照。Cloudflare Turnstile・Resendのアカウント登録とAPIキー取得、Supabase Dashboardでの各種Auth設定変更が必要。

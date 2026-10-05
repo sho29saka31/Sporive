@@ -14,12 +14,12 @@
 - **決定**：TOTPのみ採用。電話番号方式は$75/月〜＋SMS従量課金で有料のため不採用
 - **結果**：全プランで無料のままMFAを実現
 
-## ADR-003: カスタムSMTP（Resend）への切り替え（未実装）
+## ADR-003: カスタムSMTP（Resend）への切り替え（実装済み）
 
 - **状況**：Supabase既定のメール送信は1時間あたり数通に制限され本番運用に不向き
 - **決定**：Resend（無料枠3,000通/月・100通/日）をカスタムSMTPとして採用する方針を決定
 - **結果**：`saka2931-service`共有のためlegal-lifeの認証メールにも同一設定が適用される見込み
-- **現状**：認証機能をauthアプリへ集約した際（ADR-009）に、Turnstile・メール関連の設定もauth側の管理に移った。Sporiveの現行の対応状況は [Setup Security Hardening](Setup-Security-Hardening.md) を参照
+- **現状**：Custom SMTP（Resend）は設定済みで、Sender nameは `auth` に統一している（認証機能をauthアプリへ集約した際（ADR-009）に、Turnstile・メール関連の設定もauth側の管理に移った）。メール送信のレート制限（Supabase側）は未調整の可能性があり要確認。詳細は [Setup Security Hardening](Setup-Security-Hardening.md)
 
 ## ADR-004: Googleカレンダー連携の全廃（2026-09-14）
 
