@@ -12,7 +12,7 @@ Sporiveは、AIがパーソナライズしたトレーニング計画を提案�
         ▼                              ▼
    Next.js (Vercel, App Router)  ──── 同一デプロイ
         │  middleware.ts → updateSession()
-        │     ├ 定期/緊急メンテナンス → /maintenance
+        │     ├ 定期/緊急メンテナンス → /maintenance（rewrite・HTTP 503）
         │     ├ 未ログイン/MFA未完了 → auth.saka2931.jp へ return_to 付きで転送
         │     └ プロフィール未登録 → /onboarding/profile
         │
@@ -44,8 +44,8 @@ Sporiveは、AIがパーソナライズしたトレーニング計画を提案�
 
 `middleware.ts`（matcherは静的アセット・`robots.txt`・`sitemap.xml`・OGP画像などを除外）→ `src/lib/supabase/middleware.ts::updateSession()` が次の順で判定する。
 
-1. **定期メンテナンス**（JST 2:30〜3:30）：`/privacy` `/terms` `/maintenance`・`/admin*`・`/api/*` 以外は `/maintenance` へ転送（トップ `/` も対象）
-2. **緊急メンテナンス**（infraの`feature_flags`、`service='sporive'`）：同じ除外条件で `/maintenance` へ転送
+1. **定期メンテナンス**（JST 2:30〜3:30）：`/privacy` `/terms` `/maintenance`・`/admin*`・`/api/*` 以外は `/maintenance` の画面を503で返す（トップ `/` も対象）
+2. **緊急メンテナンス**（infraの`feature_flags`、`service='sporive'`）：同じ除外条件で `/maintenance` の画面を503で返す。稼働状況ページ（status）にはadac側のトリガーで「Sporiveの緊急メンテナンス」が自動で出入りする
 3. `supabase.auth.getUser()` でセッション検証・更新
 4. `/api/*` と静的パス（`/` `/privacy` `/terms` `/maintenance`）は認証判定をスキップ（APIは各Route Handlerが認証する。middlewareで転送するとfetchがJSONでなくHTMLを受け取るため）
 5. 未ログイン → `https://auth.saka2931.jp/login?return_to=<現在のURL>`
