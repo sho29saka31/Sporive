@@ -3,7 +3,7 @@
 > **現行仕様との差分（2026-10-04時点）**：本書は策定時の決定事項を章ごとに保持している。以降の変更は [CHANGELOG](CHANGELOG.md) が最新で、特に次の点は本文より優先される。
 > - ログイン・サインアップ・パスワード再設定・MFA・パスキー・アカウント削除は `auth.saka2931.jp` に一元化（[Requirements Auth](Requirements-Auth.md) 参照）。マジックリンクは廃止
 > - 機能フラグ・お知らせ・お問い合わせは `saka2931-infra`（adac）へ移行
-> - 定期・緊急メンテナンスはトップページを含め `/maintenance` へ転送（[Requirements Notifications](Requirements-Notifications.md) §8-3）
+> - 定期・緊急メンテナンスはトップページを含め `/maintenance` の画面をHTTP 503で返す（[Requirements Notifications](Requirements-Notifications.md) §8-3）
 > - 独自の404・500・メンテナンス画面を追加
 
 要件定義書は以下のページに分割しています。各ページが章単位に対応します。

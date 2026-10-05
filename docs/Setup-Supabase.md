@@ -32,7 +32,7 @@
 5. すでに実行済みのSQLを誤って再実行すると `type already exists` 等のエラーが出るが、これは無害（テーブルが既に存在する場合のエラーなので、`select * from sporive.<テーブル名>;` で中身を確認すれば実害がないことが分かる）
 5. `Authentication → Sign In / Providers → Email` で以下を確認
    - **「Allow new users to sign up」**：ON
-   - **Password Requirements（パスワード要件）**：デフォルトで「半角英大文字・小文字・数字・記号をそれぞれ1文字以上必須」になっている場合がある。アプリ側（`/signup/set-password`）のバリデーションもこの要件に合わせて実装済みのため、**変更不要**（変更する場合はアプリ側のバリデーションも合わせて修正が必要）
+   - **Password Requirements（パスワード要件）**：デフォルトで「半角英大文字・小文字・数字・記号をそれぞれ1文字以上必須」になっている場合がある。アプリ側（authアプリの `/signup/set-password`）のバリデーションもこの要件に合わせて実装済みのため、**変更不要**（変更する場合はアプリ側のバリデーションも合わせて修正が必要）
 6. `Authentication → URL Configuration` を設定する（**重要・忘れると本番でログイン後にlocalhostへ飛ばされる不具合が起きる**）
    - **Site URL**：本番ドメインを設定する。例：`https://sporive.saka2931.jp`
    - **Redirect URLs**（許可リスト。複数追加可）：

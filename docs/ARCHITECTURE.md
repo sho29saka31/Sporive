@@ -69,7 +69,7 @@ Sporiveは、AIがパーソナライズしたトレーニング計画を提案�
 - ログイン・サインアップ・パスワード再設定・MFA・パスキー・アカウント削除は **auth.saka2931.jp** が担当（Sporiveの旧 `/login` `/signup` `/auth/*` 等は削除済み）
 - Cookieドメインは `.saka2931.jp`（`secure`, `sameSite=lax`）。auth・legal-lifeとセッションを共有し、SSOはSupabaseプロジェクトURLが同一であることのみに依存する
 - 戻り先は auth の `resolveReturnTo()` が検証する。Sporive側は `buildAuthAppUrl()` / `buildLoginUrl()` / `buildSignupUrl()`（`lib/authApp.ts`）で `return_to` 付きURLを組み立てる
-- 管理者判定：カスタムアクセストークンフック（Postgres関数のAuth Hook）でJWTクレームに`is_admin`・`is_super_admin`を埋め込み、DB往復なしで判定。管理者向けAPIは `requireAdminApiSession()` が **管理者のTOTP登録とAAL2を必須**として検証する（`/api/*` はmiddlewareの対象外のため）。画面側は、TOTP登録済みでAAL2未達の利用者をmiddlewareがauthの`/mfa-challenge`へ転送し、`admin/layout.tsx` が `is_admin`/`is_super_admin` を確認する
+- 管理者判定：`requireAdminApiSession()` と `admin/layout.tsx` が、リクエストごとに `sporive.profiles` の `is_admin`・`is_super_admin` を読んで判定する（JWTクレームは使わないため、権限の付与・削除は次のリクエストから反映される。`sporive.custom_access_token_hook` はDBに残っているが、アプリのコードは参照しない）。管理者向けAPIは `requireAdminApiSession()` が **管理者のTOTP登録とAAL2を必須**として検証する（`/api/*` はmiddlewareの対象外のため）。画面側は、TOTP登録済みでAAL2未達の利用者をmiddlewareがauthの`/mfa-challenge`へ転送し、`admin/layout.tsx` が `is_admin`/`is_super_admin` を確認する
 - 端末管理：`PushCleanupWatcher` が `auth_app.sessions` をSporive側でも登録・監視し、強制ログアウトを検知するとpush購読を削除してからサインアウトする
 
 ## SEO・公開ページ

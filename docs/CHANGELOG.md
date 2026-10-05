@@ -2,6 +2,9 @@
 
 要件定義書 §15 更新履歴・development-plan.md §7 実装時の判断メモ・本セッションでの作業を統合した変更履歴。日付は決定・実装が確定した日。
 
+## 2026-10-05（ドキュメント監査）
+- READMEほかのメンテナンス記述を503の挙動に合わせた。`new_signup` フラグが止める範囲（初回プロフィール登録のみ）、管理者判定の方式（JWTクレームではなく `profiles` を都度参照）、`Development-Plan-Structure.md` の `profiles` 定義（表示名の削除・`goal` の型・`is_super_admin`）を実態に合わせた
+
 ## 2026-10-05（表示名をauthに統一）
 - 表示名の読み書きをauthに一本化（#96）。本番DBでauthに名前が無かった3人をSporiveの名前で `auth_app.user_profiles` へ移行し、`sporive.profiles.display_name` 列を削除（`0035`。ADR-009の未完了事項が完了）
 
