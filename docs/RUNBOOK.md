@@ -40,7 +40,7 @@ RLSポリシーは別途正しく設定されている前提（GRANTは「テー
 ## 緊急にサイト全体を止めたい（緊急メンテナンスモード）
 
 - **adac の `/admin/features`** で Sporive の `emergency_maintenance` をONにする（Sporive自身の管理画面からは操作できない）。コード変更・デプロイ不要
-- 効果：①ページは `/maintenance`（503表示）へ転送（`/privacy` `/terms` `/admin*` `/api/*` は除外）②`saka2931-service` のRLS（`maintenance_lockdown`）がanon/authenticatedのDB直接アクセスを拒否（管理者とservice_roleは対象外）
+- 効果：①ページは `/maintenance` の画面をURLを変えずに **HTTP 503（`Retry-After: 600`）** で返す（rewrite。`/privacy` `/terms` `/admin*` `/api/*` は除外）②`saka2931-service` のRLS（`maintenance_lockdown`）がanon/authenticatedのDB直接アクセスを拒否（管理者とservice_roleは対象外）
 - ページ転送は次のリクエストから、DB側は同期（トリガー+pg_net）で数秒以内に反映。同期に失敗しても5分ごとの再同期cronで収束する。解除後に画面は戻ったのにデータが拒否される場合は `select * from auth_app.maintenance_state;`（`service='sporive'`）の `active` を確認する
 - フラグ値の取得に失敗した場合は「止めない」側に倒れる（誤って全サイトを止めないため。フェイルオープン）
 - 新しい `sporive` テーブルを追加したときは `maintenance_lockdown` ポリシーを付ける（付け忘れるとそのテーブルだけロック対象外になる）
