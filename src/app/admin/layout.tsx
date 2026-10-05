@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/server";
-import { buildLoginUrl } from "@/lib/authApp";
+import { buildLoginUrl, getDisplayName } from "@/lib/authApp";
 import { isSmartphone } from "@/lib/device";
 
 export const metadata: Metadata = { title: "Sporive 管理" };
@@ -32,13 +32,16 @@ export default async function AdminLayout({
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("is_admin, is_super_admin, display_name")
+    .select("is_admin, is_super_admin")
     .eq("id", user.id)
     .maybeSingle();
 
   if (!profile?.is_admin && !profile?.is_super_admin) {
     redirect("/home");
   }
+
+  // 表示名はauthアプリが所有する(取得に失敗した場合は表示しない)
+  const displayName = await getDisplayName();
 
   const userAgent = (await headers()).get("user-agent") ?? "";
   if (isSmartphone(userAgent)) {
@@ -67,7 +70,7 @@ export default async function AdminLayout({
             </span>
           </div>
           <div className="flex items-center gap-4 text-xs text-navy-500">
-            <span>{profile.display_name}</span>
+            <span>{displayName}</span>
             {profile.is_super_admin && (
               <Link href="/admin/settings" className="underline">
                 高度な設定

@@ -14,7 +14,6 @@ export interface Database {
       profiles: {
         Row: {
           id: string;
-          display_name: string;
           birth_year: number;
           goal: string;
           gender: GenderType | null;
@@ -24,7 +23,6 @@ export interface Database {
         };
         Insert: {
           id: string;
-          display_name: string;
           birth_year: number;
           goal: string;
           gender?: GenderType | null;
@@ -32,7 +30,6 @@ export interface Database {
           is_super_admin?: boolean;
         };
         Update: Partial<{
-          display_name: string;
           birth_year: number;
           goal: string;
           gender: GenderType | null;
@@ -342,9 +339,24 @@ export interface Database {
   };
   // authアプリ（saka2931-serviceプロジェクト共有）が所有するスキーマ。
   // PushCleanupWatcherがこの端末のセッション行を登録・監視するためだけに参照する
-  // （display_name等の他テーブルへは直接アクセスしない。GET/PATCH /api/profile経由）。
+  // （表示名はユーザー本人の読み書きは GET/PATCH /api/profile 経由。管理者画面の
+  // 一覧・CSV出力のみ、service_roleで user_profiles を読み取る）。
   auth_app: {
     Tables: {
+      user_profiles: {
+        Row: {
+          id: string;
+          display_name: string;
+        };
+        Insert: {
+          id: string;
+          display_name: string;
+        };
+        Update: Partial<{
+          display_name: string;
+        }>;
+        Relationships: [];
+      };
       sessions: {
         Row: {
           id: string;

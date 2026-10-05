@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import DataManagementPanel from "@/components/admin/DataManagementPanel";
+import { getDisplayNameMap } from "@/lib/display-names";
 
 export const dynamic = "force-dynamic";
 
@@ -14,14 +15,17 @@ export const dynamic = "force-dynamic";
 export default async function AdminSettingsPage() {
   const admin = createAdminClient();
 
-  const { data, error } = await admin
-    .from("profiles")
-    .select("id, display_name")
-    .order("display_name");
+  const [{ data, error }, names] = await Promise.all([
+    admin.from("profiles").select("id"),
+    getDisplayNameMap(admin),
+  ]);
   if (error) {
     throw new Error("利用者一覧の取得に失敗しました。");
   }
-  const users = (data ?? []).map((u) => ({ id: u.id, displayName: u.display_name }));
+  // 表示名はauthアプリが所有する（未設定の利用者は「(表示名未設定)」と表示）
+  const users = (data ?? [])
+    .map((u) => ({ id: u.id, displayName: names.get(u.id) ?? "(表示名未設定)" }))
+    .sort((a, b) => a.displayName.localeCompare(b.displayName, "ja"));
 
   return <DataManagementPanel users={users} />;
 }
