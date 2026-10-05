@@ -31,7 +31,7 @@
 |---|---|
 | AI機能（マスタースイッチ） | 週間AI提案・AI改善提案・リカバリー提案・目標の自由記述要約を一括制御。各機能も個別にON/OFF可能 |
 | 運動強度チェック | ルールベース判定（[Requirements AI Proposal](Requirements-AI-Proposal.md) §5-1）のためAI機能とは独立 |
-| 新規ユーザー登録 | `/signup`の受付停止 |
+| 新規ユーザー登録 | Sporiveの初回プロフィール登録（`/onboarding/profile`）の受付停止。ログイン・サインアップ画面はauthにあり、このフラグでは止まらない |
 | 通知機能全体 | プッシュ通知の送信を一括停止 |
 | 緊急メンテナンスモード | super-adminが任意のタイミングで即座にサイト全体をメンテナンス状態にできる手動スイッチ（[Requirements Notifications](Requirements-Notifications.md) §8-3参照） |
 | 負債管理機能 | 負債の記録・リマインダー・補填提案を一時停止 |

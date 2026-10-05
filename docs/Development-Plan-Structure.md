@@ -41,10 +41,9 @@ sporive/
 Phase 2 でマイグレーションとして確定した設計案。全テーブル RLS 有効・本人の行のみ読み書き可。
 
 ```
-profiles              -- ユーザープロフィール（auth.users と 1:1）
-  id (uuid, FK auth.users), display_name, birth_year, gender,
-  goal (enum: lose_weight / gain_muscle / strength / senior_maintenance),
-  is_admin (bool), created_at
+profiles              -- ユーザープロフィール（auth.users と 1:1）。表示名は持たない（authの auth_app.user_profiles が正）
+  id (uuid, FK auth.users), birth_year, gender (gender_type, null可),
+  goal (text。目標の自由記述), is_admin (bool), is_super_admin (bool), created_at
 
 training_plans        -- 週間トレーニング計画（AI提案 or 手動）
   id, user_id, week_start_date, status (draft/active/archived),
