@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { resolveDebt } from "@/app/(user)/debts/actions";
+import { formatMonthDay } from "@/lib/week";
 
 export type DebtEntry = {
   id: string;
@@ -17,11 +18,6 @@ function formatRemaining(debt: DebtEntry): string {
     debt.repsRemaining > 0 ? `+${debt.repsRemaining}回` : null,
   ].filter(Boolean);
   return parts.join(" × ");
-}
-
-function formatDate(date: string): string {
-  const [, m, d] = date.split("-");
-  return `${Number(m)}/${Number(d)}`;
 }
 
 function DebtRow({ debt }: { debt: DebtEntry }) {
@@ -46,7 +42,7 @@ function DebtRow({ debt }: { debt: DebtEntry }) {
           {debt.exerciseName}
         </p>
         <p className="text-xs text-navy-400">
-          {formatRemaining(debt)}（{formatDate(debt.missedOn)}の未達成分）
+          {formatRemaining(debt)}（{formatMonthDay(debt.missedOn)}の未達成分）
         </p>
         {error && <p className="text-xs text-accent-coral">{error}</p>}
       </div>

@@ -1,6 +1,5 @@
 "use client";
 
-import type { ReactNode } from "react";
 import {
   Bar,
   BarChart,
@@ -13,14 +12,7 @@ import {
   YAxis,
 } from "recharts";
 import type { AdminStats } from "@/lib/admin-stats";
-
-function dateTick(date: string) {
-  return date.slice(5).replace("-", "/");
-}
-
-function tooltipLabelFormatter(label: ReactNode) {
-  return typeof label === "string" ? dateTick(label) : label;
-}
+import { dateTick, tooltipLabelFormatter } from "@/lib/chart";
 
 function ChartCard({
   title,

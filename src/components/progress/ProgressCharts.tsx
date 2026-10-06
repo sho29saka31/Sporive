@@ -1,6 +1,5 @@
 "use client";
 
-import type { ReactNode } from "react";
 import {
   CartesianGrid,
   Line,
@@ -10,19 +9,12 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { dateTick, tooltipLabelFormatter } from "@/lib/chart";
 
 export interface DailyProgressPoint {
   date: string;
   totalReps: number;
   avgWeightKg: number | null;
-}
-
-function dateTick(date: string) {
-  return date.slice(5).replace("-", "/");
-}
-
-function tooltipLabelFormatter(label: ReactNode) {
-  return typeof label === "string" ? dateTick(label) : label;
 }
 
 export default function ProgressCharts({

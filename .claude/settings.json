@@ -1,0 +1,25 @@
+{
+  "extraKnownMarketplaces": {
+    "ponytail": {
+      "source": {
+        "source": "settings",
+        "name": "ponytail",
+        "owner": { "name": "DietrichGebert" },
+        "plugins": [
+          {
+            "name": "ponytail",
+            "source": {
+              "source": "github",
+              "repo": "DietrichGebert/ponytail",
+              "ref": "v4.13.0",
+              "sha": "08e952d7a8057a57ce561ff1330d093fd92eec67"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "enabledPlugins": {
+    "ponytail@ponytail": true
+  }
+}

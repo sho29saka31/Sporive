@@ -2,13 +2,9 @@ import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import DebtList, { type DebtEntry } from "@/components/debts/DebtList";
 import RecoveryAdviceButton from "@/components/debts/RecoveryAdviceButton";
+import { formatMonthDay } from "@/lib/week";
 
 export const metadata: Metadata = { title: "負債管理" };
-
-function formatDate(date: string): string {
-  const [, m, d] = date.split("-");
-  return `${Number(m)}/${Number(d)}`;
-}
 
 /** 負債管理：未達成分の一覧・解消・AIリカバリー提案（requirements.md §6、Phase 7） */
 export default async function DebtsPage() {
@@ -108,7 +104,7 @@ export default async function DebtsPage() {
                   {d.plan_item_id
                     ? nameById.get(d.plan_item_id) ?? "運動"
                     : "運動"}
-                  （{formatDate(d.missed_on)}分）
+                  （{formatMonthDay(d.missed_on)}分）
                 </span>
                 <span className="rounded-full bg-accent-teal/10 px-2 py-0.5 font-medium text-accent-teal">
                   解消済み

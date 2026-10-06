@@ -66,6 +66,12 @@ export function getCurrentWeekStartDate(): string {
   return sunday.toISOString().slice(0, 10);
 }
 
+/** 日付（YYYY-MM-DD）を「M/D」表記にする */
+export function formatMonthDay(date: string): string {
+  const [, m, d] = date.split("-");
+  return `${Number(m)}/${Number(d)}`;
+}
+
 /** 日付（YYYY-MM-DD）にn日を加算した日付を返す */
 export function addDays(date: string, n: number): string {
   const [y, m, d] = date.split("-").map(Number);
