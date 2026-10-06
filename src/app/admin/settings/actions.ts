@@ -4,11 +4,6 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-export type SettingsActionState = {
-  error?: string;
-  success?: string;
-} | null;
-
 /**
  * 呼び出し元がsuper-adminであることを確認する。
  * レイアウトでもガードしているが、Server Actionは直接呼び出される可能性があるため
