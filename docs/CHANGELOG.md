@@ -3,6 +3,7 @@
 要件定義書 §15 更新履歴・development-plan.md §7 実装時の判断メモ・本セッションでの作業を統合した変更履歴。日付は決定・実装が確定した日。
 
 ## 2026-10-06（ポニーテール再監査）
+- 同一内容で重複していた関数・定数を共通化（動作は変わらない）：`toNumberOrNull` ・`isGenderType` ・`MIN_AGE` ・`GOAL_MAX_LENGTH` ・`GENDER_TYPES` を `src/lib/input.ts`、`dateTick` ・`tooltipLabelFormatter` を `src/lib/chart.ts`、`formatMonthDay`（旧 `formatDate`）を `src/lib/week.ts` へ。`AdminRangeSelector` の手書きの日付加算は `addDays` に置き換え
 - 参照のない型 `SettingsActionState`（管理画面の設定アクション）を削除
 
 ## 2026-10-06（要件定義書・開発プランの内容レビュー）
