@@ -7,14 +7,7 @@ import { summarizeGoal } from "@/lib/gemini";
 import { getFeatureFlags } from "@/lib/feature-flags";
 import { getCurrentJstYear } from "@/lib/week";
 import type { GenderType } from "@/types/database";
-
-const MIN_AGE = 13;
-const GOAL_MAX_LENGTH = 500;
-const GENDER_TYPES: readonly GenderType[] = ["male", "female", "other"];
-
-function isGenderType(value: string): value is GenderType {
-  return (GENDER_TYPES as readonly string[]).includes(value);
-}
+import { GOAL_MAX_LENGTH, MIN_AGE, isGenderType } from "@/lib/input";
 
 export type OnboardingActionState = {
   error?: string;

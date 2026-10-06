@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { logWorkout } from "@/app/(user)/home/actions";
 import { WORKOUT_LIMITS, validateWorkoutInput } from "@/lib/workout-limits";
+import { toNumberOrNull } from "@/lib/input";
 
 export interface TodayExercise {
   planItemId: string;
@@ -22,12 +23,6 @@ const CIRCLED_NUMBERS = "①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱�
 
 function circledNumber(index: number): string {
   return CIRCLED_NUMBERS[index] ?? `${index + 1}`;
-}
-
-function toNumberOrNull(value: string): number | null {
-  if (value === "") return null;
-  const n = Number(value);
-  return Number.isFinite(n) ? n : null;
 }
 
 /** ラベル＋入力欄＋単位の1フィールド（例：「セット： [3] セット」） */

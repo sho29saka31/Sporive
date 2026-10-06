@@ -7,6 +7,7 @@ import type { IntensityWarning } from "@/lib/intensity";
 import { DAY_LABELS } from "@/lib/week";
 import { saveTrainingPlan } from "@/app/(user)/schedule/actions";
 import { WORKOUT_LIMITS, validateWorkoutValue } from "@/lib/workout-limits";
+import { toNumberOrNull } from "@/lib/input";
 
 /** 運動強度チェックAPIを呼び、警告一覧を取得する（失敗時は空配列） */
 async function fetchIntensityWarnings(
@@ -36,12 +37,6 @@ function emptyItem(dayOfWeek: number): PlanItemDraft {
     weightKg: null,
     durationMin: null,
   };
-}
-
-function toNumberOrNull(value: string): number | null {
-  if (value === "") return null;
-  const n = Number(value);
-  return Number.isFinite(n) ? n : null;
 }
 
 const REQUEST_TEXT_MAX_LENGTH = 300;

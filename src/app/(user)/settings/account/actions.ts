@@ -8,6 +8,7 @@ import { summarizeGoal } from "@/lib/gemini";
 import { getFeatureFlags } from "@/lib/feature-flags";
 import { getCurrentJstYear } from "@/lib/week";
 import type { GenderType } from "@/types/database";
+import { GOAL_MAX_LENGTH, MIN_AGE, isGenderType } from "@/lib/input";
 
 /**
  * ログイン・パスワード変更・メールアドレス変更・MFA・パスキー・アカウント削除・
@@ -26,15 +27,7 @@ export type ActionState = {
   success?: string;
 } | null;
 
-const MIN_AGE = 13;
-const GOAL_MAX_LENGTH = 500;
 const DISPLAY_NAME_MAX_LENGTH = 100;
-const GENDER_TYPES: readonly GenderType[] = ["male", "female", "other"];
-
-function isGenderType(value: string): value is GenderType {
-  return (GENDER_TYPES as readonly string[]).includes(value);
-}
-
 /**
  * プロフィール（表示名・生年・目標・性別）の更新。
  * 表示名はSporive固有のデータではなく全サービス共通のため、authアプリの

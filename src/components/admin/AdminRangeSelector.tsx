@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { addDays } from "@/lib/week";
 
 const PRESETS = [
   { label: "7日", days: 7 },
@@ -9,13 +10,6 @@ const PRESETS = [
   { label: "30日", days: 30 },
   { label: "90日", days: 90 },
 ];
-
-function daysAgo(base: string, n: number): string {
-  const [y, m, d] = base.split("-").map(Number);
-  const dt = new Date(Date.UTC(y, m - 1, d));
-  dt.setUTCDate(dt.getUTCDate() - n);
-  return dt.toISOString().slice(0, 10);
-}
 
 /** 管理者ダッシュボードの集計期間セレクタ（プリセット＋自由指定） */
 export default function AdminRangeSelector({
@@ -43,7 +37,7 @@ export default function AdminRangeSelector({
           <button
             key={preset.days}
             type="button"
-            onClick={() => apply(daysAgo(today, preset.days - 1), today)}
+            onClick={() => apply(addDays(today, -(preset.days - 1)), today)}
             className="rounded-lg border border-navy-200 px-3 py-1.5 text-xs font-medium text-navy-600 hover:bg-navy-50"
           >
             直近{preset.label}
