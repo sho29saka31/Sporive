@@ -4,7 +4,8 @@
       "source": {
         "source": "github",
         "repo": "DietrichGebert/ponytail",
-        "ref": "v4.13.0"
+        "ref": "v4.13.0",
+        "sha": "08e952d7a8057a57ce561ff1330d093fd92eec67"
       }
     }
   },
