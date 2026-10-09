@@ -34,6 +34,10 @@ Import画面（または作成後の **Settings → Environment Variables**）�
 - サーバーレス関数の実行時間上限：既定10秒（`maxDuration`で個別に緩和可能、最大60秒程度。Sporiveでは Gemini API呼び出し系のRoute Handlerに`maxDuration = 45`を指定して対応）
 - 詳細は [Deployment](DEPLOYMENT.md) も参照
 
+## Vercel Analyticsの有効化
+
+コードは `@vercel/analytics` を読み込み済み。Vercelのプロジェクトの **Analytics** タブで **Enable** をクリックすると計測が始まる（無料プランには月間のイベント数の上限あり）。
+
 ## トラブルシューティング
 
 - **デプロイは成功するが画面が真っ白・エラーになる**：環境変数の設定漏れが多い。特に`NEXT_PUBLIC_`接頭辞の変数はビルド時に埋め込まれるため、追加後は必ずRedeployが必要
