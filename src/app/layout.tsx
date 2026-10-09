@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { Analytics } from "@vercel/analytics/next";
 import { Noto_Sans_JP } from "next/font/google";
 import { Suspense } from "react";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
@@ -125,6 +126,7 @@ export default function RootLayout({
         <ServiceWorkerRegister />
         {children}
         <CookieBanner />
+        <Analytics />
       </body>
     </html>
   );
